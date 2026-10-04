@@ -1,0 +1,952 @@
+{
+ "generated": "2026-10-04 16:27",
+ "avatarQuality": 84,
+ "backgroundQuality": 86,
+ "files": [
+  {
+   "file": "images/hero-avatars/dealer-a.png",
+   "group": "avatars",
+   "orig": 109728,
+   "webp": 15334,
+   "ssim": 0.9828,
+   "meanDiff": 1.11,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/dealer-b.png",
+   "group": "avatars",
+   "orig": 133596,
+   "webp": 18926,
+   "ssim": 0.9856,
+   "meanDiff": 1.27,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon1.png",
+   "group": "avatars",
+   "orig": 94688,
+   "webp": 12342,
+   "ssim": 0.9868,
+   "meanDiff": 0.97,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon10.png",
+   "group": "avatars",
+   "orig": 121364,
+   "webp": 19102,
+   "ssim": 0.9898,
+   "meanDiff": 1.14,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon101.png",
+   "group": "avatars",
+   "orig": 144600,
+   "webp": 22514,
+   "ssim": 0.9763,
+   "meanDiff": 1.42,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon102.png",
+   "group": "avatars",
+   "orig": 104522,
+   "webp": 15172,
+   "ssim": 0.9752,
+   "meanDiff": 1.14,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon103.png",
+   "group": "avatars",
+   "orig": 95706,
+   "webp": 14510,
+   "ssim": 0.9822,
+   "meanDiff": 0.92,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon104.png",
+   "group": "avatars",
+   "orig": 102433,
+   "webp": 15364,
+   "ssim": 0.9847,
+   "meanDiff": 1.02,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon105.png",
+   "group": "avatars",
+   "orig": 111472,
+   "webp": 19242,
+   "ssim": 0.9871,
+   "meanDiff": 1.02,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon106.png",
+   "group": "avatars",
+   "orig": 144143,
+   "webp": 21308,
+   "ssim": 0.9818,
+   "meanDiff": 1.45,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon11.png",
+   "group": "avatars",
+   "orig": 109668,
+   "webp": 15942,
+   "ssim": 0.9877,
+   "meanDiff": 1.08,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon12.png",
+   "group": "avatars",
+   "orig": 105527,
+   "webp": 14756,
+   "ssim": 0.9852,
+   "meanDiff": 1.01,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon13.png",
+   "group": "avatars",
+   "orig": 128055,
+   "webp": 25444,
+   "ssim": 0.9876,
+   "meanDiff": 1.14,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon14.png",
+   "group": "avatars",
+   "orig": 118048,
+   "webp": 19978,
+   "ssim": 0.9923,
+   "meanDiff": 1.11,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon15.png",
+   "group": "avatars",
+   "orig": 121232,
+   "webp": 21430,
+   "ssim": 0.9889,
+   "meanDiff": 1.07,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon16.png",
+   "group": "avatars",
+   "orig": 137288,
+   "webp": 23284,
+   "ssim": 0.9916,
+   "meanDiff": 1.25,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon17.png",
+   "group": "avatars",
+   "orig": 123122,
+   "webp": 19108,
+   "ssim": 0.9885,
+   "meanDiff": 1.16,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon18.png",
+   "group": "avatars",
+   "orig": 134863,
+   "webp": 23820,
+   "ssim": 0.992,
+   "meanDiff": 1.23,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon19.png",
+   "group": "avatars",
+   "orig": 120890,
+   "webp": 17594,
+   "ssim": 0.9889,
+   "meanDiff": 1.17,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon2.png",
+   "group": "avatars",
+   "orig": 106242,
+   "webp": 12494,
+   "ssim": 0.9795,
+   "meanDiff": 1.16,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon20.png",
+   "group": "avatars",
+   "orig": 100256,
+   "webp": 18584,
+   "ssim": 0.9915,
+   "meanDiff": 0.94,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon21.png",
+   "group": "avatars",
+   "orig": 100716,
+   "webp": 14850,
+   "ssim": 0.9884,
+   "meanDiff": 0.98,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon22.png",
+   "group": "avatars",
+   "orig": 109703,
+   "webp": 16590,
+   "ssim": 0.988,
+   "meanDiff": 1.07,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon23.png",
+   "group": "avatars",
+   "orig": 110235,
+   "webp": 16124,
+   "ssim": 0.9886,
+   "meanDiff": 1.09,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon24.png",
+   "group": "avatars",
+   "orig": 93870,
+   "webp": 11524,
+   "ssim": 0.9867,
+   "meanDiff": 0.96,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon25.png",
+   "group": "avatars",
+   "orig": 132244,
+   "webp": 20322,
+   "ssim": 0.9865,
+   "meanDiff": 1.27,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon26.png",
+   "group": "avatars",
+   "orig": 111583,
+   "webp": 15318,
+   "ssim": 0.9851,
+   "meanDiff": 1.04,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon27.png",
+   "group": "avatars",
+   "orig": 97025,
+   "webp": 13118,
+   "ssim": 0.985,
+   "meanDiff": 1.0,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon28.png",
+   "group": "avatars",
+   "orig": 111486,
+   "webp": 16020,
+   "ssim": 0.9893,
+   "meanDiff": 1.06,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon29.png",
+   "group": "avatars",
+   "orig": 117995,
+   "webp": 22628,
+   "ssim": 0.9938,
+   "meanDiff": 1.08,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon3.png",
+   "group": "avatars",
+   "orig": 106122,
+   "webp": 15882,
+   "ssim": 0.9874,
+   "meanDiff": 1.0,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon30.png",
+   "group": "avatars",
+   "orig": 107807,
+   "webp": 14316,
+   "ssim": 0.986,
+   "meanDiff": 1.06,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon31.png",
+   "group": "avatars",
+   "orig": 98157,
+   "webp": 13018,
+   "ssim": 0.9875,
+   "meanDiff": 0.96,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon32.png",
+   "group": "avatars",
+   "orig": 99868,
+   "webp": 13744,
+   "ssim": 0.9868,
+   "meanDiff": 0.94,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon33.png",
+   "group": "avatars",
+   "orig": 135200,
+   "webp": 25594,
+   "ssim": 0.9918,
+   "meanDiff": 1.17,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon34.png",
+   "group": "avatars",
+   "orig": 99772,
+   "webp": 14258,
+   "ssim": 0.9869,
+   "meanDiff": 0.99,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon35.png",
+   "group": "avatars",
+   "orig": 79293,
+   "webp": 13146,
+   "ssim": 0.987,
+   "meanDiff": 0.8,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon36.png",
+   "group": "avatars",
+   "orig": 124278,
+   "webp": 19246,
+   "ssim": 0.9876,
+   "meanDiff": 1.19,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon37.png",
+   "group": "avatars",
+   "orig": 119491,
+   "webp": 19072,
+   "ssim": 0.9869,
+   "meanDiff": 1.11,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon38.png",
+   "group": "avatars",
+   "orig": 128764,
+   "webp": 19366,
+   "ssim": 0.9892,
+   "meanDiff": 1.23,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon39.png",
+   "group": "avatars",
+   "orig": 102292,
+   "webp": 14308,
+   "ssim": 0.9873,
+   "meanDiff": 1.02,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon4.png",
+   "group": "avatars",
+   "orig": 126523,
+   "webp": 19262,
+   "ssim": 0.9862,
+   "meanDiff": 1.12,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon40.png",
+   "group": "avatars",
+   "orig": 133127,
+   "webp": 25972,
+   "ssim": 0.9949,
+   "meanDiff": 1.21,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon41.png",
+   "group": "avatars",
+   "orig": 113128,
+   "webp": 16102,
+   "ssim": 0.988,
+   "meanDiff": 1.08,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon42.png",
+   "group": "avatars",
+   "orig": 82493,
+   "webp": 10926,
+   "ssim": 0.9866,
+   "meanDiff": 0.81,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon43.png",
+   "group": "avatars",
+   "orig": 138982,
+   "webp": 21900,
+   "ssim": 0.9913,
+   "meanDiff": 1.33,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon44.png",
+   "group": "avatars",
+   "orig": 127779,
+   "webp": 24036,
+   "ssim": 0.9936,
+   "meanDiff": 1.14,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon45.png",
+   "group": "avatars",
+   "orig": 84521,
+   "webp": 11306,
+   "ssim": 0.9879,
+   "meanDiff": 0.74,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon46.png",
+   "group": "avatars",
+   "orig": 115213,
+   "webp": 17262,
+   "ssim": 0.9935,
+   "meanDiff": 1.12,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon47.png",
+   "group": "avatars",
+   "orig": 140295,
+   "webp": 25052,
+   "ssim": 0.9886,
+   "meanDiff": 1.28,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon48.png",
+   "group": "avatars",
+   "orig": 101998,
+   "webp": 13694,
+   "ssim": 0.987,
+   "meanDiff": 1.05,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon49.png",
+   "group": "avatars",
+   "orig": 102393,
+   "webp": 14520,
+   "ssim": 0.9864,
+   "meanDiff": 0.98,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon5.png",
+   "group": "avatars",
+   "orig": 102962,
+   "webp": 13588,
+   "ssim": 0.9876,
+   "meanDiff": 0.98,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon50.png",
+   "group": "avatars",
+   "orig": 110121,
+   "webp": 17608,
+   "ssim": 0.9876,
+   "meanDiff": 0.92,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon51.png",
+   "group": "avatars",
+   "orig": 113666,
+   "webp": 17546,
+   "ssim": 0.9866,
+   "meanDiff": 1.04,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon52.png",
+   "group": "avatars",
+   "orig": 112074,
+   "webp": 16870,
+   "ssim": 0.9904,
+   "meanDiff": 1.08,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon53.png",
+   "group": "avatars",
+   "orig": 120692,
+   "webp": 19642,
+   "ssim": 0.9921,
+   "meanDiff": 1.14,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon54.png",
+   "group": "avatars",
+   "orig": 109898,
+   "webp": 18392,
+   "ssim": 0.9917,
+   "meanDiff": 1.0,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon55.png",
+   "group": "avatars",
+   "orig": 112697,
+   "webp": 15836,
+   "ssim": 0.987,
+   "meanDiff": 1.1,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon56.png",
+   "group": "avatars",
+   "orig": 121948,
+   "webp": 18154,
+   "ssim": 0.9839,
+   "meanDiff": 1.18,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon57.png",
+   "group": "avatars",
+   "orig": 139918,
+   "webp": 27554,
+   "ssim": 0.993,
+   "meanDiff": 1.19,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon58.png",
+   "group": "avatars",
+   "orig": 91440,
+   "webp": 11038,
+   "ssim": 0.9868,
+   "meanDiff": 0.96,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon59.png",
+   "group": "avatars",
+   "orig": 108762,
+   "webp": 18028,
+   "ssim": 0.9857,
+   "meanDiff": 1.03,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon6.png",
+   "group": "avatars",
+   "orig": 145087,
+   "webp": 27498,
+   "ssim": 0.9928,
+   "meanDiff": 1.31,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon60.png",
+   "group": "avatars",
+   "orig": 96822,
+   "webp": 18612,
+   "ssim": 0.993,
+   "meanDiff": 0.92,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon61.png",
+   "group": "avatars",
+   "orig": 87854,
+   "webp": 10282,
+   "ssim": 0.9865,
+   "meanDiff": 0.84,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon62.png",
+   "group": "avatars",
+   "orig": 106959,
+   "webp": 16876,
+   "ssim": 0.9894,
+   "meanDiff": 1.12,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon63.png",
+   "group": "avatars",
+   "orig": 112917,
+   "webp": 15714,
+   "ssim": 0.9822,
+   "meanDiff": 1.17,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon64.png",
+   "group": "avatars",
+   "orig": 119426,
+   "webp": 16898,
+   "ssim": 0.9901,
+   "meanDiff": 1.18,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon65.png",
+   "group": "avatars",
+   "orig": 121841,
+   "webp": 21816,
+   "ssim": 0.9919,
+   "meanDiff": 1.13,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon66.png",
+   "group": "avatars",
+   "orig": 79996,
+   "webp": 11530,
+   "ssim": 0.9858,
+   "meanDiff": 0.78,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon67.png",
+   "group": "avatars",
+   "orig": 105132,
+   "webp": 17562,
+   "ssim": 0.9871,
+   "meanDiff": 0.95,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon68.png",
+   "group": "avatars",
+   "orig": 136399,
+   "webp": 23024,
+   "ssim": 0.9881,
+   "meanDiff": 1.28,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon69.png",
+   "group": "avatars",
+   "orig": 142845,
+   "webp": 27786,
+   "ssim": 0.9945,
+   "meanDiff": 1.32,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon7.png",
+   "group": "avatars",
+   "orig": 107446,
+   "webp": 18262,
+   "ssim": 0.9883,
+   "meanDiff": 1.02,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon70.png",
+   "group": "avatars",
+   "orig": 135607,
+   "webp": 21152,
+   "ssim": 0.9824,
+   "meanDiff": 1.32,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon71.png",
+   "group": "avatars",
+   "orig": 155536,
+   "webp": 28822,
+   "ssim": 0.9878,
+   "meanDiff": 1.34,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon72.png",
+   "group": "avatars",
+   "orig": 122118,
+   "webp": 19520,
+   "ssim": 0.9884,
+   "meanDiff": 1.13,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon73.png",
+   "group": "avatars",
+   "orig": 118385,
+   "webp": 18914,
+   "ssim": 0.9911,
+   "meanDiff": 1.13,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon74.png",
+   "group": "avatars",
+   "orig": 90803,
+   "webp": 12022,
+   "ssim": 0.9862,
+   "meanDiff": 0.81,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon75.png",
+   "group": "avatars",
+   "orig": 120226,
+   "webp": 20508,
+   "ssim": 0.9889,
+   "meanDiff": 1.1,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon76.png",
+   "group": "avatars",
+   "orig": 126557,
+   "webp": 20264,
+   "ssim": 0.9903,
+   "meanDiff": 1.19,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon77.png",
+   "group": "avatars",
+   "orig": 140511,
+   "webp": 24112,
+   "ssim": 0.9871,
+   "meanDiff": 1.28,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon78.png",
+   "group": "avatars",
+   "orig": 118815,
+   "webp": 20736,
+   "ssim": 0.9902,
+   "meanDiff": 1.14,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon79.png",
+   "group": "avatars",
+   "orig": 111356,
+   "webp": 17394,
+   "ssim": 0.9856,
+   "meanDiff": 1.05,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon8.png",
+   "group": "avatars",
+   "orig": 127530,
+   "webp": 20012,
+   "ssim": 0.9914,
+   "meanDiff": 1.29,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon80.png",
+   "group": "avatars",
+   "orig": 82431,
+   "webp": 13034,
+   "ssim": 0.9882,
+   "meanDiff": 0.8,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon81.png",
+   "group": "avatars",
+   "orig": 114917,
+   "webp": 17622,
+   "ssim": 0.9904,
+   "meanDiff": 1.11,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon82.png",
+   "group": "avatars",
+   "orig": 114397,
+   "webp": 16910,
+   "ssim": 0.9886,
+   "meanDiff": 1.09,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon83.png",
+   "group": "avatars",
+   "orig": 116727,
+   "webp": 16974,
+   "ssim": 0.9879,
+   "meanDiff": 1.18,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon84.png",
+   "group": "avatars",
+   "orig": 108030,
+   "webp": 14750,
+   "ssim": 0.9874,
+   "meanDiff": 0.98,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon85.png",
+   "group": "avatars",
+   "orig": 102757,
+   "webp": 13168,
+   "ssim": 0.9868,
+   "meanDiff": 1.01,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon86.png",
+   "group": "avatars",
+   "orig": 99360,
+   "webp": 20314,
+   "ssim": 0.9931,
+   "meanDiff": 0.89,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon87.png",
+   "group": "avatars",
+   "orig": 88272,
+   "webp": 12376,
+   "ssim": 0.9835,
+   "meanDiff": 0.87,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon88.png",
+   "group": "avatars",
+   "orig": 113879,
+   "webp": 16254,
+   "ssim": 0.9867,
+   "meanDiff": 1.08,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon89.png",
+   "group": "avatars",
+   "orig": 96048,
+   "webp": 13962,
+   "ssim": 0.9885,
+   "meanDiff": 0.88,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon9.png",
+   "group": "avatars",
+   "orig": 114538,
+   "webp": 16216,
+   "ssim": 0.985,
+   "meanDiff": 1.16,
+   "q": 84
+  },
+  {
+   "file": "images/hero-avatars/toon90.png",
+   "group": "avatars",
+   "orig": 119702,
+   "webp": 18328,
+   "ssim": 0.9887,
+   "meanDiff": 1.15,
+   "q": 84
+  },
+  {
+   "file": "images/desktop-bg-4p.jpg",
+   "group": "backgrounds",
+   "orig": 1567702,
+   "webp": 320404,
+   "ssim": 0.9789,
+   "meanDiff": 1.48,
+   "q": 86
+  },
+  {
+   "file": "images/desktop-bg-6p.jpg",
+   "group": "backgrounds",
+   "orig": 1630865,
+   "webp": 334442,
+   "ssim": 0.979,
+   "meanDiff": 1.52,
+   "q": 86
+  },
+  {
+   "file": "images/desktop-bg-holdem.jpg",
+   "group": "backgrounds",
+   "orig": 421356,
+   "webp": 220144,
+   "ssim": 0.9816,
+   "meanDiff": 1.45,
+   "q": 86
+  },
+  {
+   "file": "images/holdem-portrait-table.jpg",
+   "group": "backgrounds",
+   "orig": 201558,
+   "webp": 115824,
+   "ssim": 0.9691,
+   "meanDiff": 1.5,
+   "q": 86
+  },
+  {
+   "file": "images/jack-card.png",
+   "group": "art",
+   "orig": 328432,
+   "webp": 72040,
+   "ssim": 0.9968,
+   "meanDiff": 1.73,
+   "q": 84
+  },
+  {
+   "file": "images/table-bg-4p.jpg",
+   "group": "backgrounds",
+   "orig": 495748,
+   "webp": 371176,
+   "ssim": 0.9758,
+   "meanDiff": 1.59,
+   "q": 86
+  },
+  {
+   "file": "images/table-bg-6p.jpg",
+   "group": "backgrounds",
+   "orig": 370102,
+   "webp": 225958,
+   "ssim": 0.9801,
+   "meanDiff": 1.45,
+   "q": 86
+  }
+ ]
+}

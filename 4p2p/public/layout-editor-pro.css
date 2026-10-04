@@ -1,0 +1,21 @@
+/* Pro editor extras (loaded after layout-editor.css and layout-editor-holdem.css) */
+.ed-count{display:inline-block;min-width:16px;padding:0 5px;margin-left:4px;border-radius:99px;background:#33445a;font-size:0.68rem;line-height:16px;text-align:center}
+.ed-count.warn{background:#c0392b;color:#fff}.ed-count.good{background:#1f7a4d;color:#fff}
+#edLayoutTag{font-size:0.7rem;color:var(--ed-text-dim);white-space:nowrap}
+.pro-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid var(--ed-border);font-size:0.78rem}
+.pro-row:last-child{border-bottom:0}
+.pro-row .l{min-width:0;flex:1}
+.pro-row .l b{display:block;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pro-row .l small{display:block;color:var(--ed-text-dim);font-size:0.68rem;margin-top:2px;line-height:1.35}
+.pro-row button{background:#243040;color:var(--ed-text);border:1px solid var(--ed-border);border-radius:6px;padding:5px 9px;font-size:0.72rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.pro-row button.on{background:var(--ed-gold);border-color:var(--ed-gold);color:#241a12}
+.pro-row button.x{color:#ff9a9a;border-color:rgba(255,90,90,.45)}
+.pro-empty{padding:14px;color:var(--ed-text-dim);font-size:0.78rem;text-align:center}
+.pro-sev{display:inline-block;font-size:0.6rem;font-weight:800;text-transform:uppercase;padding:1px 6px;border-radius:99px;margin-right:6px}
+.pro-sev.error{background:rgba(255,90,90,.2);color:#ff8d8d}.pro-sev.warn{background:rgba(244,196,48,.18);color:#f4c430}.pro-sev.info{background:rgba(120,160,255,.16);color:#9db8ff}
+.pro-dev{padding:6px 10px;font-size:0.7rem;font-weight:800;color:var(--ed-gold);background:rgba(255,255,255,.04)}
+#edInspector .pro-line{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+#edInspector .pro-name{font-weight:800;color:#fff;font-size:0.82rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+#edInspector .pro-btn{background:#243040;color:var(--ed-text);border:1px solid var(--ed-border);border-radius:6px;padding:5px 9px;font-size:0.72rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
+#edInspector .pro-btn.on{background:var(--ed-gold);border-color:var(--ed-gold);color:#241a12}
+#edInspector .pro-btn.x{color:#ff9a9a;border-color:rgba(255,90,90,.45)}

@@ -44,6 +44,13 @@
   .live-card .where{color:var(--text2);font-size:0.72rem;margin-top:2px}
   .live-card .game-badge{background:rgba(244,196,48,0.15);color:var(--accent);font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
   .live-card.disconnected{opacity:0.5}
+  /* Image size (WebP) compare view */
+  .io-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .io-pane{background:#3a0c12;border:1px solid var(--border);border-radius:10px;padding:6px;text-align:center}
+  .io-pane .cap{font-size:0.66rem;color:#d9d9e6;margin-bottom:5px;font-weight:700}
+  .io-pane .box{height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:6px;background:repeating-conic-gradient(#2a2030 0% 25%,#33273a 0% 50%) 50%/16px 16px}
+  .io-pane img{max-width:100%;max-height:100%}
+  .io-pane.zoom img{max-width:none;max-height:none;object-fit:none;width:100%;height:100%;object-position:50% 45%}
   /* RAM chart (Railway look) */
   .ram-card{background:#171722;border:1px solid #2a2a3c;border-radius:12px;padding:12px 10px 8px;margin-bottom:10px}
   .ram-card .t{font-size:0.78rem;font-weight:700;color:#e8e8f2;margin:0 4px 6px}
@@ -195,6 +202,16 @@
       </div>
       <div id="usageSummary" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
       <div id="usageList"></div>
+
+      <div id="imgPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
+        <h3 class="ub-h">🖼️ Image size (WebP)</h3>
+        <div class="sub" style="margin-top:0">
+          Avatars and table backgrounds are the biggest part of your data. With this on, phones that support WebP get a much
+          smaller copy of each picture; every other phone still gets the original. The originals are never touched, so you can
+          switch it off any time and it goes back at once.
+        </div>
+        <div id="imgBody"><div class="empty">Loading…</div></div>
+      </div>
 
       <div id="ramPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
         <h3 class="ub-h">🧠 RAM</h3>
@@ -398,7 +415,9 @@
       </div>
       <div class="card">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎴 4-Player Table</div>
-        <a class="btn" href="/layout-editor.html" target="_blank" style="display:block;text-align:center;text-decoration:none">Open 4-Player Layout Editor ↗</a>
+        <a class="btn" href="/layout-editor-pro.html?table=4p" target="_blank" style="display:block;text-align:center;text-decoration:none">✨ Open 4-Player Pro Editor ↗</a>
+        <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
+        <a class="btn" href="/layout-editor.html" target="_blank" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 4-Player Layout Editor ↗</a>
       </div>
       <div class="card">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎰 Hold'em Table</div>
@@ -406,11 +425,15 @@
       </div>
       <div class="card">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎲 6-Player Table</div>
-        <a class="btn" href="/layout-editor-6p.html" target="_blank" style="display:block;text-align:center;text-decoration:none">Open 6-Player Layout Editor ↗</a>
+        <a class="btn" href="/layout-editor-pro.html?table=6p" target="_blank" style="display:block;text-align:center;text-decoration:none">✨ Open 6-Player Pro Editor ↗</a>
+        <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
+        <a class="btn" href="/layout-editor-6p.html" target="_blank" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 6-Player Layout Editor ↗</a>
       </div>
       <div class="card">
         <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🂡 56 Table</div>
-        <a class="btn" href="/layout-editor-56.html" target="_blank" style="display:block;text-align:center;text-decoration:none">Open 56 Layout Editor ↗</a>
+        <a class="btn" href="/layout-editor-pro.html?table=56" target="_blank" style="display:block;text-align:center;text-decoration:none">✨ Open 56 Pro Editor ↗</a>
+        <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
+        <a class="btn" href="/layout-editor-56.html" target="_blank" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 56 Layout Editor ↗</a>
       </div>
     </div>
   </div>
@@ -579,7 +602,7 @@ function switchTab(tab) {
   }
   if (tab === 'visitors') refreshVisitorLog();
   if (tab === 'history') refreshTableHistory();
-  if (tab === 'usage') { refreshNetworkUsage(); refreshUsageBreakdown(); refreshRam(); }
+  if (tab === 'usage') { refreshNetworkUsage(); refreshUsageBreakdown(); refreshImgOpt(); refreshRam(); }
   if (tab === 'bots' && !botAvatarGridBuilt) buildBotAvatarGrid();
   if (tab === 'ghost') {
     if (!ghostAvatarGridBuilt) buildGhostAvatarGrid();
@@ -1702,6 +1725,53 @@ document.getElementById('avFilters').addEventListener('click', (e) => {
   const b = e.target.closest('[data-f]'); if (!b) return;
   avFilter = b.dataset.f; [...document.getElementById('avFilters').children].forEach(x => x.classList.toggle('on', x === b)); renderAvatarManager();
 });
+
+// ---------------- Image size (WebP) ----------------
+let imgOptData = null;
+async function refreshImgOpt() {
+  try {
+    const res = await adminFetch('/api/admin/image-optimization');
+    if (!res.ok) throw new Error('bad');
+    imgOptData = await res.json(); renderImgOpt();
+  } catch (e) { document.getElementById('imgBody').innerHTML = '<div class="empty">Could not load the image settings.</div>'; }
+}
+const ioKB = (b) => b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : Math.round(b / 1024) + ' KB';
+const IO_GROUP = { avatars: '🙂 Avatars', backgrounds: '🌄 Table backgrounds', art: '🃏 Other art' };
+function renderImgOpt(selectedFile) {
+  const d = imgOptData, el = document.getElementById('imgBody'); if (!d) return;
+  let h = `<div class="ub-row" style="border-color:${d.enabled ? 'rgba(61,214,140,.55)' : 'rgba(255,90,90,.45)'}"><div class="top"><span>Smaller pictures (WebP) are <b>${d.enabled ? 'ON' : 'OFF'}</b></span><em>${d.twins} pictures ready</em></div>
+    <div class="note" style="margin-top:6px">${d.enabled ? 'Phones that support WebP are getting the small copies now.' : 'Everyone is getting the original pictures (the old behaviour).'}</div>
+    <button class="btn" id="btnImgToggle" style="margin-top:10px;${d.enabled ? '' : ''}">${d.enabled ? 'Switch OFF (go back to originals)' : 'Switch ON'}</button></div>`;
+  const keys = ['avatars', 'backgrounds', 'art'].filter(k => d.groups[k]);
+  if (keys.length) {
+    h += `<div class="ub-sec">How much smaller<small>Quality used: avatars ${d.avatarQuality}, backgrounds ${d.backgroundQuality} (out of 100). "Match" is how close the small copy is to the original: 100% would be identical; above about 95% is not visible to the eye at game size.</small></div>`;
+    keys.forEach(k => {
+      const g = d.groups[k], saved = 1 - g.webp / g.orig;
+      h += ubRow(IO_GROUP[k] || k, `${ioKB(g.orig)} → ${ioKB(g.webp)}`, saved * 100, `${g.files} file${g.files === 1 ? '' : 's'} · ${Math.round(saved * 100)}% smaller · worst match ${(g.worstSsim * 100).toFixed(1)}%`);
+    });
+  }
+  // compare any picture side by side, worst match first
+  const files = (d.files || []).slice().sort((a, b) => a.ssim - b.ssim);
+  if (files.length) {
+    const cur = selectedFile && files.find(f => f.file === selectedFile) || files[0];
+    h += `<div class="ub-sec">Compare<small>Pick a picture to see the original and the small copy side by side (worst match listed first). Tap "Zoom" to see them at real size.</small></div>
+      <div class="ub-row"><select id="imgCmpSel" class="av-sel">${files.map(f => `<option value="${esc(f.file)}"${f.file === cur.file ? ' selected' : ''}>${esc(f.file.replace('images/', ''))} · match ${(f.ssim * 100).toFixed(1)}% · ${ioKB(f.orig)} → ${ioKB(f.webp)}</option>`).join('')}</select>
+      <div class="io-pair" id="imgPair">
+        <div class="io-pane"><div class="cap">Original · ${ioKB(cur.orig)}</div><div class="box"><img alt="" src="/${esc(cur.file)}?nowebp=1&t=${Date.now()}"></div></div>
+        <div class="io-pane"><div class="cap">WebP · ${ioKB(cur.webp)} (−${Math.round((1 - cur.webp / cur.orig) * 100)}%)</div><div class="box"><img alt="" src="/${esc(cur.file.replace(/\.(png|jpe?g)$/i, '.webp'))}?t=${Date.now()}"></div></div>
+      </div>
+      <button class="btn ghost" id="btnImgZoom" style="margin-top:8px">🔍 Zoom to real size</button></div>
+      <div class="ub-row"><div class="note">Don't like how something looks? Switch WebP off above (instant), and tell me the picture's name — I can redo the conversion at a higher quality for just those files, or for everything.</div></div>`;
+  }
+  el.innerHTML = h;
+  document.getElementById('btnImgToggle').addEventListener('click', async () => {
+    const b = document.getElementById('btnImgToggle'); b.disabled = true;
+    try { await adminFetch('/api/admin/image-optimization', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !imgOptData.enabled }) }); } catch (e) {}
+    await refreshImgOpt();
+  });
+  const sel = document.getElementById('imgCmpSel'); if (sel) sel.addEventListener('change', () => renderImgOpt(sel.value));
+  const z = document.getElementById('btnImgZoom'); if (z) z.addEventListener('click', () => { document.querySelectorAll('#imgPair .io-pane').forEach(p => p.classList.toggle('zoom')); });
+}
 
 // ---------------- RAM (Railway-style graph + why it spikes) ----------------
 let ramRangeSel = '6h';

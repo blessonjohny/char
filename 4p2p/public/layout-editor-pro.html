@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>28 Gulan — Pro Layout Editor</title>
+<link rel="stylesheet" href="layout-editor.css?v=11">
+<link rel="stylesheet" href="layout-editor-holdem.css?v=11">
+<link rel="stylesheet" href="layout-editor-pro.css?v=1">
+</head>
+<body>
+<div id="edRoot">
+  <div id="edTopbar">
+    <h1>✨ Pro Editor</h1>
+    <select id="edTableSelect" title="Which table to edit"></select>
+    <select id="edDeviceSelect" title="Which screen size to design for"></select>
+    <span id="edLayoutTag" title="The saved layout that applies to this screen size"></span>
+    <button class="ed-btn" id="edBtnEditToggle">✏️ Edit</button>
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn" id="edBtnEditedToggle" type="button">🗂️ Edited <span class="ed-count" id="edEditedCount">0</span></button>
+      <div class="ed-dropdown-panel" id="edEditedPanel" style="display:none"><div class="ed-sidebar-section"><h2>Items you changed (this screen size)</h2><div id="edEditedList"></div></div></div>
+    </div>
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn" id="edBtnItemsToggle" type="button">🧩 Show hidden</button>
+      <div class="ed-dropdown-panel" id="edItemsPanel" style="display:none"><div class="ed-sidebar-section"><h2>Things that only appear in the game</h2><div id="edItemsList"></div></div></div>
+    </div>
+    <div class="ed-dropdown-wrap">
+      <button class="ed-btn" id="edBtnIssuesToggle" type="button">🔍 Check <span class="ed-count" id="edIssueCount">0</span></button>
+      <div class="ed-dropdown-panel" id="edIssuesPanel" style="display:none"><div class="ed-sidebar-section"><h2>Problems</h2><div id="edIssuesList"></div></div></div>
+    </div>
+    <button class="ed-btn" id="edBtnPause" type="button" title="Freeze animations and keep popups on screen while you edit">⏸ Pause</button>
+    <div class="ed-zoom-group">
+      <button class="ed-btn" id="edBtnZoomOut" title="Zoom out">−</button>
+      <span id="edZoomLabel">100%</span>
+      <button class="ed-btn" id="edBtnZoomIn" title="Zoom in">+</button>
+      <button class="ed-btn" id="edBtnZoomFit" title="Fit to screen">Fit</button>
+    </div>
+    <button class="ed-btn" id="edBtnUndo" disabled title="Undo">↶</button>
+    <button class="ed-btn" id="edBtnRedo" disabled title="Redo">↷</button>
+    <button class="ed-btn danger" id="edBtnReset" title="Undo every change for this screen size">Reset</button>
+    <button class="ed-btn primary" id="edBtnSave">💾 Save</button>
+    <div id="edStatus">Loading…</div>
+  </div>
+  <div id="edBody">
+    <div id="edStage">
+      <div id="edFrameWrap"><iframe id="edFrame" title="Game preview"></iframe></div>
+    </div>
+    <div id="edPropsBar"><div id="edInspector"><div class="ed-inspector-empty">Turn on Edit, then tap anything on the table. Tap empty space to let go.</div></div></div>
+  </div>
+</div>
+<script src="layout-pro.js?v=1"></script>
+<script src="layout-engine-4p.js?v=3"></script>
+<script src="layout-engine-6p.js?v=3"></script>
+<script src="layout-engine-56.js?v=1"></script>
+<script src="layout-editor-pro.js?v=1"></script>
+</body>
+</html>
