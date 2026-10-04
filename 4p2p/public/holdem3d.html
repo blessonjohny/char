@@ -2102,6 +2102,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
 }
 </style>
 <script src="name-filter.js?v=1"></script>
+<script src="/avatar-catalog.js"></script>
 <script src="table-faces.js?v=1"></script>
 </head>
 <body>
@@ -2915,7 +2916,7 @@ document.addEventListener('click', (e) => {
 // player's choice carries over between this table and the others.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = (window.AVATAR_CATALOG ? AVATAR_CATALOG.keys.concat(AVATAR_CATALOG.personal) : Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']));
 const PROTECTED_AVATAR_KEYS = new Set(['toon101', 'toon102', 'toon103', 'toon104', 'toon105', 'toon106']);
 const AVATAR_PINS = {
   toon101: '0719', // JCK
@@ -3293,6 +3294,7 @@ function holdemAvatarFor(name, pos) {
   const str = String(name || '') + ':' + pos;
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  if (window.AVATAR_CATALOG && AVATAR_CATALOG.keys.length) return AVATAR_CATALOG.keys[hash % AVATAR_CATALOG.keys.length];
   return 'toon' + ((hash % HOLDEM_AVATAR_COUNT) + 1);
 }
 function holdemAvatarImgHtml(name, pos, avatarOverride) {

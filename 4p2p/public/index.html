@@ -4178,6 +4178,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 #pinSubmitBtn{background:linear-gradient(135deg,#f4c430,#d4a017);color:#1a1206;}
 </style>
 <script src="name-filter.js?v=1"></script>
+<script src="/avatar-catalog.js"></script>
 <script src="table-faces.js?v=1"></script>
 </head>
 <body>
@@ -5541,7 +5542,7 @@ if (window.NameFilter && NameFilter.isBad(MY_NAME)) { MY_NAME = ''; try { localS
 // sticks across visits instead of resetting every time.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = (window.AVATAR_CATALOG ? AVATAR_CATALOG.keys.concat(AVATAR_CATALOG.personal) : Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']));
 
 // ==================== SOUND ENGINE ====================
 // A full card-table sound system built entirely on the native Web Audio API - no audio files,
@@ -6053,7 +6054,8 @@ function heroAvatarHtml(key) {
   // the first 100 excludes them with no array needed.
   const PUBLIC_TOON_COUNT = 90;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
-  const validNum = m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106));
+  const AC = window.AVATAR_CATALOG;      // the live list from the admin panel (falls back to the built-in range if it didn't load)
+  const validNum = AC ? (m && AC.has(key)) : (m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106)));
   if (!validNum) {
     // Hash the ORIGINAL invalid key (not a random pick) so the same
     // bot name/key always remaps to the same fallback avatar
@@ -6061,8 +6063,8 @@ function heroAvatarHtml(key) {
     const src = key || 'x';
     let h = 0;
     for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) >>> 0;
-    const n = h % PUBLIC_TOON_COUNT;
-    key = `toon${n + 1}`;
+    if (AC && AC.keys.length) key = AC.keys[h % AC.keys.length];
+    else { const n = h % PUBLIC_TOON_COUNT; key = `toon${n + 1}`; }
   }
   // Single image only, deliberately -- the new avatar set has one
   // expression per character, no separate "sad" pose. That's fine: the

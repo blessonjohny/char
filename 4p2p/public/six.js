@@ -321,7 +321,7 @@ let isAutoReconnectAttempt6p = false;
 // player's choice carries over between tables instead of resetting.
 let MY_AVATAR_KEY = '';
 try { MY_AVATAR_KEY = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+const ALL_AVATAR_KEYS = (window.AVATAR_CATALOG ? AVATAR_CATALOG.keys.concat(AVATAR_CATALOG.personal) : Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']));
 // Per explicit request: these 5 are personal, PIN-protected avatars
 // (see pickMyAvatar/confirmSixpChangeAvatar for the actual PIN check)
 // and must never be handed to anyone automatically -- not as a bot,
@@ -440,7 +440,8 @@ function heroAvatarHtml(key) {
   // (an already-invalid key getting remapped to something guaranteed-
   // valid), which is exactly where PUBLIC_AVATAR_KEYS is used instead
   // of the full range.
-  const validNum = m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106));
+  const AC = window.AVATAR_CATALOG;      // the live list from the admin panel (falls back to the built-in range if it didn't load)
+  const validNum = AC ? (m && AC.has(key)) : (m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106)));
   if (!validNum) {
     const src = key || 'x';
     let h = 0;

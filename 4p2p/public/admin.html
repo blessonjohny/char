@@ -44,6 +44,20 @@
   .live-card .where{color:var(--text2);font-size:0.72rem;margin-top:2px}
   .live-card .game-badge{background:rgba(244,196,48,0.15);color:var(--accent);font-size:0.68rem;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap}
   .live-card.disconnected{opacity:0.5}
+  /* Avatar manager */
+  .av-sel{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:8px;border:1.5px solid var(--border);background:#16202d;color:#fff;font-size:0.82rem}
+  .av-pv{text-align:center;font-size:0.66rem;color:var(--text2)}
+  .av-pv canvas{display:block;border-radius:10px;border:1px solid var(--border);margin-bottom:3px;width:120px;height:120px}
+  .av-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+  .av-tile{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px;text-align:center;position:relative}
+  .av-tile.hidden-one{opacity:0.55}
+  .av-tile img{width:100%;aspect-ratio:1/1;object-fit:contain;background:rgba(255,255,255,0.04);border-radius:8px;display:block}
+  .av-tile .k{font-size:0.62rem;color:var(--text2);margin-top:4px;word-break:break-all}
+  .av-tile .g{position:absolute;top:8px;left:8px;font-size:0.62rem;font-weight:800;padding:1px 6px;border-radius:99px;background:rgba(0,0,0,0.55);color:#fff}
+  .av-tile .nm{font-size:0.6rem;color:var(--accent);margin-top:2px;min-height:12px}
+  .av-tile .row{display:flex;gap:4px;margin-top:5px}
+  .av-tile button{flex:1;padding:5px 2px;font-size:0.64rem;font-weight:700;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,0.06);color:#fff;cursor:pointer}
+  .av-tile button.del{border-color:rgba(255,90,90,0.45);color:#ff9a9a}
   /* Usage breakdown panel */
   .ub-h{margin:0 0 4px;font-size:1.02rem;color:var(--accent)}
   .ub-sec{margin:20px 0 8px;font-size:0.84rem;font-weight:800;color:#fff;letter-spacing:.2px}
@@ -87,6 +101,7 @@
   .vgroup .vsub .vwhen{color:#fff;white-space:nowrap}
   .vgroup .vsub b{color:#fff;font-weight:700}
 </style>
+<script src="/avatar-catalog.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -115,6 +130,7 @@
       <button class="tab" id="tabBots" data-cat="tools" style="display:none">🤖 Bot Tables</button>
       <button class="tab" id="tabGhost" data-cat="tools" style="display:none">🕵️ Ghost Players</button>
       <button class="tab" id="tabPoker" data-cat="tools" style="display:none">🃏 Hold'em Admin</button>
+      <button class="tab" id="tabAvatars" data-cat="tools" style="display:none">🖼️ Avatars</button>
       <button class="tab" id="tabVisitors" data-cat="stats" style="display:none">📊 Visitor Log</button>
       <button class="tab" id="tabHistory" data-cat="stats" style="display:none">📅 Table History</button>
       <button class="tab" id="tabUsage" data-cat="stats" style="display:none">📶 Data Usage</button>
@@ -169,6 +185,16 @@
       <div id="usageSummary" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
       <div id="usageList"></div>
 
+      <div id="billPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
+        <h3 class="ub-h">💵 Railway bill (estimate)</h3>
+        <div class="sub" style="margin-top:0">
+          Worked out here from what the server measures once a minute (memory, CPU, disk) and the data it sends, priced with
+          Railway's own rates — so you don't have to open Railway to see where the month stands. It resets on your billing-cycle
+          day. It is an estimate; typing Railway's number in below shows how close it is.
+        </div>
+        <div id="billBody"><div class="empty">Loading…</div></div>
+      </div>
+
       <div id="ubPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
         <h3 class="ub-h">📊 Usage breakdown</h3>
         <div class="sub" style="margin-top:0">
@@ -186,6 +212,43 @@
         <div class="toolbar"><button class="btn ghost" id="btnRefreshUb">🔄 Refresh breakdown</button></div>
         <div id="ubBody"><div class="empty">Loading…</div></div>
       </div>
+    </div>
+    <div id="avatarsView" style="display:none">
+      <h3 class="ub-h">🖼️ Avatars</h3>
+      <div class="sub" style="margin-top:0">
+        Add or delete the pictures players and bots use. Changes are live immediately — no redeploy. Uploaded avatars are
+        kept on your data volume; the original 90 can be hidden and brought back, but their files stay with the site.
+      </div>
+      <div id="avCounts" class="ub-cards" style="margin:12px 0"></div>
+
+      <div class="ub-sec">Add an avatar<small>Pick a picture of one person, waist-up. A transparent PNG/WebP is best; a photo on a plain white or black background can be cut out here. It is cropped, sized to 320 × 320 and compressed for you.</small></div>
+      <div class="ub-row">
+        <input type="file" id="avFile" accept="image/png,image/webp,image/jpeg,image/*" style="width:100%;color:var(--text2);font-size:0.82rem">
+        <div class="ub-form">
+          <div><label>Gender (bots keep matching faces)</label><select id="avGender" class="av-sel"><option value="f">Female</option><option value="m">Male</option></select></div>
+          <div><label>Format</label><select id="avFormat" class="av-sel"><option value="webp">Smaller file (WebP)</option><option value="png">Most compatible (PNG)</option></select></div>
+          <div><label>Label (optional, for you)</label><input id="avLabel" maxlength="40" placeholder="e.g. Anitha"></div>
+          <div><label>Give this face to bot name (optional)</label><input id="avNameFor" maxlength="30" placeholder="e.g. Meera"></div>
+          <div class="full"><label style="display:flex;align-items:center;gap:8px;font-size:0.78rem"><input type="checkbox" id="avRemoveBg" style="width:auto"> Remove the plain background (white / black / any single colour)</label></div>
+        </div>
+        <div id="avPreview" style="display:none;margin-top:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="av-pv"><canvas id="avPvCheck" width="160" height="160"></canvas><span>on light</span></div>
+            <div class="av-pv"><canvas id="avPvTable" width="160" height="160"></canvas><span>on the table</span></div>
+          </div>
+          <div id="avInfo" class="note" style="margin-top:8px"></div>
+        </div>
+        <div id="avMsg" class="note" style="margin-top:8px;min-height:16px"></div>
+        <button class="btn" id="btnAvAdd" style="margin-top:8px" disabled>Add avatar</button>
+      </div>
+
+      <div class="ub-sec">All avatars</div>
+      <div id="avFilters" class="tabs" style="margin-bottom:10px">
+        <button class="tab on" data-f="active">Active</button>
+        <button class="tab" data-f="uploaded">Uploaded</button>
+        <button class="tab" data-f="hidden">Hidden</button>
+      </div>
+      <div id="avGrid" class="av-grid"></div>
     </div>
     <div id="botsView" style="display:none">
       <div class="sub" style="margin-top:0">
@@ -457,6 +520,9 @@ function switchTab(tab) {
   document.getElementById('tabPoker').classList.toggle('on', tab === 'poker');
   document.getElementById('tabLayout').classList.toggle('on', tab === 'layout');
   document.getElementById('tabUsage').classList.toggle('on', tab === 'usage');
+  document.getElementById('tabAvatars').classList.toggle('on', tab === 'avatars');
+  document.getElementById('avatarsView').style.display = tab === 'avatars' ? 'block' : 'none';
+  if (tab === 'avatars') refreshAvatarManager();
   document.getElementById('commentsView').style.display = tab === 'comments' ? 'block' : 'none';
   document.getElementById('liveView').style.display = tab === 'live' ? 'block' : 'none';
   document.getElementById('visitorsView').style.display = tab === 'visitors' ? 'block' : 'none';
@@ -825,6 +891,7 @@ document.getElementById('tabLeaderboard').addEventListener('click', () => switch
 document.getElementById('tabPoker').addEventListener('click', () => switchTab('poker'));
 document.getElementById('tabLayout').addEventListener('click', () => switchTab('layout'));
 document.getElementById('tabUsage').addEventListener('click', () => switchTab('usage'));
+document.getElementById('tabAvatars').addEventListener('click', () => switchTab('avatars'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
 
@@ -851,7 +918,7 @@ document.querySelectorAll('.cat-btn').forEach(btn => {
 // VALID_AVATAR_KEYS in server.js and ALL_PLAYERS in index.html) --
 // 100 cartoon mascot-style images, filenames
 // /images/hero-avatars/toon{1-90}.png (+ the 6 personal toon101-106).
-const BOT_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+let BOT_AVATAR_KEYS = (window.AVATAR_CATALOG ? AVATAR_CATALOG.keys.concat(AVATAR_CATALOG.personal) : Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']));
 let botAvatarGridBuilt = false;
 let selectedBotAvatar = 'toon1';
 let selectedBotMode = '4p';
@@ -926,7 +993,7 @@ document.getElementById('btnSpawnBotTable').addEventListener('click', async () =
 
 // ---------------- Ghost players (admin-run seats that display and behave as real connected
 // humans, not bots - see server.js's spawn/join/stop-ghost-player endpoints) ----------------
-const GHOST_AVATAR_KEYS = Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']);
+let GHOST_AVATAR_KEYS = (window.AVATAR_CATALOG ? AVATAR_CATALOG.keys.concat(AVATAR_CATALOG.personal) : Array.from({length:90}, (_,i) => 'toon'+(i+1)).concat(['toon101','toon102','toon103','toon104','toon105','toon106']));
 let ghostAvatarGridBuilt = false;
 let selectedGhostAvatar = 'toon1';
 let ghostMode = 'new';        // 'new' or 'join'
@@ -1404,6 +1471,274 @@ function renderNetworkUsage(data) {
 }
 document.getElementById('btnRefreshUsage').addEventListener('click', refreshNetworkUsage);
 
+// ---------------- Avatar manager ----------------
+let avList = [], avFilter = 'active', avProcessed = null;
+function avMsg(text, bad) { const m = document.getElementById('avMsg'); m.textContent = text || ''; m.style.color = bad ? '#ff9a9a' : ''; }
+async function refreshAvatarManager() {
+  try {
+    const res = await adminFetch('/api/admin/avatars');
+    if (!res.ok) throw new Error('bad');
+    const data = await res.json();
+    avList = data.avatars || [];
+    // the grids elsewhere in this page (bot tables, ghost players) follow the live list too
+    const live = avList.filter(a => !a.removed).map(a => a.key).concat(['toon101', 'toon102', 'toon103', 'toon104', 'toon105', 'toon106']);
+    BOT_AVATAR_KEYS = live.slice(); GHOST_AVATAR_KEYS = live.slice();
+    try { botAvatarGridBuilt = false; ghostAvatarGridBuilt = false; } catch (e) {}
+    renderAvatarManager();
+  } catch (e) { document.getElementById('avGrid').innerHTML = '<div class="empty">Could not load the avatars.</div>'; }
+}
+function renderAvatarManager() {
+  const act = avList.filter(a => !a.removed);
+  const m = act.filter(a => a.gender === 'm').length, f = act.filter(a => a.gender === 'f').length, up = avList.filter(a => a.source === 'uploaded').length;
+  document.getElementById('avCounts').innerHTML = ubCard(act.length, 'active avatars') + ubCard(f + ' / ' + m, 'female / male') + ubCard(up, 'uploaded by you');
+  const rows = avList.filter(a => avFilter === 'active' ? !a.removed : avFilter === 'uploaded' ? a.source === 'uploaded' : a.removed);
+  const grid = document.getElementById('avGrid');
+  if (!rows.length) { grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${avFilter === 'hidden' ? 'Nothing is hidden.' : avFilter === 'uploaded' ? 'You have not uploaded any avatars yet.' : 'No avatars.'}</div>`; return; }
+  grid.innerHTML = rows.map(a => `
+    <div class="av-tile${a.removed ? ' hidden-one' : ''}">
+      <span class="g">${a.gender === 'm' ? '♂' : '♀'}</span>
+      <img src="/images/hero-avatars/${esc(a.key)}.png" alt="" loading="lazy">
+      <div class="k">${esc(a.key)}${a.label ? ' · ' + esc(a.label) : ''}</div>
+      <div class="nm">${a.names && a.names.length ? '🤖 ' + esc(a.names.join(', ')) : ''}</div>
+      <div class="row">
+        ${a.removed ? `<button data-restore="${esc(a.key)}">Restore</button>` : `<button data-name="${esc(a.key)}">Bot name</button><button class="del" data-del="${esc(a.key)}">Delete</button>`}
+      </div>
+    </div>`).join('');
+  grid.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => avDelete(b.dataset.del)));
+  grid.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', () => avRestore(b.dataset.restore)));
+  grid.querySelectorAll('[data-name]').forEach(b => b.addEventListener('click', () => avNameFace(b.dataset.name)));
+}
+async function avCall(url, method, body) {
+  const res = await adminFetch(url, undefined, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  let data = {}; try { data = await res.json(); } catch (e) {}
+  return { ok: res.ok && data.ok !== false, data };
+}
+async function avDelete(key) {
+  const a = avList.find(x => x.key === key); if (!a) return;
+  const what = a.source === 'uploaded' ? 'This deletes the uploaded picture for good.' : 'It will be hidden from the game (you can restore it from the Hidden tab).';
+  if (!confirm(`Delete ${key}?\n${what}\nPlayers who picked it will get another avatar.`)) return;
+  const r = await avCall('/api/admin/avatars/' + encodeURIComponent(key), 'DELETE');
+  if (!r.ok) { avMsg(r.data.error || 'Could not delete.', true); return; }
+  avMsg('Deleted ' + key + '.'); await refreshAvatarManager();
+}
+async function avRestore(key) {
+  const r = await avCall('/api/admin/avatars/' + encodeURIComponent(key) + '/restore', 'POST', {});
+  if (!r.ok) { avMsg(r.data.error || 'Could not restore.', true); return; }
+  avMsg('Restored ' + key + '.'); await refreshAvatarManager();
+}
+async function avNameFace(key) {
+  const name = prompt('Give ' + key + ' to which bot name?\n(Leave empty to clear it from every name.)', '');
+  if (name === null) return;
+  const a = avList.find(x => x.key === key);
+  if (!name.trim()) { for (const n of (a.names || [])) await avCall('/api/admin/avatars/name-face', 'POST', { name: n, key: null }); }
+  else { const r = await avCall('/api/admin/avatars/name-face', 'POST', { name: name.trim(), key }); if (!r.ok) { avMsg(r.data.error || 'Could not save.', true); return; } }
+  await refreshAvatarManager();
+}
+
+// ---- preparing a picture in the browser: optional plain-background removal, crop, 320x320, compress ----
+const AV_SIZE = 320;
+function avLoadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file could not be read as a picture.')); };
+    img.src = url;
+  });
+}
+function avHasTransparency(data, w, h) {
+  const pts = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1], [w >> 1, 0], [0, h >> 1], [w - 1, h >> 1]];
+  return pts.some(([x, y]) => data[(y * w + x) * 4 + 3] < 200);
+}
+// flood fill from the picture's edge: every pixel connected to the border that is close to the border colour becomes transparent
+function avRemoveBackground(data, w, h, tol) {
+  const border = [];
+  for (let x = 0; x < w; x++) { border.push([x, 0], [x, h - 1]); }
+  for (let y = 0; y < h; y++) { border.push([0, y], [w - 1, y]); }
+  const rs = [], gs = [], bs = [];
+  border.forEach(([x, y]) => { const i = (y * w + x) * 4; rs.push(data[i]); gs.push(data[i + 1]); bs.push(data[i + 2]); });
+  const med = (a) => a.sort((p, q) => p - q)[a.length >> 1];
+  const br = med(rs), bg = med(gs), bb = med(bs);
+  if ((br + bg + bb) / 3 < 45) tol = Math.min(tol, 11);   // near-black background: be careful with dark hair
+  const seen = new Uint8Array(w * h), stack = [];
+  const close = (i) => { const dr = data[i] - br, dg = data[i + 1] - bg, db = data[i + 2] - bb; return dr * dr + dg * dg + db * db <= tol * tol * 3; };
+  border.forEach(([x, y]) => { const p = y * w + x; if (!seen[p] && close(p * 4)) { seen[p] = 1; stack.push(p); } });
+  while (stack.length) {
+    const p = stack.pop(), x = p % w, y = (p / w) | 0;
+    data[p * 4 + 3] = 0;
+    if (x > 0 && !seen[p - 1] && close((p - 1) * 4)) { seen[p - 1] = 1; stack.push(p - 1); }
+    if (x < w - 1 && !seen[p + 1] && close((p + 1) * 4)) { seen[p + 1] = 1; stack.push(p + 1); }
+    if (y > 0 && !seen[p - w] && close((p - w) * 4)) { seen[p - w] = 1; stack.push(p - w); }
+    if (y < h - 1 && !seen[p + w] && close((p + w) * 4)) { seen[p + w] = 1; stack.push(p + w); }
+  }
+  // peel the light/dark fringe left around hair and clothes: a few passes that only remove edge pixels still close to the
+  // background colour (so a white halo around dark hair goes, but real colours are kept)
+  const peelTol = tol * 2.4;
+  const near = (i) => { const dr = data[i] - br, dg = data[i + 1] - bg, db = data[i + 2] - bb; return dr * dr + dg * dg + db * db <= peelTol * peelTol * 3; };
+  for (let pass = 0; pass < 3; pass++) {
+    const kill = [];
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x, i = p * 4;
+      if (data[i + 3] === 0) continue;
+      if ((data[i - 1] === 0 && data[i - 4 + 3] === 0) || data[(p - 1) * 4 + 3] === 0 || data[(p + 1) * 4 + 3] === 0 || data[(p - w) * 4 + 3] === 0 || data[(p + w) * 4 + 3] === 0) { if (near(i)) kill.push(i); }
+    }
+    kill.forEach((i) => { data[i + 3] = 0; });
+  }
+  // soften the cut edge: opaque pixels touching a removed pixel become half transparent (no hard halo)
+  const out = new Uint8ClampedArray(data.length); out.set(data);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = (y * w + x) * 4;
+    if (data[i + 3] > 0 && (data[i - 4 + 3] === 0 || data[i + 4 + 3] === 0 || data[i - w * 4 + 3] === 0 || data[i + w * 4 + 3] === 0)) out[i + 3] = 130;
+  }
+  data.set(out);
+}
+async function avPrepare(file, removeBg, format) {
+  const img = await avLoadImage(file);
+  const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+  const c0 = document.createElement('canvas'); c0.width = w; c0.height = h;
+  const x0 = c0.getContext('2d', { willReadFrequently: true }); x0.drawImage(img, 0, 0, w, h);
+  const id = x0.getImageData(0, 0, w, h);
+  const already = avHasTransparency(id.data, w, h);
+  if (removeBg && !already) { avRemoveBackground(id.data, w, h, 26); x0.putImageData(id, 0, 0); }
+  const hasAlphaNow = avHasTransparency(id.data, w, h);
+  // crop to the person (everything that is not transparent), then fit into the square, standing on the bottom edge
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (id.data[(y * w + x) * 4 + 3] > 24) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  if (maxX < 0) throw new Error('Nothing is left of the picture after removing the background. Untick "remove background" or use another picture.');
+  const bw = maxX - minX + 1, bh = maxY - minY + 1;
+  const k = Math.min((AV_SIZE - 12) / bw, (AV_SIZE - 6) / bh);
+  const dw = Math.round(bw * k), dh = Math.round(bh * k);
+  const out = document.createElement('canvas'); out.width = AV_SIZE; out.height = AV_SIZE;
+  const ox = out.getContext('2d'); ox.imageSmoothingQuality = 'high';
+  ox.drawImage(c0, minX, minY, bw, bh, Math.round((AV_SIZE - dw) / 2), AV_SIZE - dh, dw, dh);
+  const toBlob = (type, q) => new Promise((r) => out.toBlob(r, type, q));
+  let blob = format === 'webp' ? await toBlob('image/webp', 0.86) : null;
+  if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/png');   // browser can't write WebP -> PNG
+  return { canvas: out, blob, hasAlphaNow, wasTransparent: already, removed: removeBg && !already };
+}
+function avDrawPreview(canvas) {
+  const a = document.getElementById('avPvCheck').getContext('2d'), b = document.getElementById('avPvTable').getContext('2d');
+  a.clearRect(0, 0, 160, 160);
+  for (let y = 0; y < 160; y += 16) for (let x = 0; x < 160; x += 16) { a.fillStyle = ((x + y) / 16) % 2 ? '#d8d8d8' : '#f2f2f2'; a.fillRect(x, y, 16, 16); }
+  b.fillStyle = '#3a0c12'; b.fillRect(0, 0, 160, 160);
+  a.drawImage(canvas, 0, 0, 160, 160); b.drawImage(canvas, 0, 0, 160, 160);
+}
+function avBlobToBase64(blob) {
+  return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result).split(',')[1] || ''); r.onerror = reject; r.readAsDataURL(blob); });
+}
+let avPrepSeq = 0;
+async function avReprocess() {
+  const file = document.getElementById('avFile').files[0];
+  const btn = document.getElementById('btnAvAdd');
+  avProcessed = null; btn.disabled = true;
+  if (!file) { document.getElementById('avPreview').style.display = 'none'; return; }
+  const seq = ++avPrepSeq;
+  try {
+    avMsg('Preparing…');
+    const r = await avPrepare(file, document.getElementById('avRemoveBg').checked, document.getElementById('avFormat').value);
+    if (seq !== avPrepSeq) return;
+    avProcessed = r;
+    document.getElementById('avPreview').style.display = 'block';
+    avDrawPreview(r.canvas);
+    const kb = Math.round(r.blob.size / 1024);
+    document.getElementById('avInfo').textContent = `${AV_SIZE} × ${AV_SIZE} · ${kb} KB ${r.blob.type === 'image/webp' ? 'WebP' : 'PNG'}` +
+      (r.wasTransparent ? ' · picture already had a transparent background' : r.removed ? ' · plain background removed' : ' · no transparent background — tick "Remove the plain background"');
+    if (!r.hasAlphaNow) { avMsg('This picture has no transparent background. Tick "Remove the plain background" (works on a single-colour background) or upload a cut-out.', true); btn.disabled = true; }
+    else if (r.blob.size > 240 * 1024) { avMsg('Still too big after compression (' + kb + ' KB). Try a simpler picture.', true); btn.disabled = true; }
+    else { avMsg(''); btn.disabled = false; }
+  } catch (e) { if (seq === avPrepSeq) { avMsg(e.message || 'Could not prepare that picture.', true); document.getElementById('avPreview').style.display = 'none'; } }
+}
+document.getElementById('avFile').addEventListener('change', async () => {
+  // a photo on a plain background will almost always want the background removed: tick it automatically after a quick look
+  const file = document.getElementById('avFile').files[0];
+  if (file) { try { const img = await avLoadImage(file); const c = document.createElement('canvas'); c.width = Math.min(200, img.naturalWidth); c.height = Math.min(200, img.naturalHeight); const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, c.width, c.height); document.getElementById('avRemoveBg').checked = !avHasTransparency(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height); } catch (e) {} }
+  avReprocess();
+});
+document.getElementById('avRemoveBg').addEventListener('change', avReprocess);
+document.getElementById('avFormat').addEventListener('change', avReprocess);
+document.getElementById('btnAvAdd').addEventListener('click', async () => {
+  if (!avProcessed) return;
+  const btn = document.getElementById('btnAvAdd'); btn.disabled = true; avMsg('Uploading…');
+  try {
+    const data = await avBlobToBase64(avProcessed.blob);
+    const r = await avCall('/api/admin/avatars', 'POST', { gender: document.getElementById('avGender').value, label: document.getElementById('avLabel').value, nameFor: document.getElementById('avNameFor').value, data });
+    if (!r.ok) { avMsg(r.data.error || 'The server did not accept that picture.', true); btn.disabled = false; return; }
+    avMsg('Added ' + r.data.key + '. It is live now.');
+    document.getElementById('avFile').value = ''; document.getElementById('avLabel').value = ''; document.getElementById('avNameFor').value = '';
+    document.getElementById('avPreview').style.display = 'none'; avProcessed = null;
+    await refreshAvatarManager();
+  } catch (e) { avMsg('Upload failed. Check your connection and try again.', true); btn.disabled = false; }
+});
+document.getElementById('avFilters').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-f]'); if (!b) return;
+  avFilter = b.dataset.f; [...document.getElementById('avFilters').children].forEach(x => x.classList.toggle('on', x === b)); renderAvatarManager();
+});
+
+// ---------------- Railway bill ----------------
+const usd = (v) => '$' + (Math.abs(v) < 0.005 ? '0.00' : Number(v).toFixed(2));
+const usd4 = (v) => '$' + Number(v).toFixed(4);
+function renderBill(b) {
+  const el = document.getElementById('billBody');
+  if (!b) { el.innerHTML = '<div class="empty">No bill data yet.</div>'; return; }
+  const dec = (n) => { n = Number(n) || 0; return n >= 1e9 ? (n / 1e9).toFixed(2) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.round(n / 1e3) + ' KB'; };
+  const qtyText = (c) => c.unit === 'bytes' ? dec(c.qty) + ' sent out' : (c.qty >= 100 ? Math.round(c.qty).toLocaleString() : c.qty.toFixed(2)) + ' ' + c.unit;
+  let h = '';
+  h += `<div class="ub-sec">This billing cycle<small>${esc(b.cycleStartDate)} → ${esc(b.cycleEndDate)} · resets on ${esc(b.nextDate)} (in ${b.daysLeft} day${b.daysLeft === 1 ? '' : 's'}) · cycle starts on day ${b.settings.cycleDay} of the month</small></div>`;
+  h += `<div class="ub-cards">${ubCard(usd(b.totalUsd), 'so far this cycle', true)}${ubCard(usd(b.projectedUsd), 'projected by the end of the cycle')}${ubCard(usd(b.todayUsd), 'today')}</div>`;
+  if (b.invoiceEstimate != null) h += ubRow('Estimated invoice', usd(b.invoiceEstimate), null, `plan fee ${usd(b.settings.planFee)} + usage above the ${usd(b.settings.includedCredit)} included credit`);
+  const maxUsd = Math.max(0.0001, ...b.components.map(c => c.usd));
+  b.components.forEach(c => {
+    h += ubRow(esc(c.label), `${usd(c.usd)} <span style="opacity:.6">→ ${usd(c.projectedUsd)}</span>`, (c.usd / maxUsd) * 100, `${qtyText(c)} · rate ${c.key === 'egress' ? '$' + b.rates.egressPerGB + ' per GB' : c.key === 'memory' ? '$' + b.rates.memPerGBmin + ' per GB-minute' : c.key === 'cpu' ? '$' + b.rates.cpuPerVcpuMin + ' per vCPU-minute' : '$' + b.rates.volPerGBmin + ' per GB-minute'}`);
+  });
+  const covNote = (b.coverage.cost && b.coverage.cost > b.cycleStartDate) || (b.coverage.network && b.coverage.network > b.cycleStartDate)
+    ? `Tracking only began on ${esc([b.coverage.network, b.coverage.cost].filter(Boolean).sort().slice(-1)[0] || '')}, so the earlier days of this cycle are not included yet. Type Railway's "Current Usage" ($) and egress (GB) below once and this panel will add what was spent before tracking began.`
+    : '';
+  if (covNote) h += `<div class="ub-row"><div class="note">⚠️ ${covNote}</div></div>`;
+
+  // by day
+  h += `<div class="ub-sec">Day by day<small>Newest first, this cycle</small></div>`;
+  b.byDay.forEach(d => { h += ubRow(esc(d.date), usd4(d.usd), null, `${dec(d.egressBytes)} sent out`); });
+
+  // history + year
+  h += `<div class="ub-sec">Every month<small>Billing cycles, newest first — only as far back as tracking exists</small></div>`;
+  b.history.forEach(x => { h += ubRow(`${esc(x.start)} → ${esc(x.end)}${x.current ? ' · <b>now</b>' : ''}`, usd(x.usd), null, `${dec(x.egressBytes)} sent out${x.partial ? ' · partial (tracking began mid-cycle)' : ''}`); });
+  h += `<div class="ub-cards" style="margin-top:8px">${ubCard(usd(b.last12Usd), 'last 12 cycles')}${ubCard(usd(b.yearUsd), 'so far in ' + esc(b.yearLabel))}</div>`;
+
+  // Railway's own number vs ours
+  if (b.reading) {
+    const diff = b.reading.usd - b.reading.ourUsd;
+    h += `<div class="ub-row"><div class="top"><span>Check against Railway</span><em>${new Date(b.reading.asOf).toLocaleString()}</em></div><div class="note">You typed Railway's usage as <b>${usd(b.reading.usd)}</b>; this panel estimated <b>${usd(b.reading.ourUsd)}</b> at that moment (${diff >= 0 ? 'Railway higher by ' : 'Railway lower by '}${usd(Math.abs(diff))}${b.reading.usd > 0 ? ', ' + Math.round(Math.abs(diff) / b.reading.usd * 100) + '%' : ''}).</div></div>`;
+  }
+  // settings
+  const R = b.rates;
+  h += `<div class="ub-row"><div class="note" style="margin-bottom:6px">Settings & check. Railway shows your billing date under Billing; the rates are on its Usage → Project Cost table.</div>
+    <div class="ub-form">
+      <div><label>Billing cycle starts on day (1-31)</label><input id="blCycle" type="number" min="1" max="31" value="${b.settings.cycleDay}"></div>
+      <div><label>Plan fee per month ($, optional)</label><input id="blFee" type="number" min="0" step="any" value="${b.settings.planFee}"></div>
+      <div><label>Included usage credit ($, optional)</label><input id="blCredit" type="number" min="0" step="any" value="${b.settings.includedCredit}"></div>
+      <div><label>Egress rate ($ per GB)</label><input id="blRateEg" type="number" min="0" step="any" value="${R.egressPerGB}"></div>
+      <div><label>Memory rate ($ per GB-minute)</label><input id="blRateMem" type="number" min="0" step="any" value="${R.memPerGBmin}"></div>
+      <div><label>CPU rate ($ per vCPU-minute)</label><input id="blRateCpu" type="number" min="0" step="any" value="${R.cpuPerVcpuMin}"></div>
+      <div class="full"><label>Volume rate ($ per GB-minute)</label><input id="blRateVol" type="number" min="0" step="any" value="${R.volPerGBmin}"></div>
+      <div><label>Railway "Current Usage" now ($)</label><input id="blReadUsd" type="number" min="0" step="any" placeholder="e.g. 1.47"></div>
+      <div><label>Railway egress now (GB)</label><input id="blReadEg" type="number" min="0" step="any" placeholder="e.g. 20.63"></div>
+    </div>
+    <button class="btn" id="btnSaveBill" style="margin-top:10px">Save</button></div>`;
+  el.innerHTML = h;
+  document.getElementById('btnSaveBill').addEventListener('click', saveBillSettings);
+}
+async function saveBillSettings() {
+  const btn = document.getElementById('btnSaveBill'); btn.disabled = true;
+  const v = (id) => document.getElementById(id).value;
+  try {
+    await adminFetch('/api/admin/bill-settings', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      cycleDay: v('blCycle'), planFee: v('blFee'), includedCredit: v('blCredit'),
+      rates: { egressPerGB: v('blRateEg'), memPerGBmin: v('blRateMem'), cpuPerVcpuMin: v('blRateCpu'), volPerGBmin: v('blRateVol') },
+      readingUsd: v('blReadUsd'), readingEgressGB: v('blReadEg') }) });
+  } catch (e) {}
+  await refreshUsageBreakdown();
+}
+
 // ---------------- Usage breakdown ----------------
 let ubRangeSel = 'today';
 const UB_HTTP_LABEL = { pages: 'Pages (HTML)', scripts: 'Scripts, styles & fonts', avatars: 'Avatar pictures', images: 'Other images (backgrounds, art)', sounds: 'Sounds & video', api: 'API calls (comments, config…)', admin: 'This admin panel', other: 'Other files' };
@@ -1545,7 +1880,9 @@ async function refreshUsageBreakdown() {
   try {
     const res = await adminFetch('/api/admin/usage-breakdown?range=' + encodeURIComponent(ubRangeSel));
     if (!res.ok) { document.getElementById('ubBody').innerHTML = '<div class="empty">Could not load the breakdown.</div>'; return; }
-    renderUsageBreakdown(await res.json());
+    const data = await res.json();
+    renderUsageBreakdown(data);
+    try { renderBill(data.bill); } catch (e) { document.getElementById('billBody').innerHTML = '<div class="empty">Could not show the bill.</div>'; }
   } catch (e) { document.getElementById('ubBody').innerHTML = '<div class="empty">Could not load the breakdown.</div>'; }
 }
 async function saveTurnQuota() {

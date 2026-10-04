@@ -646,6 +646,7 @@
   }
 </style>
 <script src="name-filter.js?v=1"></script>
+<script src="/avatar-catalog.js"></script>
 <script src="table-faces.js?v=1"></script>
 </head>
 <body>
@@ -825,7 +826,7 @@ let mySeat = null;
 // returning player's choice carries over between every table.
 let myAvatar = '';
 try { myAvatar = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
-const ALL_AVATAR_KEYS_56 = Array.from({length:90}, (_,i) => 'toon'+(i+1));
+const ALL_AVATAR_KEYS_56 = (window.AVATAR_CATALOG ? AVATAR_CATALOG.keys.slice() : Array.from({length:90}, (_,i) => 'toon'+(i+1)));
 if (!myAvatar || !ALL_AVATAR_KEYS_56.includes(myAvatar)) {
   myAvatar = ALL_AVATAR_KEYS_56[Math.floor(Math.random() * ALL_AVATAR_KEYS_56.length)];
 }

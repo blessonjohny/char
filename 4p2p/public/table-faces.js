@@ -17,11 +17,16 @@
   'use strict';
   const MALE = [1, 5, 8, 19, 24, 26, 27, 34, 39, 43, 45, 48, 58, 62, 63, 66, 74, 80];
   const FEMALE = [2, 3, 4, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22, 23, 25, 28, 29, 30, 31, 32, 33, 35, 36, 37, 38, 40, 41, 42, 44, 46, 47, 49, 50, 51, 52, 53, 54, 55, 56, 57, 59, 60, 61, 64, 65, 67, 68, 69, 70, 71, 72, 73, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90];
-  const MALE_SET = new Set(MALE.map((n) => 'toon' + n));
-  const FEMALE_SET = new Set(FEMALE.map((n) => 'toon' + n));
-  const MALE_KEYS = MALE.map((n) => 'toon' + n);
-  const FEMALE_KEYS = FEMALE.map((n) => 'toon' + n);
+  // The live catalog (admin panel) wins when it loaded: it knows about uploaded avatars, hidden ones and genders.
+  const CAT = (typeof window !== 'undefined' && window.AVATAR_CATALOG) || (typeof self !== 'undefined' && self.AVATAR_CATALOG) || null;
+  const MALE_KEYS = CAT ? CAT.male.slice() : MALE.map((n) => 'toon' + n);
+  const FEMALE_KEYS = CAT ? CAT.female.slice() : FEMALE.map((n) => 'toon' + n);
+  const MALE_SET = new Set(MALE_KEYS);
+  const FEMALE_SET = new Set(FEMALE_KEYS);
   const ALL_KEYS = MALE_KEYS.concat(FEMALE_KEYS);
+  // gender of a face even if it has since been hidden (so a bot whose face was deleted still gets a same-gender one)
+  const genderOfKey = (k) => (CAT && CAT.genderOf && CAT.genderOf[k]) || (MALE_SET.has(k) ? 'm' : FEMALE_SET.has(k) ? 'f' : null);
+  const ACTIVE = new Set(ALL_KEYS);
   let current = {};            // name -> resolved face key for the table as last seen
 
   function keyOf(x) {          // accepts 'toon12' or markup containing toon12.png
@@ -46,9 +51,13 @@
     (seats || []).forEach((s) => {
       if (!s || out[s.name]) return;
       let k = keyOf(s.pref);
+      const pinned = CAT && CAT.faceFor ? CAT.faceFor(s.name) : null;     // a bot name given its own face in the admin panel
+      if (pinned && !(anyGender)) k = pinned;
       if (!k) k = ALL_KEYS[hash(s.name) % ALL_KEYS.length];
-      if (used.has(k)) {
-        const pool = anyGender ? ALL_KEYS : (MALE_SET.has(k) ? MALE_KEYS : (FEMALE_SET.has(k) ? FEMALE_KEYS : ALL_KEYS));
+      const stale = !ACTIVE.has(k);                                      // that face was deleted/hidden: treat it as taken
+      if (used.has(k) || stale) {
+        const g = genderOfKey(k);
+        const pool = anyGender ? ALL_KEYS : (g === 'm' ? MALE_KEYS : (g === 'f' ? FEMALE_KEYS : ALL_KEYS));
         const start = hash(s.name) % pool.length;
         for (let i = 0; i < pool.length; i++) {
           const cand = pool[(start + i) % pool.length];
