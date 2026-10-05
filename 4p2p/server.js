@@ -225,7 +225,11 @@ function checkAdminAuthSocket(socket, password) {
 // traffic per game, time at tables vs wandering, voice reported by players' browsers. Counting only; never
 // changes what is served, and every hook inside is wrapped so it cannot break a request or a game.
 const { createUsageStats } = require('./usage-stats');
-const usage = createUsageStats({ file: path.join(DATA_DIR, 'usage-breakdown-data.json') });
+const usage = createUsageStats({
+  file: path.join(DATA_DIR, 'usage-breakdown-data.json'),
+  // how many real tables exist right now (editor-preview tables are not counted); read once per sample for the admin's health graphs
+  liveCounts: () => ({ tables: [tables, sixpTables, l56Rooms, pokerTables].reduce((n, grp) => n + Object.values(grp).filter((t) => !t.hidden).length, 0) }),
+});
 app.use(usage.httpMiddleware);
 
 // ---- Avatars managed from the admin panel (see avatar-catalog.js) ----------------------------------------------

@@ -122,6 +122,7 @@ function createUsageStats(opts) {
   let quota = null;
   let dirty = false;
   const live = new Map();               // socket id -> ctx
+  const ctr = { req: 0, err: 0, msgs: 0 };   // running totals: web requests, failed (5xx) requests, live game messages -- the sampler turns them into per-minute counts
   let todayKey = null, today = null;
 
   // The voice relay is Cloudflare Realtime TURN (confirmed on the owner's dashboard: Realtime = Active, Workers Free,
@@ -165,7 +166,11 @@ function createUsageStats(opts) {
   // so a spike can be matched against players joining, restarts and GitHub backups instead of guessed at.
   const MIN_MS = 60000, KEEP_MIN_MS = 48 * 3600000, KEEP_10_MS = 30 * 86400000;
   const memFile = (opts && opts.memFile) || (file ? require('path').join(require('path').dirname(file), 'memory-history.json') : null);
+  // Per-minute server health, stored with each RAM record: data in / out (bytes), CPU (seconds of one core), web requests, failed
+  // requests, live game messages -- added up over the minute; and voice people, live tables, server delay -- the highest in the minute.
+  const SUM_KEYS = ['rx', 'tx', 'cpu', 'req', 'err', 'msgs'], MAX_KEYS = ['voice', 'tables', 'lag'];
   let memMin = [], mem10 = [], memMarkers = [], memCur = null, memDirty = false, lastMemSave = 0;
+  let hPrev = null;                       // previous sample's totals, for the deltas
   function addMarker(type, label, bytes) {
     memMarkers.push({ t: now(), type, label: String(label || '').slice(0, 80), bytes: bytes || 0 });
     if (memMarkers.length > 300) memMarkers.splice(0, memMarkers.length - 300);
@@ -195,12 +200,19 @@ function createUsageStats(opts) {
         last.avg = Math.round((last.avg * last.n + r.avg) / (last.n + 1)); last.n += 1;
         last.max = Math.max(last.max, r.max); last.rss = Math.max(last.rss, r.rss); last.heap = Math.max(last.heap, r.heap);
         last.ext = Math.max(last.ext, r.ext); last.conns = Math.max(last.conns, r.conns); last.seated = Math.max(last.seated, r.seated);
-      } else mem10.push({ t: b, n: 1, avg: r.avg, max: r.max, rss: r.rss, heap: r.heap, ext: r.ext, conns: r.conns, seated: r.seated });
+        for (const k of SUM_KEYS) last[k] = (last[k] || 0) + (r[k] || 0);                      // data, CPU, requests... add up over the minutes
+        for (const k of MAX_KEYS) last[k] = Math.max(last[k] || 0, r[k] || 0);
+      } else {
+        const o = { t: b, n: 1, avg: r.avg, max: r.max, rss: r.rss, heap: r.heap, ext: r.ext, conns: r.conns, seated: r.seated };
+        for (const k of SUM_KEYS) o[k] = r[k] || 0; for (const k of MAX_KEYS) o[k] = r[k] || 0; mem10.push(o);
+      }
     }
     const cut10 = now() - KEEP_10_MS; while (mem10.length && mem10[0].t < cut10) mem10.shift();
   }
   function pushMem(c) {
-    memMin.push({ t: c.t, avg: Math.round(c.sum / c.n), max: c.max, rss: c.rss, heap: c.heap, ext: c.ext, conns: c.conns, seated: c.seated });
+    const rec = { t: c.t, n: 1, avg: Math.round(c.sum / c.n), max: c.max, rss: c.rss, heap: c.heap, ext: c.ext, conns: c.conns, seated: c.seated };
+    for (const k of SUM_KEYS) rec[k] = Math.round(c[k] * 100) / 100; for (const k of MAX_KEYS) rec[k] = c[k];
+    memMin.push(rec);
     rollOld(); memDirty = true;
   }
   function sampleMemory(readers) {
@@ -209,7 +221,18 @@ function createUsageStats(opts) {
       const ws = readers && readers.mem ? readers.mem() : readMemoryBytes();
       const pm = readers && readers.proc ? readers.proc() : process.memoryUsage();
       if (memCur && memCur.t !== minute) { pushMem(memCur); memCur = null; }
-      if (!memCur) memCur = { t: minute, n: 0, sum: 0, max: 0, rss: 0, heap: 0, ext: 0, conns: 0, seated: 0 };
+      if (!memCur) memCur = { t: minute, n: 0, sum: 0, max: 0, rss: 0, heap: 0, ext: 0, conns: 0, seated: 0, rx: 0, tx: 0, cpu: 0, req: 0, err: 0, msgs: 0, voice: 0, tables: 0, lag: 0 };
+      // ---- server health since the previous sample (data, CPU, requests, messages) and right-now readings (voice, tables, delay)
+      const hn = readers && readers.health ? readers.health() : { net: readNet(), cpu: readCpuSeconds() };
+      const cur = { t, rx: hn.net ? hn.net.rx : 0, tx: hn.net ? hn.net.tx : 0, cpu: hn.cpu || 0, req: ctr.req, err: ctr.err, msgs: ctr.msgs };
+      if (hPrev) {
+        for (const k of SUM_KEYS) memCur[k] += Math.max(0, cur[k] - hPrev[k]);
+        memCur.lag = Math.max(memCur.lag, Math.max(0, (t - hPrev.t) - 15000));          // the sampler runs every 15 s: anything later is the server being too busy to run it on time
+      }
+      hPrev = cur;
+      let vc = 0; for (const c of live.values()) if (c.voiceSince) vc += 1;
+      memCur.voice = Math.max(memCur.voice, vc);
+      try { const lc = opts && opts.liveCounts ? opts.liveCounts() : null; if (lc && Number.isFinite(lc.tables)) memCur.tables = Math.max(memCur.tables, lc.tables); } catch (_) {}
       memCur.n += 1; memCur.sum += ws; if (ws > memCur.max) memCur.max = ws;
       if (pm.rss > memCur.rss) memCur.rss = pm.rss; if (pm.heapUsed > memCur.heap) memCur.heap = pm.heapUsed; if ((pm.external || 0) > memCur.ext) memCur.ext = pm.external || 0;
       let seated = 0; for (const c of live.values()) if (c.table) seated += 1;
@@ -332,7 +355,7 @@ function createUsageStats(opts) {
           const cat = catOfHttp(req.originalUrl || req.url, res.getHeader && res.getHeader('content-type'));
           const d = day();
           const x = d.http[cat] || (d.http[cat] = { bytes: 0, n: 0, head: 0, in: 0 });
-          x.bytes += bytes; x.n += 1;
+          x.bytes += bytes; x.n += 1; ctr.req += 1; if (res.statusCode >= 500) ctr.err += 1;
           x.head = (x.head || 0) + (res._header ? Buffer.byteLength(String(res._header)) : 0);   // response headers
           const rb1 = (sock && sock.bytesRead) || 0;
           x.in = (x.in || 0) + Math.max(0, rb1 - rbBase);                                         // what the browser sent (headers + body)
@@ -354,6 +377,7 @@ function createUsageStats(opts) {
   function onPacket(ctx, dir, packet) {
     try {
       if (!packet || packet.type !== 'message') return;
+      ctr.msgs += 1;
       const n = packetBytes(packet.data);
       if (!n) return;
       const ev = eventName(packet.data);
@@ -788,10 +812,15 @@ function createUsageStats(opts) {
     for (const p of pts) {
       const b = Math.floor((p.t - from) / bw);
       const last = out[out.length - 1];
-      if (last && last.b === b) { last.max = Math.max(last.max, p.max); last.sum += p.avg; last.n += 1; last.rss = Math.max(last.rss, p.rss); last.heap = Math.max(last.heap, p.heap); last.ext = Math.max(last.ext, p.ext); last.conns = Math.max(last.conns, p.conns); last.seated = Math.max(last.seated, p.seated); }
-      else out.push({ b, t: p.t, max: p.max, sum: p.avg, n: 1, rss: p.rss, heap: p.heap, ext: p.ext, conns: p.conns, seated: p.seated });
+      const mins = p.n || 1;
+      if (last && last.b === b) { for (const k of SUM_KEYS) last['s_' + k] += (p[k] || 0); for (const k of MAX_KEYS) last[k] = Math.max(last[k], p[k] || 0); last.mins += mins; last.max = Math.max(last.max, p.max); last.sum += p.avg; last.n += 1; last.rss = Math.max(last.rss, p.rss); last.heap = Math.max(last.heap, p.heap); last.ext = Math.max(last.ext, p.ext); last.conns = Math.max(last.conns, p.conns); last.seated = Math.max(last.seated, p.seated); }
+      else { const o = { b, t: p.t, max: p.max, sum: p.avg, n: 1, rss: p.rss, heap: p.heap, ext: p.ext, conns: p.conns, seated: p.seated, mins }; for (const k of SUM_KEYS) o['s_' + k] = p[k] || 0; for (const k of MAX_KEYS) o[k] = p[k] || 0; out.push(o); }
     }
-    const points = out.map((o) => [o.t, o.max, Math.round(o.sum / o.n), o.rss, o.heap, o.ext, o.conns, o.seated]);
+    // point = [time, RAM peak, RAM average, process, game objects, buffers, connected, seated,
+    //          data in /min, data out /min, CPU % of one core, web requests /min, failed requests /min, live messages /min, people on voice, live tables, server delay ms]
+    const rate = (o, k) => Math.round((o['s_' + k] / Math.max(1, o.mins)) * 100) / 100;
+    const points = out.map((o) => [o.t, o.max, Math.round(o.sum / o.n), o.rss, o.heap, o.ext, o.conns, o.seated,
+      Math.round(rate(o, 'rx')), Math.round(rate(o, 'tx')), Math.round(rate(o, 'cpu') / 60 * 1000) / 10, Math.round(rate(o, 'req') * 10) / 10, Math.round(rate(o, 'err') * 10) / 10, Math.round(rate(o, 'msgs') * 10) / 10, o.voice, o.tables, Math.round(o.lag)]);
     const peak = pts.reduce((a, p) => (p.max > a.max ? p : a), pts[0] || { max: 0, t: t, conns: 0 });
     return {
       ok: true, range, from, to: t, resolution: stepMs >= 5 * MIN_MS ? '10 minutes' : '1 minute', points,
