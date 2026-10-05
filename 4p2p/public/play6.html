@@ -470,7 +470,25 @@ h1{font-size:1.7rem;margin:0 0 4px;background:linear-gradient(135deg,#f4c430,#e6
 input.text-input{width:100%;max-width:320px;padding:14px;border-radius:12px;border:2px solid var(--accent, #f4c430);background:rgba(255,255,255,0.14);color:#fff;font-size:1rem;margin-bottom:14px;text-align:center;box-shadow:0 0 10px rgba(244,196,48,0.15),inset 0 1px 3px rgba(0,0,0,0.3)}
 input.text-input::placeholder{color:rgba(255,255,255,0.55)}
 input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:0 0 14px rgba(244,196,48,0.35),inset 0 1px 3px rgba(0,0,0,0.3)}
+/* ---- lobby: live tables, the bright JOIN button with its blinking green light, and the Challenge group ---- */
+.live-section{width:100%;margin:6px 0 16px}
+.live-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:0.82rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:#7dffa8}
+.live-led{display:inline-block;width:10px;height:10px;border-radius:50%;background:#39ff7a;box-shadow:0 0 0 0 rgba(57,255,122,.75),0 0 10px 2px rgba(57,255,122,.7);animation:liveBlink 1.15s ease-in-out infinite;flex:none}
+@keyframes liveBlink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(57,255,122,.7),0 0 10px 2px rgba(57,255,122,.75)}50%{opacity:.25;box-shadow:0 0 0 7px rgba(57,255,122,0),0 0 2px 0 rgba(57,255,122,.2)}}
+.join-live-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;width:auto;min-height:44px;margin:0;padding:11px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#39ff7a,#14c957);color:#04210f;font-weight:900;font-size:0.95rem;letter-spacing:.6px;cursor:pointer;box-shadow:0 3px 14px rgba(57,255,122,.35);touch-action:manipulation}
+.join-live-btn:active{transform:scale(.96)}
+.join-live-btn .live-led{width:9px;height:9px;background:#fff;box-shadow:0 0 0 0 rgba(255,255,255,.9),0 0 8px 2px rgba(255,255,255,.9);animation:joinBlink 1.15s ease-in-out infinite}
+@keyframes joinBlink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,255,255,.85),0 0 8px 2px rgba(255,255,255,.95)}50%{opacity:.2;box-shadow:0 0 0 6px rgba(255,255,255,0),0 0 2px 0 rgba(255,255,255,.2)}}
+.join-live-btn:disabled{background:#3a4352;color:#9aa4b4;box-shadow:none;cursor:not-allowed}
+.join-live-btn:disabled .live-led{animation:none;background:#7d8798;box-shadow:none;opacity:.7}
+.challenge-group{width:100%;margin:26px 0 4px;padding:14px 10px 12px;border-radius:16px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.28)}
+.challenge-head{display:flex;align-items:center;gap:10px;margin:0 0 4px;font-size:0.8rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#d9b3ff}
+.challenge-head::before,.challenge-head::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(217,179,255,.45))}
+.challenge-head::after{background:linear-gradient(270deg,transparent,rgba(217,179,255,.45))}
+.challenge-sub{text-align:center;font-size:0.72rem;color:var(--text-secondary);margin-bottom:10px}
 .room-list{width:100%;max-width:340px;max-height:280px;overflow-y:auto;margin-bottom:14px}
+.live-section .room-list{max-width:none;margin-bottom:0}
+.live-section .room-row>div:first-child{text-align:left;line-height:1.45}
 .room-row{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;font-size:0.85rem}
 .link-back{position:fixed;top:12px;left:12px;font-size:0.75rem;color:var(--text-secondary);text-decoration:none;z-index:200;background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:20px}
 
@@ -1829,25 +1847,29 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 <div class="screen" id="welcomeScreen">
   <h1>🎴 28 Kerala Gulan</h1>
   <div class="subtitle">6 PLAYER TABLE — 2 teams of 3</div>
+  <!-- Live tables come first: that is what most people are here for. The JOIN buttons are bright with a blinking green light. -->
+  <div class="live-section">
+    <div class="live-head"><span class="live-led"></span><span>Live tables</span></div>
+    <div class="room-list" id="welcomeRoomList"></div>
+  </div>
   <button class="btn btn-primary" id="btnCreate">🏠 Create Table</button>
   <!-- Real, confirmed feature per explicit request ("4 and 6 player
        should have a challenge table"): same pattern as the 4-player
        table's identical addition -- picking a difficulty creates the
        table with the challenger's team starting that deficit and
        forced into the first bid, otherwise a completely ordinary
-       table. -->
-  <div class="challenge-label-static">🎯 Create Challenge Table</div>
-  <div id="challengeOptionsRow6p" style="display:flex;gap:8px;width:100%">
-    <button type="button" class="challenge-diff-btn-6p challenge-diff-medium" data-handicap="5"><span class="challenge-diff-name">Challenge Med</span><span class="challenge-diff-sub">Start 0–5</span></button>
-    <button type="button" class="challenge-diff-btn-6p challenge-diff-hard" data-handicap="10"><span class="challenge-diff-name">Challenge Hard</span><span class="challenge-diff-sub">Start 0–10</span></button>
-    <button type="button" class="challenge-diff-btn-6p challenge-diff-dare" data-handicap="13"><span class="challenge-diff-name">Dare Hall</span><span class="challenge-diff-sub">Start 0–13</span></button>
+       table. The heading + the three difficulties are ONE group, set apart from Create Table. -->
+  <div class="challenge-group">
+    <div class="challenge-head"><span>🎯 Challenge</span></div>
+    <div class="challenge-sub">Start a table where your team begins behind</div>
+    <div id="challengeOptionsRow6p" style="display:flex;gap:8px;width:100%">
+      <button type="button" class="challenge-diff-btn-6p challenge-diff-medium" data-handicap="5"><span class="challenge-diff-name">Challenge Med</span><span class="challenge-diff-sub">Start 0–5</span></button>
+      <button type="button" class="challenge-diff-btn-6p challenge-diff-hard" data-handicap="10"><span class="challenge-diff-name">Challenge Hard</span><span class="challenge-diff-sub">Start 0–10</span></button>
+      <button type="button" class="challenge-diff-btn-6p challenge-diff-dare" data-handicap="13"><span class="challenge-diff-name">Dare Hall</span><span class="challenge-diff-sub">Start 0–13</span></button>
+    </div>
   </div>
-  <button class="btn btn-outline" id="btnShowJoin">🔑 Join Table</button>
+  <button class="btn btn-outline" id="btnShowJoin" style="margin-top:16px">🔑 Join with a code</button>
   <a href="/" class="btn btn-outline" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box">⬅️ Back to Main Menu</a>
-  <div style="margin-top:20px;text-align:left;width:100%;max-width:320px">
-    <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px">🌐 Public Tables</div>
-    <div class="room-list" id="welcomeRoomList"></div>
-  </div>
 </div>
 
 <!-- ============ NAME ENTRY ============ -->

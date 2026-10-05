@@ -1905,7 +1905,7 @@ function renderRoomList(rooms) {
       return `
     <div class="room-row" style="border-left:3px solid ${borderColor}">
       <div><b>${escapeHtml(r.name)}</b>${challengeTag}<br><span style="color:var(--text-secondary)">${r.players}/6 · ${r.isPlaying ? 'Playing' : 'Lobby'}</span></div>
-      <button class="btn btn-outline" style="width:auto;margin:0;padding:8px 14px" data-code="${r.tableId}" ${r.canJoinSeat ? '' : 'disabled'}>JOIN</button>
+      <button class="join-live-btn" data-code="${r.tableId}" ${r.canJoinSeat ? '' : 'disabled'}><span class="live-led"></span>JOIN</button>
     </div>`;
     }).join('');
   for (const list of targets) {

@@ -94,6 +94,37 @@
   .ave-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
   .ave-touch canvas{width:100%;border-radius:10px;border:1px solid var(--border);touch-action:none;cursor:crosshair;background:repeating-conic-gradient(#d8d8d8 0% 25%,#f2f2f2 0% 50%) 50%/16px 16px;display:block}
   .ed-mini.on{background:var(--accent);border-color:var(--accent);color:#241a12}
+  /* Editor studio: a full-screen editor. The picture stays pinned at the top, the tools sit in a strip, the controls scroll underneath. */
+  #avStudioBar,#avStudioTools,#avStudioScroll{display:contents}
+  #avPreview:not(.studio) #avStudioBar,#avPreview:not(.studio) #avStudioTools,#avPreview:not(.studio) #avStudioScroll{display:none}
+  #avPreview:not(.studio) #avStudioOpen{display:block}#avPreview.studio #avStudioOpen{display:none}
+  #avPreview.studio{position:fixed;inset:0;z-index:90;display:flex !important;flex-direction:column;margin:0 !important;padding:0;background:#091120}
+  #avPreview.studio #avStudioBar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:#0d1626;border-bottom:1px solid var(--border);flex:none}
+  #avPreview.studio #avStudioBar b{color:#fff;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #avStudioClose{border:1px solid var(--border);background:rgba(255,255,255,.07);color:#fff;border-radius:10px;padding:8px 14px;font-weight:800;cursor:pointer}
+  #avStudioDone{width:auto !important;flex:none;padding:9px 20px;margin:0}
+  #avPreview.studio #avStudioBar b{flex:1;text-align:center}
+  #avPreview.studio #avStudioView{display:flex;flex:none;height:min(42vh,400px);align-items:center;justify-content:center;position:relative;background:#0a111d;padding:8px 76px 4px 8px;overflow:hidden}
+  #avPreview.studio .ave-stage{height:100%;gap:6px;flex-direction:column;justify-content:center}
+  #avPreview.studio .ave-stage canvas#avPvMain{height:calc(100% - 36px);width:auto;max-width:100%;aspect-ratio:var(--avar,1/1);border-radius:10px}
+  #avPreview.studio .ave-small{position:absolute;right:8px;bottom:6px;flex-direction:column;gap:6px;margin:0;align-items:flex-end}
+  #avPreview.studio .ave-small .av-pv span{display:none}
+  #avPreview.studio .ave-small .av-pv canvas{width:60px !important;height:auto !important}
+  #avPreview.studio #avStudioTools{display:flex;flex:none;gap:6px;overflow-x:auto;padding:8px 10px;background:#0d1626;border-top:1px solid var(--border);border-bottom:1px solid var(--border);scrollbar-width:none}
+  #avPreview.studio #avStudioTools::-webkit-scrollbar{display:none}
+  #avPreview.studio .ave-tabs{display:flex;flex-wrap:nowrap;gap:6px;margin:0}
+  #avPreview.studio .ave-tabs button{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 12px;min-width:64px;font-size:0.68rem}
+  #avPreview.studio .ave-tabs button i{font-style:normal;font-size:1.15rem;line-height:1}
+  #avPreview.studio #avStudioScroll{display:block;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 14px 28px}
+  #avPreview.studio .ave-panel{margin-top:0}
+  #avPickView{display:none}
+  #avPreview.studio #avStudioView.picking .ave-stage{display:none}
+  #avPreview.studio #avStudioView.picking #avPickView{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+  #avPickView canvas{max-width:100%;max-height:100%;width:auto;height:auto;border-radius:10px;border:1px solid var(--border);display:block;cursor:crosshair;background:repeating-conic-gradient(#d8d8d8 0% 25%,#f2f2f2 0% 50%) 50%/16px 16px}
+  .ave-magic canvas{width:100%;border-radius:10px;border:1px solid var(--border);touch-action:manipulation;cursor:crosshair;display:block;background:repeating-conic-gradient(#d8d8d8 0% 25%,#f2f2f2 0% 50%) 50%/16px 16px}
+  .ave-magic .modes{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}.ave-magic .modes .ed-mini{flex:1 1 auto}
+  .ave-magic .selbar{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}.ave-magic .selbar .ed-mini{flex:1 1 auto;padding:10px 12px;font-size:0.8rem}
+  .ave-magic .selbar .go-del{border-color:rgba(255,90,90,.5);color:#ff9a9a}.ave-magic .selbar .go-keep{border-color:rgba(61,214,140,.5);color:#4fe0a0}
   /* Navigation: ONE bar with every main category; the active category's pages sit right under it; a header says where you are */
   #catBar,#subTabBar{display:none !important}
   #topNav{position:sticky;top:0;z-index:50;margin:-4px -2px 0;padding:6px 2px 0;background:#0a1220;box-shadow:0 8px 14px -10px rgba(0,0,0,.7)}
@@ -379,15 +410,24 @@
         <input type="file" id="avFile" accept="image/png,image/webp,image/jpeg,image/*" style="width:100%;color:var(--text2);font-size:0.82rem">
         <div id="avEditBanner" class="note" style="display:none;margin-top:8px;color:#f4c430"></div>
         <div id="avPreview" style="display:none;margin-top:12px">
+          <div id="avStudioBar"><button type="button" id="avStudioClose" title="Close the editor (keeps your edits)">✕</button><b id="avStudioTitle">Edit picture</b><button type="button" class="btn" id="avStudioDone">✓ Done</button></div>
+          <div id="avStudioView">
+            <div id="avPickView"></div>
           <div class="ave-stage">
             <canvas id="avPvMain" width="320" height="320" title="Drag to move, pinch or scroll to zoom"></canvas>
             <div class="ave-bgsw" id="avBgSw"><button data-bg="check" class="on">Light</button><button data-bg="table">Table</button><button data-bg="dark">Dark</button></div>
           </div>
           <div class="ave-small"><div class="av-pv"><canvas id="avPvTable" width="96" height="96"></canvas><span>on the table</span></div><div class="av-pv"><canvas id="avPvCheck" width="48" height="48"></canvas><span>small (48 px)</span></div><div class="av-pv"><canvas id="avPvMini" width="32" height="32"></canvas><span>tiny (32 px)</span></div></div>
-          <div class="ave-tabs" id="avTabs"><button data-t="cut" class="on">Cut-out</button><button data-t="crop">Crop &amp; size</button><button data-t="color">Colour</button><button data-t="edge">Edges</button><button data-t="light">Lighting</button><button data-t="touch">Touch-up</button></div>
-          <div class="ave-panel" id="avPanel"></div>
+          </div>
+          <div id="avStudioTools">
+          <div class="ave-tabs" id="avTabs"><button data-t="cut" class="on"><i>✂️</i>Cut-out</button><button data-t="magic"><i>🪄</i>Magic</button><button data-t="crop"><i>📐</i>Crop</button><button data-t="color"><i>🎨</i>Colour</button><button data-t="edge"><i>✨</i>Edges</button><button data-t="light"><i>💡</i>Light</button><button data-t="touch"><i>🖌</i>Touch-up</button></div>
+          </div>
+          <div id="avStudioScroll">
+            <div class="ave-panel" id="avPanel"></div>
           <div class="ave-actions"><button class="ed-mini" id="avFlip">↔ Flip</button><button class="ed-mini" id="avRotL">⟲ 90°</button><button class="ed-mini" id="avRotR">⟳ 90°</button><button class="ed-mini" id="avAuto">✨ Auto-fit</button><button class="ed-mini" id="avUndoAll">↺ Start over</button></div>
-          <div id="avInfo" class="note" style="margin-top:8px"></div>
+            <div id="avInfo" class="note" style="margin-top:8px"></div>
+          </div>
+          <button type="button" class="btn ghost" id="avStudioOpen" style="margin-top:10px">✏️ Open the editor</button>
         </div>
         <div class="ub-form" style="margin-top:12px">
           <div><label>Gender (bots keep matching faces)</label><select id="avGender" class="av-sel"><option value="f">Female</option><option value="m">Male</option></select></div>
@@ -1884,9 +1924,10 @@ async function avNameFace(key) {
 let AV_W = 320, AV_H = 320;               // the output frame: square for avatars, taller for the Kunukku coconut
 const AE = { src: null, w: 0, h: 0, auto: null, manual: null, cut: null, bbox: null, hasAlphaOrig: false, tab: 'cut', bg: 'check', replaces: null, undo: [],
   brush: { mode: 'erase', size: 24 }, p: null };
-const AE_DEFAULTS = { holes: 0.6, grow: 0, matte: 2, lightStr: 0, lightX: 0, lightY: -25, lightSize: 55, vig: 0, rim: 0, rimDir: 315, warmLight: 0, tol: 26, cropL: 0, cropR: 0, cropT: 0, cropB: 0, zoom: 100, mx: 0, my: 0, rot: 0, r90: 0, flip: 0, bri: 0, con: 0, sat: 0, warm: 0, shrink: 0, soft: 0 };
+AE.magic = { mode: 'island', pct: 35, sel: null, seed: -1, kind: null };
+const AE_DEFAULTS = { holes: 0.6, grow: 0, matte: 2, lightStr: 0, lightX: 0, lightY: -25, lightSize: 55, vig: 0, rim: 0, rimDir: 315, warmLight: 0, tol: 33, cropL: 0, cropR: 0, cropT: 0, cropB: 0, zoom: 100, mx: 0, my: 0, rot: 0, r90: 0, flip: 0, bri: 0, con: 0, sat: 0, warm: 0, shrink: 0, soft: 0 };
 const AE_CONTROLS = {
-  cut: [{ k: 'tol', label: 'Cut-out strength', min: 4, max: 70, step: 1, unit: '', hint: 'Higher removes more of the background (and can eat into light clothes). Fix the rest in Touch-up.' },
+  cut: [{ k: 'tol', label: 'Cut-out strength', min: 0, max: 100, step: 1, unit: '%', hint: '0% keeps almost everything (some background may stay), 100% removes as much as it can (and can eat into light clothes). Fix the rest with Magic or Touch-up.' },
     { k: 'holes', label: 'Remove trapped background (gaps)', min: 0, max: 3, step: 0.1, unit: '%', hint: 'Small pockets of plain background caught between curls of hair, an arm and the body. Only pockets of the exact background colour, no bigger than this share of the picture, are removed — white clothes and teeth are left alone. 0 = off.' }],
   crop: [
     { k: 'cropL', label: 'Trim left', min: 0, max: 45, step: 1, unit: '%' }, { k: 'cropR', label: 'Trim right', min: 0, max: 45, step: 1, unit: '%' },
@@ -1976,6 +2017,22 @@ function avHasTransparency(data, w, h) {
   const pts = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1], [w >> 1, 0], [0, h >> 1], [w - 1, h >> 1]];
   return pts.some(([x, y]) => data[(y * w + x) * 4 + 3] < 200);
 }
+// ---- the full-screen editor ("studio"): picture pinned at the top, tools in a strip, controls scroll underneath
+function avOpenStudio() {
+  const pv = document.getElementById('avPreview'); if (!AE.src) return;
+  pv.classList.add('studio'); document.body.style.overflow = 'hidden';
+  document.getElementById('avStudioTitle').textContent = AE.kunukku ? 'Kunukku picture' : (AE.replaces ? 'Edit ' + AE.replaces : 'Edit picture');
+  avBuildPanel(); avRenderAll();
+}
+function avCloseStudio() { document.getElementById('avPreview').classList.remove('studio'); document.body.style.overflow = ''; }
+function avHidePreview() { avCloseStudio(); document.getElementById('avPreview').style.display = 'none'; }
+document.getElementById('avStudioDone').addEventListener('click', avCloseStudio);
+document.getElementById('avStudioOpen').addEventListener('click', avOpenStudio);
+document.getElementById('avStudioClose').addEventListener('click', () => {
+  if (!confirm('Throw this picture away and close the editor?')) return;
+  AE.src = null; AE.kunukku = null; document.getElementById('avFile').value = ''; avHidePreview(); document.getElementById('btnAvAdd').disabled = true;
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.getElementById('avPreview').classList.contains('studio')) avCloseStudio(); });
 // avatars have a gender / label / bot name; a Kunukku picture has none of those
 function avShowFields(on) {
   ['avGender', 'avLabel', 'avNameFor'].forEach((id) => { const e = document.getElementById(id); if (e && e.closest('div')) e.closest('div').style.display = on ? '' : 'none'; });
@@ -2011,6 +2068,7 @@ async function avLoadFile(file, opts) {
   document.getElementById('avPreview').style.display = 'block';
   avRecut(); avBuildPanel(); avRenderAll();
   avMsg('');
+  avOpenStudio();                                              // the editor opens full-screen so the picture is always in view while you adjust
 }
 let avCutTimer = null;
 // Distance (in thirds of a pixel) from every pixel to the nearest pixel of the other kind, by a fast two-pass chamfer sweep.
@@ -2055,7 +2113,7 @@ function avRecut() {
   const alpha = new Uint8ClampedArray(n); AE.rgb = null; AE.bgRef = null;
   if (AE.hasAlphaOrig || !rm) { for (let i = 0; i < n; i++) alpha[i] = src[i * 4 + 3]; }
   else {
-    const copy = new Uint8ClampedArray(src); const ref = avRemoveBackground(copy, w, h, AE.p.tol); AE.bgRef = ref;
+    const copy = new Uint8ClampedArray(src); const ref = avRemoveBackground(copy, w, h, 4 + AE.p.tol * 0.66); AE.bgRef = ref;      // 0 - 100 % on screen = tolerance 4 - 70 inside
     for (let i = 0; i < n; i++) alpha[i] = copy[i * 4 + 3];
     if (AE.p.holes > 0) {
       // pockets of PURE background colour that the cut-out could not reach (they are walled in by hair or an arm): small ones go
@@ -2122,7 +2180,7 @@ function avRecut() {
       }
     }
   }
-  AE.auto = alpha; avComposeCut();
+  AE.auto = alpha; AE.magic.sel = null; avComposeCut();
 }
 // final person mask = automatic cut-out, overridden by hand strokes (1 = erased, 2 = brought back)
 function avComposeCut() {
@@ -2131,10 +2189,11 @@ function avComposeCut() {
   AE.cut.width = w; AE.cut.height = h;
   const out = new ImageData(new Uint8ClampedArray(AE.rgb || AE.src.data), w, h); const d = out.data;
   let minX = w, minY = h, maxX = -1, maxY = -1, clear = 0;
+  if (!AE.final || AE.final.length !== n) AE.final = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
     const m = AE.manual[i]; let a = AE.auto[i];
     if (m === 1) a = 0; else if (m === 2) a = Math.max(a, AE.src.data[i * 4 + 3] > 0 ? 255 : 0);
-    d[i * 4 + 3] = a;
+    d[i * 4 + 3] = a; AE.final[i] = a;
     if (a < 250) clear++;
     if (a > 24) { const x = i % w, y = (i / w) | 0; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
   }
@@ -2218,7 +2277,7 @@ function avRenderAll() { if (avRaf) return; avRaf = requestAnimationFrame(() => 
 function avPaint() {
   if (!AE.src) return;
   const r = avRender(); avLast = r;
-  const pv = document.getElementById('avPvMain'); if (pv.width !== AV_W || pv.height !== AV_H) { pv.width = AV_W; pv.height = AV_H; pv.style.aspectRatio = AV_W + ' / ' + AV_H; }
+  const pv = document.getElementById('avPvMain'); if (pv.width !== AV_W || pv.height !== AV_H) { pv.width = AV_W; pv.height = AV_H; pv.style.aspectRatio = AV_W + ' / ' + AV_H; document.documentElement.style.setProperty('--avar', AV_W + ' / ' + AV_H); }
   const m = pv.getContext('2d'); m.clearRect(0, 0, AV_W, AV_H); m.drawImage(r.canvas, 0, 0);
   const small = (id, size) => { const c = document.getElementById(id), x = c.getContext('2d'); const w = Math.round(size * AV_W / Math.max(AV_W, AV_H)), h = Math.round(size * AV_H / Math.max(AV_W, AV_H)); c.width = w; c.height = h; x.imageSmoothingQuality = 'high'; x.drawImage(r.canvas, 0, 0, w, h); };
   small('avPvTable', 96); small('avPvCheck', 48); small('avPvMini', 32);
@@ -2237,13 +2296,90 @@ function avSliderHtml(c) {
   const v = AE.p[c.k];
   return `<div class="ave-slider"><div class="t"><span>${c.label}</span><em id="avv_${c.k}">${v}${c.unit}</em></div><input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${v}" data-k="${c.k}">${c.hint ? `<small>${c.hint}</small>` : ''}</div>`;
 }
+// ---- Magic picker: tap the picture to pick something, then remove it or keep only it
+// "Object": the connected piece of picture that is still visible under your finger (a person, a stray bit of the background, a prop).
+// "Colour": every connected pixel of a similar colour (the plain patch of wall, the white pocket between curls, a white shirt that was cut away).
+function avIslandAt(idx) {
+  const { w, h } = AE, F = AE.final; if (F[idx] < 128) return null;
+  const sel = new Uint8Array(w * h), stack = new Int32Array(w * h); let sp = 0; stack[sp++] = idx; sel[idx] = 1;
+  while (sp) {
+    const i = stack[--sp], x = i % w;
+    if (x > 0 && !sel[i - 1] && F[i - 1] >= 128) { sel[i - 1] = 1; stack[sp++] = i - 1; }
+    if (x < w - 1 && !sel[i + 1] && F[i + 1] >= 128) { sel[i + 1] = 1; stack[sp++] = i + 1; }
+    if (i >= w && !sel[i - w] && F[i - w] >= 128) { sel[i - w] = 1; stack[sp++] = i - w; }
+    if (i < w * h - w && !sel[i + w] && F[i + w] >= 128) { sel[i + w] = 1; stack[sp++] = i + w; }
+  }
+  return sel;
+}
+function avWandAt(idx, pct) {
+  const { w, h } = AE, d = AE.src.data, tol = 4 + pct * 0.6;
+  let r = 0, g = 0, b = 0, c = 0; const sx = idx % w, sy = (idx / w) | 0;
+  for (let y = Math.max(0, sy - 2); y <= Math.min(h - 1, sy + 2); y++) for (let x = Math.max(0, sx - 2); x <= Math.min(w - 1, sx + 2); x++) { const k = (y * w + x) * 4; r += d[k]; g += d[k + 1]; b += d[k + 2]; c++; }
+  r /= c; g /= c; b /= c; const t2 = tol * tol * 3;
+  const near = (i) => { const k = i * 4, dr = d[k] - r, dg = d[k + 1] - g, db = d[k + 2] - b; return dr * dr + dg * dg + db * db <= t2; };
+  const sel = new Uint8Array(w * h), stack = new Int32Array(w * h); let sp = 0; stack[sp++] = idx; sel[idx] = 1;
+  while (sp) {
+    const i = stack[--sp], x = i % w;
+    if (x > 0 && !sel[i - 1] && near(i - 1)) { sel[i - 1] = 1; stack[sp++] = i - 1; }
+    if (x < w - 1 && !sel[i + 1] && near(i + 1)) { sel[i + 1] = 1; stack[sp++] = i + 1; }
+    if (i >= w && !sel[i - w] && near(i - w)) { sel[i - w] = 1; stack[sp++] = i - w; }
+    if (i < w * h - w && !sel[i + w] && near(i + w)) { sel[i + w] = 1; stack[sp++] = i + w; }
+  }
+  return sel;
+}
+const avSelCount = (sel) => { let n = 0; for (let i = 0; i < sel.length; i++) if (sel[i]) n++; return n; };
+function avMagicApply(action) {
+  const M = AE.magic; if (!M.sel) return; AE.undo.push(new Uint8Array(AE.manual)); if (AE.undo.length > 8) AE.undo.shift();
+  const n = AE.w * AE.h, sel = M.sel;
+  if (action === 'remove') { for (let i = 0; i < n; i++) if (sel[i]) AE.manual[i] = 1; }
+  else if (action === 'only') { for (let i = 0; i < n; i++) if (!sel[i] && AE.final[i] >= 128) AE.manual[i] = 1; }       // keep only this piece: everything else visible goes
+  else if (action === 'back') { for (let i = 0; i < n; i++) if (sel[i] && AE.src.data[i * 4 + 3] > 0) AE.manual[i] = 2; }
+  M.sel = null; avComposeCut(); avDrawTouch(); avMagicBar(); avRenderAll();
+}
+function avMagicBar() {
+  const bar = document.getElementById('avMagicBar'); if (!bar) return; const M = AE.magic;
+  if (!M.sel) { bar.innerHTML = `<div class="note" style="margin:8px 0">${M.mode === 'island' ? 'Tap a piece of the picture that is still visible.' : 'Tap anywhere (even where the picture is already cut away) to pick that colour area.'}</div>`; return; }
+  const pctOf = Math.round(100 * avSelCount(M.sel) / (AE.w * AE.h) * 10) / 10;
+  bar.innerHTML = `<div class="note" style="margin:8px 0 0">Picked <b>${pctOf}%</b> of the picture (blue).</div><div class="selbar">` +
+    (M.mode === 'island' ? `<button class="ed-mini go-del" data-ma="remove">🗑 Remove it</button><button class="ed-mini go-keep" data-ma="only">✅ Keep only it</button>` : `<button class="ed-mini go-del" data-ma="remove">🗑 Remove it</button><button class="ed-mini go-keep" data-ma="back">↩ Bring it back</button>`) +
+    `<button class="ed-mini" data-ma="cancel">✖ Deselect</button></div>`;
+  bar.querySelectorAll('[data-ma]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.ma === 'cancel') { M.sel = null; avDrawTouch(); avMagicBar(); } else avMagicApply(b.dataset.ma); }));
+}
+function avEnsurePickCanvas(on) {
+  const view = document.getElementById('avStudioView'), box = document.getElementById('avPickView');
+  view.classList.toggle('picking', !!on);
+  if (!on) { box.innerHTML = ''; return null; }
+  box.innerHTML = '<canvas id="avTouch"></canvas>'; const c = box.firstChild; c.style.touchAction = AE.tab === 'touch' ? 'none' : 'manipulation'; return c;
+}
 function avBuildPanel() {
   const panel = document.getElementById('avPanel'); const t = AE.tab;
+  avEnsurePickCanvas(t === 'magic' || t === 'touch');
+  if (t === 'magic') {
+    const M = AE.magic;
+    panel.innerHTML = `<div class="ave-magic"><div class="modes"><button class="ed-mini ${M.mode === 'island' ? 'on' : ''}" data-mm="island">👆 Pick an object</button><button class="ed-mini ${M.mode === 'wand' ? 'on' : ''}" data-mm="wand">🪄 Pick a colour area</button></div>
+      ${M.mode === 'wand' ? `<div class="ave-slider"><div class="t"><span>Pick strength</span><em id="avv_pick">${M.pct}%</em></div><input type="range" min="0" max="100" step="1" value="${M.pct}" id="avPickPct"><small>Low picks only nearly identical colours, high picks a wider range of similar colours. Move it after tapping to change the selection.</small></div>` : ''}
+      <div id="avMagicBar"></div>
+      <div class="ave-actions" style="margin-top:8px"><button class="ed-mini" id="avMagicUndo">↶ Undo</button><button class="ed-mini" id="avMagicClear">Clear all hand edits</button></div></div>`;
+    avDrawTouch(); avMagicBar();
+    panel.querySelectorAll('[data-mm]').forEach((b) => b.addEventListener('click', () => { M.mode = b.dataset.mm; M.sel = null; avBuildPanel(); }));
+    const pr = panel.querySelector('#avPickPct');
+    if (pr) pr.addEventListener('input', () => { M.pct = Number(pr.value); panel.querySelector('#avv_pick').textContent = M.pct + '%'; if (M.seed >= 0 && M.sel) { M.sel = avWandAt(M.seed, M.pct); avDrawTouch(); avMagicBar(); } });
+    panel.querySelector('#avMagicUndo').addEventListener('click', () => { const u = AE.undo.pop(); if (u) { AE.manual = u; M.sel = null; avComposeCut(); avDrawTouch(); avMagicBar(); avRenderAll(); } });
+    panel.querySelector('#avMagicClear').addEventListener('click', () => { AE.undo.push(new Uint8Array(AE.manual)); AE.manual.fill(0); M.sel = null; avComposeCut(); avDrawTouch(); avMagicBar(); avRenderAll(); });
+    const c = document.getElementById('avTouch');
+    c.addEventListener('click', (ev) => {
+      const r = c.getBoundingClientRect(); const x = Math.min(AE.w - 1, Math.max(0, Math.floor((ev.clientX - r.left) / r.width * AE.w))), y = Math.min(AE.h - 1, Math.max(0, Math.floor((ev.clientY - r.top) / r.height * AE.h))), idx = y * AE.w + x;
+      M.seed = idx; M.sel = M.mode === 'island' ? avIslandAt(idx) : avWandAt(idx, M.pct);
+      if (!M.sel) { avMagicBar(); const bar = document.getElementById('avMagicBar'); if (bar) bar.innerHTML = '<div class="note" style="margin:8px 0;color:#ff9a9a">That spot is already cut away. Use "Pick a colour area" to bring such a part back.</div>'; return; }
+      avDrawTouch(); avMagicBar();
+    });
+    return;
+  }
   if (t === 'touch') {
     panel.innerHTML = `<div class="ave-touch"><div class="note" style="margin-bottom:8px">Paint on the picture to fix the cut-out by hand: <b>Erase</b> removes leftover background, <b>Bring back</b> restores a part that was cut away by mistake.</div>
       <div class="ave-actions" style="margin:0 0 8px"><button class="ed-mini ${AE.brush.mode === 'erase' ? 'on' : ''}" data-b="erase">🧽 Erase</button><button class="ed-mini ${AE.brush.mode === 'keep' ? 'on' : ''}" data-b="keep">✨ Bring back</button><button class="ed-mini" id="avBrushUndo">↶ Undo stroke</button><button class="ed-mini" id="avBrushClear">Clear touch-ups</button></div>
       <div class="ave-slider"><div class="t"><span>Brush size</span><em id="avv_brush">${AE.brush.size}</em></div><input type="range" min="4" max="80" step="1" value="${AE.brush.size}" id="avBrushSize"></div>
-      <canvas id="avTouch"></canvas></div>`;
+      </div>`;
     avDrawTouch();
     panel.querySelectorAll('[data-b]').forEach((b) => b.addEventListener('click', () => { AE.brush.mode = b.dataset.b; avBuildPanel(); }));
     panel.querySelector('#avBrushSize').addEventListener('input', (e) => { AE.brush.size = Number(e.target.value); panel.querySelector('#avv_brush').textContent = AE.brush.size; });
@@ -2265,6 +2401,16 @@ function avDrawTouch() {
   const c = document.getElementById('avTouch'); if (!c || !AE.cut) return;
   const maxW = 600, k = Math.min(1, maxW / AE.w); c.width = Math.round(AE.w * k); c.height = Math.round(AE.h * k);
   const x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); x.drawImage(AE.cut, 0, 0, c.width, c.height);
+  const sel = AE.tab === 'magic' ? AE.magic.sel : null;
+  if (sel) {                                   // blue overlay on everything that is picked (also over cut-away areas)
+    const id = x.getImageData(0, 0, c.width, c.height), d = id.data, k = AE.w / c.width;
+    for (let py = 0; py < c.height; py++) for (let px = 0; px < c.width; px++) {
+      if (!sel[Math.min(AE.h - 1, Math.floor(py * k)) * AE.w + Math.min(AE.w - 1, Math.floor(px * k))]) continue;
+      const j = (py * c.width + px) * 4, a = d[j + 3] / 255;
+      d[j] = d[j] * 0.45 * a + 60 * (1 - 0.45 * a); d[j + 1] = d[j + 1] * 0.45 * a + 150 * (1 - 0.45 * a); d[j + 2] = d[j + 2] * 0.45 * a + 255 * (1 - 0.45 * a); d[j + 3] = Math.max(d[j + 3], 150);
+    }
+    x.putImageData(id, 0, 0);
+  }
 }
 function avWireTouch() {
   const c = document.getElementById('avTouch'); if (!c) return; let down = false, snap = false;
@@ -2311,8 +2457,8 @@ document.getElementById('avUndoAll').addEventListener('click', () => { if (!AE.s
 })();
 // ---- loading a file, editing an existing avatar, and saving
 document.getElementById('avFile').addEventListener('change', async () => {
-  const file = document.getElementById('avFile').files[0]; if (!file) { document.getElementById('avPreview').style.display = 'none'; AE.src = null; document.getElementById('btnAvAdd').disabled = true; return; }
-  try { await avLoadFile(file, {}); document.getElementById('btnAvAdd').textContent = 'Add avatar'; } catch (e) { avMsg(e.message || 'Could not read that picture.', true); document.getElementById('avPreview').style.display = 'none'; }
+  const file = document.getElementById('avFile').files[0]; if (!file) { avHidePreview(); AE.src = null; document.getElementById('btnAvAdd').disabled = true; return; }
+  try { await avLoadFile(file, {}); document.getElementById('btnAvAdd').textContent = 'Add avatar'; } catch (e) { avMsg(e.message || 'Could not read that picture.', true); avHidePreview(); }
 });
 document.getElementById('avRemoveBg').addEventListener('change', () => { if (AE.src) { avRecut(); avRenderAll(); } });
 async function avEditExisting(key) {
@@ -2343,7 +2489,7 @@ document.getElementById('btnAvAdd').addEventListener('click', async () => {
       const kr = await avCall('/api/admin/kunukku/' + AE.kunukku.which, 'POST', { data });
       if (!kr.ok) { avMsg(kr.data.error || 'The server did not accept that picture.', true); btn.disabled = false; return; }
       avMsg('Saved. The new Kunukku picture is live now.');
-      document.getElementById('avFile').value = ''; document.getElementById('avPreview').style.display = 'none'; document.getElementById('avEditBanner').style.display = 'none';
+      document.getElementById('avFile').value = ''; avHidePreview(); document.getElementById('avEditBanner').style.display = 'none';
       AE.src = null; AE.kunukku = null; AV_W = AV_H = 320; avShowFields(true); document.getElementById('btnAvAdd').textContent = 'Add avatar'; await refreshKunukku(); return;
     }
     const replaces = AE.replaces && document.getElementById('avReplace').checked ? AE.replaces : null;
@@ -2351,7 +2497,7 @@ document.getElementById('btnAvAdd').addEventListener('click', async () => {
     if (!r.ok) { avMsg(r.data.error || 'The server did not accept that picture.', true); btn.disabled = false; return; }
     avMsg('Added ' + r.data.key + '. It is live now.' + (r.data.replaced ? ' ' + r.data.replaced + ' was replaced.' : '') + (r.data.replaceNote ? ' (' + r.data.replaceNote + ')' : ''));
     document.getElementById('avFile').value = ''; document.getElementById('avLabel').value = ''; document.getElementById('avNameFor').value = '';
-    document.getElementById('avPreview').style.display = 'none'; document.getElementById('avEditBanner').style.display = 'none'; document.getElementById('avReplaceRow').style.display = 'none';
+    avHidePreview(); document.getElementById('avEditBanner').style.display = 'none'; document.getElementById('avReplaceRow').style.display = 'none';
     AE.src = null; AE.replaces = null; await refreshAvatarManager();
   } catch (e) { avMsg('Upload failed. Check your connection and try again.', true); btn.disabled = false; }
 });
