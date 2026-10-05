@@ -384,7 +384,7 @@
             <div class="ave-bgsw" id="avBgSw"><button data-bg="check" class="on">Light</button><button data-bg="table">Table</button><button data-bg="dark">Dark</button></div>
           </div>
           <div class="ave-small"><div class="av-pv"><canvas id="avPvTable" width="96" height="96"></canvas><span>on the table</span></div><div class="av-pv"><canvas id="avPvCheck" width="48" height="48"></canvas><span>small (48 px)</span></div><div class="av-pv"><canvas id="avPvMini" width="32" height="32"></canvas><span>tiny (32 px)</span></div></div>
-          <div class="ave-tabs" id="avTabs"><button data-t="cut" class="on">Cut-out</button><button data-t="crop">Crop &amp; size</button><button data-t="color">Colour</button><button data-t="edge">Edges</button><button data-t="touch">Touch-up</button></div>
+          <div class="ave-tabs" id="avTabs"><button data-t="cut" class="on">Cut-out</button><button data-t="crop">Crop &amp; size</button><button data-t="color">Colour</button><button data-t="edge">Edges</button><button data-t="light">Lighting</button><button data-t="touch">Touch-up</button></div>
           <div class="ave-panel" id="avPanel"></div>
           <div class="ave-actions"><button class="ed-mini" id="avFlip">↔ Flip</button><button class="ed-mini" id="avRotL">⟲ 90°</button><button class="ed-mini" id="avRotR">⟳ 90°</button><button class="ed-mini" id="avAuto">✨ Auto-fit</button><button class="ed-mini" id="avUndoAll">↺ Start over</button></div>
           <div id="avInfo" class="note" style="margin-top:8px"></div>
@@ -1884,9 +1884,10 @@ async function avNameFace(key) {
 let AV_W = 320, AV_H = 320;               // the output frame: square for avatars, taller for the Kunukku coconut
 const AE = { src: null, w: 0, h: 0, auto: null, manual: null, cut: null, bbox: null, hasAlphaOrig: false, tab: 'cut', bg: 'check', replaces: null, undo: [],
   brush: { mode: 'erase', size: 24 }, p: null };
-const AE_DEFAULTS = { tol: 26, cropL: 0, cropR: 0, cropT: 0, cropB: 0, zoom: 100, mx: 0, my: 0, rot: 0, r90: 0, flip: 0, bri: 0, con: 0, sat: 0, warm: 0, shrink: 0, soft: 0 };
+const AE_DEFAULTS = { holes: 0.6, grow: 0, matte: 2, lightStr: 0, lightX: 0, lightY: -25, lightSize: 55, vig: 0, rim: 0, rimDir: 315, warmLight: 0, tol: 26, cropL: 0, cropR: 0, cropT: 0, cropB: 0, zoom: 100, mx: 0, my: 0, rot: 0, r90: 0, flip: 0, bri: 0, con: 0, sat: 0, warm: 0, shrink: 0, soft: 0 };
 const AE_CONTROLS = {
-  cut: [{ k: 'tol', label: 'Cut-out strength', min: 4, max: 70, step: 1, unit: '', hint: 'Higher removes more of the background (and can eat into light clothes). Fix the rest in Touch-up.' }],
+  cut: [{ k: 'tol', label: 'Cut-out strength', min: 4, max: 70, step: 1, unit: '', hint: 'Higher removes more of the background (and can eat into light clothes). Fix the rest in Touch-up.' },
+    { k: 'holes', label: 'Remove trapped background (gaps)', min: 0, max: 3, step: 0.1, unit: '%', hint: 'Small pockets of plain background caught between curls of hair, an arm and the body. Only pockets of the exact background colour, no bigger than this share of the picture, are removed — white clothes and teeth are left alone. 0 = off.' }],
   crop: [
     { k: 'cropL', label: 'Trim left', min: 0, max: 45, step: 1, unit: '%' }, { k: 'cropR', label: 'Trim right', min: 0, max: 45, step: 1, unit: '%' },
     { k: 'cropT', label: 'Trim top', min: 0, max: 45, step: 1, unit: '%' }, { k: 'cropB', label: 'Trim bottom', min: 0, max: 45, step: 1, unit: '%' },
@@ -1897,9 +1898,27 @@ const AE_CONTROLS = {
     { k: 'bri', label: 'Brightness', min: -60, max: 60, step: 1, unit: '' }, { k: 'con', label: 'Contrast', min: -60, max: 60, step: 1, unit: '' },
     { k: 'sat', label: 'Colour strength', min: -100, max: 100, step: 1, unit: '' }, { k: 'warm', label: 'Warmth (cooler ↔ warmer)', min: -60, max: 60, step: 1, unit: '' }],
   edge: [
+    { k: 'matte', label: 'Precise edge (soft matte)', min: 0, max: 8, step: 1, unit: ' px', hint: 'Looks at how different each pixel along the outline is from the old background: hair and clothes get a soft, accurate edge and the white halo is cleaned out of the colours. Works on a photo whose background is being removed.' },
+    { k: 'grow', label: 'Grow the edge (win back what was cut away)', min: 0, max: 8, step: 1, unit: ' px', hint: 'The opposite of Shrink. Gives back a little of the person where the cut-out ate in (top of the head, white clothes) without bringing back the plain background. Works on a photo whose background is being removed.' },
     { k: 'shrink', label: 'Shrink the edge', min: 0, max: 5, step: 1, unit: ' px', hint: 'Removes a thin light or dark halo left from the old background.' },
     { k: 'soft', label: 'Soften the edge', min: 0, max: 5, step: 1, unit: ' px', hint: 'Smooths jagged outlines so the person blends into the table.' }],
+  light: [
+    { k: 'lightStr', label: 'Spotlight strength', min: 0, max: 100, step: 1, unit: '%', hint: 'A studio light on the person: brighter where it lands, so the face and chest pop.' },
+    { k: 'lightX', label: 'Spotlight left / right', min: -100, max: 100, step: 1, unit: '' },
+    { k: 'lightY', label: 'Spotlight up / down', min: -100, max: 100, step: 1, unit: '', hint: 'Negative = higher up (face), positive = lower (body).' },
+    { k: 'lightSize', label: 'Spotlight spread', min: 15, max: 100, step: 1, unit: '%' },
+    { k: 'warmLight', label: 'Light colour (cool ↔ warm)', min: -50, max: 50, step: 1, unit: '' },
+    { k: 'vig', label: 'Darken the edges (focus)', min: 0, max: 80, step: 1, unit: '%', hint: 'Dims the outer parts of the picture so the lit centre stands out.' },
+    { k: 'rim', label: 'Rim light (glow on the outline)', min: 0, max: 100, step: 1, unit: '%', hint: 'A thin bright edge on the side facing the light, like a studio back-light.' },
+    { k: 'rimDir', label: 'Rim light direction', min: 0, max: 359, step: 5, unit: '°', hint: '0 = from the right, 90 = from below, 180 = from the left, 270 = from above.' }],
 };
+const AE_LIGHT_PRESETS = [
+  ['Off', { lightStr: 0, vig: 0, rim: 0, warmLight: 0 }],
+  ['Soft studio', { lightStr: 35, lightX: 0, lightY: -30, lightSize: 62, vig: 18, rim: 20, rimDir: 315, warmLight: 10 }],
+  ['Dramatic spot', { lightStr: 72, lightX: 0, lightY: -35, lightSize: 38, vig: 50, rim: 35, rimDir: 300, warmLight: 0 }],
+  ['Warm glow', { lightStr: 48, lightX: 0, lightY: -20, lightSize: 58, vig: 26, rim: 14, rimDir: 315, warmLight: 34 }],
+  ['Cool rim', { lightStr: 30, lightX: 0, lightY: -25, lightSize: 60, vig: 16, rim: 62, rimDir: 225, warmLight: -30 }],
+];
 const avClamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function avRemoveBackground(data, w, h, tol) {
@@ -1942,6 +1961,7 @@ function avRemoveBackground(data, w, h, tol) {
     if (data[i + 3] > 0 && (data[i - 4 + 3] === 0 || data[i + 4 + 3] === 0 || data[i - w * 4 + 3] === 0 || data[i + w * 4 + 3] === 0)) out[i + 3] = 130;
   }
   data.set(out);
+  return { br, bg, bb, tol };           // the background colour it found and the tolerance it really used
 }
 
 function avLoadImage(file) {
@@ -1993,15 +2013,114 @@ async function avLoadFile(file, opts) {
   avMsg('');
 }
 let avCutTimer = null;
+// Distance (in thirds of a pixel) from every pixel to the nearest pixel of the other kind, by a fast two-pass chamfer sweep.
+// want===1: for OUTSIDE pixels, the distance to the nearest INSIDE pixel. want===0: for INSIDE pixels, to the nearest OUTSIDE pixel.
+function avDistance(inside, w, h, want) {
+  const INF = 65000, d = new Uint16Array(w * h);
+  for (let i = 0; i < d.length; i++) d[i] = (inside[i] ? 1 : 0) === want ? 0 : INF;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; let v = d[i]; if (v === 0) continue;
+    if (x > 0 && d[i - 1] + 3 < v) v = d[i - 1] + 3;
+    if (y > 0) { if (d[i - w] + 3 < v) v = d[i - w] + 3; if (x > 0 && d[i - w - 1] + 4 < v) v = d[i - w - 1] + 4; if (x < w - 1 && d[i - w + 1] + 4 < v) v = d[i - w + 1] + 4; }
+    d[i] = v;
+  }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
+    const i = y * w + x; let v = d[i]; if (v === 0) continue;
+    if (x < w - 1 && d[i + 1] + 3 < v) v = d[i + 1] + 3;
+    if (y < h - 1) { if (d[i + w] + 3 < v) v = d[i + w] + 3; if (x < w - 1 && d[i + w + 1] + 4 < v) v = d[i + w + 1] + 4; if (x > 0 && d[i + w - 1] + 4 < v) v = d[i + w - 1] + 4; }
+    d[i] = v;
+  }
+  return d;
+}
+// For every pixel: index of the nearest pixel where feature[] is 1 (approximate, two-pass sweep). -1 if there is none.
+function avNearest(feature, w, h) {
+  const n = w * h, d = new Float32Array(n), idx = new Int32Array(n);
+  for (let i = 0; i < n; i++) { if (feature[i]) { d[i] = 0; idx[i] = i; } else { d[i] = 1e9; idx[i] = -1; } }
+  const tryn = (i, j, c) => { if (d[j] + c < d[i]) { d[i] = d[j] + c; idx[i] = idx[j]; } };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; if (d[i] === 0) continue;
+    if (x > 0) tryn(i, i - 1, 1); if (y > 0) { tryn(i, i - w, 1); if (x > 0) tryn(i, i - w - 1, 1.414); if (x < w - 1) tryn(i, i - w + 1, 1.414); }
+  }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
+    const i = y * w + x; if (d[i] === 0) continue;
+    if (x < w - 1) tryn(i, i + 1, 1); if (y < h - 1) { tryn(i, i + w, 1); if (x < w - 1) tryn(i, i + w + 1, 1.414); if (x > 0) tryn(i, i + w - 1, 1.414); }
+  }
+  return idx;
+}
+const avSmooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 function avRecut() {
   if (!AE.src) return;
-  const { w, h } = AE; const n = w * h;
+  const { w, h } = AE; const n = w * h; const src = AE.src.data;
   const rm = document.getElementById('avRemoveBg').checked && !AE.hasAlphaOrig;
-  const alpha = new Uint8ClampedArray(n);
-  if (AE.hasAlphaOrig || !rm) { for (let i = 0; i < n; i++) alpha[i] = AE.src.data[i * 4 + 3]; }
+  const alpha = new Uint8ClampedArray(n); AE.rgb = null; AE.bgRef = null;
+  if (AE.hasAlphaOrig || !rm) { for (let i = 0; i < n; i++) alpha[i] = src[i * 4 + 3]; }
   else {
-    const copy = new Uint8ClampedArray(AE.src.data); avRemoveBackground(copy, w, h, AE.p.tol);
+    const copy = new Uint8ClampedArray(src); const ref = avRemoveBackground(copy, w, h, AE.p.tol); AE.bgRef = ref;
     for (let i = 0; i < n; i++) alpha[i] = copy[i * 4 + 3];
+    if (AE.p.holes > 0) {
+      // pockets of PURE background colour that the cut-out could not reach (they are walled in by hair or an arm): small ones go
+      const pure2 = Math.pow(Math.max(6, ref.tol * 0.45), 2) * 3, maxArea = Math.round(n * AE.p.holes / 100);
+      const isPure = (i) => { const dr = src[i * 4] - ref.br, dg = src[i * 4 + 1] - ref.bg, db = src[i * 4 + 2] - ref.bb; return dr * dr + dg * dg + db * db < pure2; };
+      const seen = new Uint8Array(n), stack = new Int32Array(n);
+      for (let s0 = 0; s0 < n; s0++) {
+        if (seen[s0] || alpha[s0] < 128 || !isPure(s0)) continue;
+        const comp = []; let sp = 0; stack[sp++] = s0; seen[s0] = 1;
+        while (sp) {
+          const i = stack[--sp]; comp.push(i); const x = i % w;
+          if (x > 0 && !seen[i - 1] && alpha[i - 1] >= 128 && isPure(i - 1)) { seen[i - 1] = 1; stack[sp++] = i - 1; }
+          if (x < w - 1 && !seen[i + 1] && alpha[i + 1] >= 128 && isPure(i + 1)) { seen[i + 1] = 1; stack[sp++] = i + 1; }
+          if (i >= w && !seen[i - w] && alpha[i - w] >= 128 && isPure(i - w)) { seen[i - w] = 1; stack[sp++] = i - w; }
+          if (i < n - w && !seen[i + w] && alpha[i + w] >= 128 && isPure(i + w)) { seen[i + w] = 1; stack[sp++] = i + w; }
+        }
+        if (comp.length <= maxArea) for (let k = 0; k < comp.length; k++) alpha[comp[k]] = 0;
+      }
+    }
+    if (AE.p.grow > 0 || AE.p.matte > 0) {
+      // how many source pixels make one pixel of the finished 320 px picture? (the person fills about 300 px of it)
+      let minY = h, maxY = -1; for (let i = 0; i < n; i++) if (alpha[i] > 24) { const y = (i / w) | 0; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+      const f = Math.max(1, (maxY >= minY ? (maxY - minY + 1) : h) / 300);
+      const dist = (i) => { const dr = src[i * 4] - ref.br, dg = src[i * 4 + 1] - ref.bg, db = src[i * 4 + 2] - ref.bb; return Math.sqrt((dr * dr + dg * dg + db * db) / 3); };   // same scale as the cut-out strength
+      // ---- grow: take back pixels next to the person that do NOT look like the plain background
+      const gsteps = Math.round(AE.p.grow * f);
+      if (gsteps > 0) {
+        const gTol = Math.max(8, ref.tol * 0.55);
+        for (let s2 = 0; s2 < gsteps; s2++) {
+          const next = new Uint8ClampedArray(alpha);
+          for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+            const i = y * w + x; if (alpha[i] >= 128) continue;
+            if ((alpha[i - 1] >= 128 || alpha[i + 1] >= 128 || alpha[i - w] >= 128 || alpha[i + w] >= 128) && dist(i) > gTol) next[i] = 255;
+          }
+          alpha.set(next);
+        }
+      }
+      // ---- soft matte: along the outline, opacity comes from how far each pixel's colour is from the background (strands of hair and
+      // anti-aliased edges become soft and accurate) and the background colour is un-mixed from the edge pixels (no white halo)
+      const mr = Math.round(AE.p.matte * f);
+      if (mr > 0) {
+        const inside = new Uint8Array(n); for (let i = 0; i < n; i++) inside[i] = alpha[i] >= 128 ? 1 : 0;
+        const dOut = avDistance(inside, w, h, 1), dIn = avDistance(inside, w, h, 0), lim = mr * 3;
+        // the "true" colour of the person at each outline pixel = the colour of the nearest pixel that is safely INSIDE the person
+        const deep = new Uint8Array(n); let anyDeep = false; for (let i = 0; i < n; i++) if (inside[i] && dIn[i] > lim) { deep[i] = 1; anyDeep = true; }
+        if (anyDeep) {
+          const near = avNearest(deep, w, h), rgb = new Uint8ClampedArray(src), minDen = ref.tol * ref.tol * 3;
+          for (let i = 0; i < n; i++) {
+            if (inside[i] ? dIn[i] > lim : dOut[i] > lim) continue;                 // only pixels within the band around the outline
+            const fi = near[i]; if (fi < 0) continue; const k = i * 4, fk = fi * 4;
+            const vr = src[fk] - ref.br, vg = src[fk + 1] - ref.bg, vb = src[fk + 2] - ref.bb, den = vr * vr + vg * vg + vb * vb;
+            if (den < minDen) continue;                                              // person's colour is too close to the background (white on white): keep the plain decision
+            const cr = src[k] - ref.br, cg = src[k + 1] - ref.bg, cb = src[k + 2] - ref.bb;
+            // "colour line": how far along the way from the background colour to the person's colour is this pixel? that is its opacity
+            const a = avSmooth(0.04, 0.96, Math.max(0, Math.min(1, (cr * vr + cg * vg + cb * vb) / den)));
+            alpha[i] = Math.round(a * 255);
+            if (a > 0.02 && a < 0.98) {
+              if (a < 0.5) { rgb[k] = src[fk]; rgb[k + 1] = src[fk + 1]; rgb[k + 2] = src[fk + 2]; }          // faint edge: just use the person's own colour (no halo at all)
+              else { rgb[k] = Math.max(0, Math.min(255, (src[k] - (1 - a) * ref.br) / a)); rgb[k + 1] = Math.max(0, Math.min(255, (src[k + 1] - (1 - a) * ref.bg) / a)); rgb[k + 2] = Math.max(0, Math.min(255, (src[k + 2] - (1 - a) * ref.bb) / a)); }
+            }
+          }
+          AE.rgb = rgb;
+        }
+      }
+    }
   }
   AE.auto = alpha; avComposeCut();
 }
@@ -2010,7 +2129,7 @@ function avComposeCut() {
   const { w, h } = AE; const n = w * h;
   if (!AE.cut) { AE.cut = document.createElement('canvas'); }
   AE.cut.width = w; AE.cut.height = h;
-  const out = new ImageData(new Uint8ClampedArray(AE.src.data), w, h); const d = out.data;
+  const out = new ImageData(new Uint8ClampedArray(AE.rgb || AE.src.data), w, h); const d = out.data;
   let minX = w, minY = h, maxX = -1, maxY = -1, clear = 0;
   for (let i = 0; i < n; i++) {
     const m = AE.manual[i]; let a = AE.auto[i];
@@ -2067,6 +2186,31 @@ function avRender() {
     }
     ctx.putImageData(id, 0, 0);
   }
+  // ---- studio lighting: a spotlight that makes the person pop, darker edges for focus, and a thin rim light on the outline
+  if (p.lightStr > 0 || p.vig > 0 || p.rim > 0) {
+    const id = ctx.getImageData(0, 0, AV_W, AV_H), d = id.data, W = AV_W, H = AV_H;
+    const cx = W / 2 + (p.lightX / 100) * (W / 2), cy = H / 2 + (p.lightY / 100) * (H / 2);
+    const sig = (p.lightSize / 100) * Math.max(W, H) * 0.55, inv2 = 1 / (2 * sig * sig), L = p.lightStr / 100, V = p.vig / 100, wl = p.warmLight / 50;
+    const R = p.rim / 100, ang = (p.rimDir * Math.PI) / 180, ux = Math.cos(ang), uy = Math.sin(ang), rr = 3;
+    const alpha0 = R > 0 ? new Uint8ClampedArray(W * H) : null; if (alpha0) for (let i = 0; i < W * H; i++) alpha0[i] = d[i * 4 + 3];
+    const half = Math.max(W, H) / 2;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, j = i * 4, a = d[j + 3]; if (a === 0) continue;
+      const dx = x - cx, dy = y - cy, g = Math.exp(-(dx * dx + dy * dy) * inv2);
+      const ex = (x - W / 2) / half, ey = (y - H / 2) / half, edge = Math.min(1, Math.sqrt(ex * ex + ey * ey) / 0.95);
+      let gain = 1 + L * 0.85 * g - V * 0.7 * edge * edge * (1 - L * g * 0.5);
+      let r = d[j] * gain, gr = d[j + 1] * gain, b = d[j + 2] * gain;
+      if (wl !== 0) { const t = L * g * wl * 28; r += t; b -= t * 0.8; gr += t * 0.25; }               // tint only where the light lands
+      if (R > 0) {                                                                                      // rim: this pixel is an outline pixel if the neighbour toward the light is empty
+        const nx = Math.round(x + ux * rr), ny = Math.round(y + uy * rr);
+        const na = nx < 0 || ny < 0 || nx >= W || ny >= H ? 0 : alpha0[ny * W + nx];
+        const e = Math.max(0, (a - na) / 255) * R;
+        if (e > 0) { const tr = wl > 0 ? 255 : 235 + (wl < 0 ? -10 * wl : 0), tb = wl < 0 ? 255 : 235 - 40 * wl; r += (tr - r) * e * 0.85; gr += (245 - gr) * e * 0.85; b += (tb - b) * e * 0.85; }
+      }
+      d[j] = r < 0 ? 0 : r > 255 ? 255 : r; d[j + 1] = gr < 0 ? 0 : gr > 255 ? 255 : gr; d[j + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+    }
+    ctx.putImageData(id, 0, 0);
+  }
   return { canvas: out, empty: false };
 }
 let avRaf = 0, avLast = null;
@@ -2107,12 +2251,13 @@ function avBuildPanel() {
     panel.querySelector('#avBrushClear').addEventListener('click', () => { AE.undo.push(new Uint8Array(AE.manual)); AE.manual.fill(0); avComposeCut(); avDrawTouch(); avRenderAll(); });
     avWireTouch(); return;
   }
-  panel.innerHTML = AE_CONTROLS[t].map(avSliderHtml).join('');
+  panel.innerHTML = (t === 'light' ? `<div class="ave-actions" style="margin:0 0 10px">${AE_LIGHT_PRESETS.map(([n], i) => `<button class="ed-mini" data-preset="${i}">${n}</button>`).join('')}</div>` : '') + AE_CONTROLS[t].map(avSliderHtml).join('');
+  panel.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => { Object.assign(AE.p, AE_LIGHT_PRESETS[Number(b.dataset.preset)][1]); avBuildPanel(); avRenderAll(); }));
   panel.querySelectorAll('input[type=range]').forEach((inp) => {
     const c = AE_CONTROLS[t].find((x) => x.k === inp.dataset.k);
     inp.addEventListener('input', () => {
       AE.p[c.k] = Number(inp.value); document.getElementById('avv_' + c.k).textContent = AE.p[c.k] + c.unit;
-      if (c.k === 'tol') { clearTimeout(avCutTimer); avCutTimer = setTimeout(() => { avRecut(); avRenderAll(); }, 120); } else avRenderAll();
+      if (c.k === 'tol' || c.k === 'grow' || c.k === 'matte' || c.k === 'holes') { clearTimeout(avCutTimer); avCutTimer = setTimeout(() => { avRecut(); avRenderAll(); }, 120); } else avRenderAll();
     });
   });
 }
