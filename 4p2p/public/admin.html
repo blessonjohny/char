@@ -94,6 +94,31 @@
   .ave-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
   .ave-touch canvas{width:100%;border-radius:10px;border:1px solid var(--border);touch-action:none;cursor:crosshair;background:repeating-conic-gradient(#d8d8d8 0% 25%,#f2f2f2 0% 50%) 50%/16px 16px;display:block}
   .ed-mini.on{background:var(--accent);border-color:var(--accent);color:#241a12}
+  /* New menu: one button, one title, one clear list */
+  #catBar,#subTabBar{display:none !important}
+  #navBar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;margin:-4px 0 12px;padding:10px 0 10px;background:linear-gradient(#0a1220 82%,rgba(10,18,32,0))}
+  #navMenuBtn{flex:none;padding:12px 16px;border-radius:12px;border:0;background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;font-weight:800;font-size:0.9rem;cursor:pointer;box-shadow:0 2px 14px rgba(244,196,48,.25)}
+  #navCrumb{min-width:0;line-height:1.2}#navCrumb small{display:block;color:var(--text2);font-size:0.7rem;letter-spacing:.3px}#navCrumb b{display:block;color:#fff;font-size:1.02rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #navMenu{position:fixed;inset:0;z-index:60;background:#070c16;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 40px;display:none}
+  #navMenu .nm-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;position:sticky;top:0;background:#070c16;padding:6px 0 10px;z-index:2}
+  #navMenu .nm-head b{font-size:1.1rem;color:#fff}
+  #navMenu .nm-close{border:1px solid var(--border);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer}
+  .nm-sec{margin-top:16px}.nm-sec h4{margin:0 0 8px;font-size:0.74rem;letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
+  .nm-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);background:rgba(255,255,255,.045);color:#e8edf2;cursor:pointer}
+  .nm-item .ic{font-size:1.4rem;flex:none;width:34px;text-align:center}.nm-item .tx{min-width:0}.nm-item .tx b{display:block;font-size:0.92rem;color:#fff}.nm-item .tx span{display:block;font-size:0.72rem;color:var(--text2);margin-top:2px;line-height:1.3}
+  .nm-item.on{border-color:var(--accent);background:rgba(244,196,48,.12)}
+  /* usage dashboard */
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dash-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px;cursor:pointer;text-align:left;color:#e8edf2;min-height:92px}
+  .dash-card:active{transform:scale(.98)}.dash-card .k{font-size:0.7rem;color:var(--text2);margin-bottom:4px}.dash-card .v{font-size:1.35rem;font-weight:800;color:#fff;line-height:1.1}.dash-card .s{font-size:0.68rem;color:var(--text2);margin-top:5px;line-height:1.35}
+  .dash-card.warn{border-color:rgba(255,154,90,.6)}.dash-card.good{border-color:rgba(61,214,140,.45)}.dash-card.wide{grid-column:1/-1}
+  /* linked graphs */
+  #ramReadout{position:sticky;top:64px;z-index:30;background:rgba(14,18,30,.97);border:1px solid #3a3a52;border-radius:12px;padding:10px 12px;margin:10px 0;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+  #ramReadout .rt{font-weight:800;color:#fff;font-size:0.8rem;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px}
+  #ramReadout .rt em{font-style:normal;font-weight:500;color:#8f8fa8;font-size:0.66rem}
+  #ramReadout .rg{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:0.72rem;color:#c9cfdc}
+  #ramReadout .rg b{color:#fff}.ram-dotc{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+  .ram-card .t small{font-weight:500;color:#8f8fa8;margin-left:6px;font-size:0.66rem}
   .be-devices{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;justify-content:center}
   .be-dev{text-align:center;font-size:0.62rem;color:var(--text2)}
   .be-dev canvas{display:block;border-radius:6px;border:1px solid var(--border);margin:0 auto 3px;background:#0b0f16}
@@ -163,6 +188,8 @@
     <!-- Top-level menu: pick a category, its own sub-tabs appear right below.
          Every tab button below keeps its original id and click wiring exactly
          as before -- this only changes which ones are visible at once. -->
+    <div id="navBar"><button id="navMenuBtn" type="button">☰ Menu</button><div id="navCrumb"><small id="navSection">Home</small><b id="navPage">Comments</b></div></div>
+    <div id="navMenu"><div class="nm-head"><b>Where do you want to go?</b><button class="nm-close" id="navClose" type="button">✕ Close</button></div><div id="navList"></div></div>
     <div class="cat-bar" id="catBar">
       <button class="cat-btn on" data-cat="overview" type="button">🏠 Overview</button>
       <button class="cat-btn" data-cat="tools" type="button">🎮 Game Tools</button>
@@ -217,6 +244,13 @@
       <div id="historyList"></div>
     </div>
     <div id="usageView" style="display:none">
+      <div class="up" data-up="dashboard" id="upDashboard">
+        <h3 class="ub-h">🧭 Usage &amp; cost — at a glance</h3>
+        <div class="sub" style="margin-top:0">Everything that costs you something, in one place. Tap any card for the full page.</div>
+        <div class="toolbar"><button class="btn ghost" id="btnRefreshDash">🔄 Refresh</button><span class="sub" id="dashStamp" style="margin:0;align-self:center"></span></div>
+        <div id="dashBody"><div class="empty">Loading…</div></div>
+      </div>
+      <div class="up" data-up="data" id="upData">
       <div class="sub" style="margin-top:0">
         Total network traffic (in + out) through this server, read straight from the
         container's own network counters — so it covers everything, including Socket.io
@@ -231,7 +265,9 @@
       <div id="usageSummary" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
       <div id="usageList"></div>
 
-      <div id="imgPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
+      </div>
+
+      <div class="up" data-up="img" id="imgPanel" style="margin-top:6px">
         <h3 class="ub-h">🖼️ Image size (WebP)</h3>
         <div class="sub" style="margin-top:0">
           Avatars and table backgrounds are the biggest part of your data. With this on, phones that support WebP get a much
@@ -241,12 +277,12 @@
         <div id="imgBody"><div class="empty">Loading…</div></div>
       </div>
 
-      <div id="ramPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
+      <div class="up" data-up="ram" id="ramPanel" style="margin-top:6px">
         <h3 class="ub-h">🧠 RAM</h3>
         <div class="sub" style="margin-top:0">
-          The server's memory over time, drawn like Railway's RAM graph, with the number of people connected underneath so you
-          can see whether spikes come from players. Tap or drag on a graph for the exact value. Measured inside the container, so
-          it can differ slightly from Railway's own graph.
+          The server's memory like Railway's RAM graph, with everything else that happens at the same time underneath: people,
+          data, CPU, requests, messages, voice, tables and delay. <b>Touch any graph</b> — a line moves through all of them and the
+          box above lists every number from that moment. Measured inside the container, so it can differ slightly from Railway's own graph.
         </div>
         <div id="ramRange" class="tabs" style="margin:12px 0">
           <button class="tab" data-r="1h">1 h</button>
@@ -259,7 +295,7 @@
         <div id="ramBody"><div class="empty">Loading…</div></div>
       </div>
 
-      <div id="billPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
+      <div class="up" data-up="bill" id="billPanel" style="margin-top:6px">
         <h3 class="ub-h">💵 Railway bill (estimate)</h3>
         <div class="sub" style="margin-top:0">
           Worked out here from what the server measures once a minute (memory, CPU, disk) and the data it sends, priced with
@@ -269,7 +305,7 @@
         <div id="billBody"><div class="empty">Loading…</div></div>
       </div>
 
-      <div id="ubPanel" style="margin-top:26px;padding-top:18px;border-top:1px dashed var(--border)">
+      <div class="up" data-up="breakdown" id="ubPanel" style="margin-top:6px">
         <h3 class="ub-h">📊 Usage breakdown</h3>
         <div class="sub" style="margin-top:0">
           Where the data and the time go: web files, live game / text-chat / voice traffic, time at tables
@@ -317,7 +353,8 @@
         Add or delete the pictures players and bots use. Changes are live immediately — no redeploy. Uploaded avatars are
         kept on your data volume; the original 90 can be hidden and brought back, but their files stay with the site.
       </div>
-      <div id="avCounts" class="ub-cards" style="margin:12px 0"></div>
+      <div data-ap="avatars"><div id="avCounts" class="ub-cards" style="margin:12px 0"></div></div>
+      <div data-ap="avatars kunukku">
 
       <div class="ub-sec">Add or edit an avatar<small>Pick a picture of one person, waist-up. The background is cut out for you; then trim, zoom, straighten, tune the colours and fix edges by hand until it looks right. Use "Edit" on any avatar below to improve an existing one.</small></div>
       <div class="ub-row" id="avEditorCard">
@@ -346,9 +383,13 @@
         <button class="btn" id="btnAvAdd" style="margin-top:8px" disabled>Add avatar</button>
       </div>
 
+      </div>
+      <div data-ap="kunukku">
       <div class="ub-sec">🥥 Kunukku pictures<small>The sad coconut shown on a player who is shut out. Edit it with the same tools as the avatars. The game only shows and hides it (as before); only the picture changes. Use the Pro editor's "Show hidden → Kunukku coconut" to place and size it.</small></div>
       <div id="kunukkuList"></div>
       <input type="file" id="kunukkuFile" accept="image/png,image/webp,image/*" style="display:none">
+      </div>
+      <div data-ap="avatars">
 
       <div class="ub-sec">All avatars</div>
       <div id="avFilters" class="tabs" style="margin-bottom:10px">
@@ -357,6 +398,7 @@
         <button class="tab" data-f="hidden">Hidden</button>
       </div>
       <div id="avGrid" class="av-grid"></div>
+      </div>
     </div>
     <div id="botsView" style="display:none">
       <div class="sub" style="margin-top:0">
@@ -586,7 +628,8 @@ async function unlock() {
   document.getElementById('gate').style.display = 'none';
   document.getElementById('panel').style.display = 'block';
   refresh();
-  if (location.hash === '#layout') { try { switchCategory('design'); } catch (e) {} history.replaceState(null, '', location.pathname); }   // "Exit" from an editor lands here
+  buildMenu(); goPage(location.hash === '#layout' ? 'layout' : 'comments');                     // "Exit" from an editor lands on Edit & design › Table layout editors
+  if (location.hash === '#layout') history.replaceState(null, '', location.pathname);
 }
 
 async function refresh() {
@@ -671,7 +714,9 @@ function switchTab(tab) {
   }
   if (tab === 'visitors') refreshVisitorLog();
   if (tab === 'history') refreshTableHistory();
-  if (tab === 'usage') { refreshNetworkUsage(); refreshUsageBreakdown(); refreshImgOpt(); refreshRam(); }
+  if (tab === 'usage') showUsagePage(currentUsagePage);
+  if (tab === 'avatars') showAvatarsPage(currentAvatarsPage);
+  if (tab !== 'usage' && dashTimer) { clearInterval(dashTimer); dashTimer = null; }
   if (tab === 'bots' && !botAvatarGridBuilt) buildBotAvatarGrid();
   if (tab === 'ghost') {
     if (!ghostAvatarGridBuilt) buildGhostAvatarGrid();
@@ -1026,6 +1071,103 @@ document.getElementById('btnRefreshHistory').addEventListener('click', refreshTa
 // Every original tab id/click-handler/switchTab() call is untouched -- this
 // purely controls which sub-tab buttons are visible.
 const CATEGORY_DEFAULT_TAB = { overview: 'comments', tools: 'bots', stats: 'visitors', design: 'layout' };
+// ---------------- The menu: one button, grouped pages, a title that always says where you are ----------------
+const NAV = [
+  { title: 'Home', icon: '🏠', pages: [
+    { id: 'comments', icon: '💌', title: 'Comments', desc: 'Messages players left on the welcome screen', tab: 'comments' },
+    { id: 'live', icon: '🟢', title: 'Live players & tables', desc: 'Who is playing right now (editor tables are marked)', tab: 'live' } ] },
+  { title: 'Games & players', icon: '🎮', pages: [
+    { id: 'bots', icon: '🤖', title: 'Bot tables', desc: 'Start a table that plays itself', tab: 'bots' },
+    { id: 'ghost', icon: '🕵️', title: 'Ghost players', desc: 'Watch or join tables without being seen', tab: 'ghost' },
+    { id: 'poker', icon: '🃏', title: "Hold'em admin", desc: "Hold'em tables and settings", tab: 'poker' },
+    { id: 'leaderboard', icon: '🏆', title: 'Leaderboard', desc: 'Top players', tab: 'leaderboard' } ] },
+  { title: 'Edit & design', icon: '🎨', pages: [
+    { id: 'layout', icon: '🎨', title: 'Table layout editors', desc: 'Move and resize everything on the 4-player, 6-player, 56 and Hold\'em tables', tab: 'layout' },
+    { id: 'scenery', icon: '🌄', title: 'Backgrounds', desc: 'Add, replace or delete table backgrounds for each screen type', tab: 'scenery' },
+    { id: 'avatars', icon: '🖼️', title: 'Avatars', desc: 'Add, edit and delete avatars', tab: 'avatars', sub: 'avatars' },
+    { id: 'kunukku', icon: '🥥', title: 'Kunukku pictures', desc: 'Change the sad coconut pictures', tab: 'avatars', sub: 'kunukku' },
+    { id: 'pictures', icon: '📦', title: 'Picture sizes (WebP)', desc: 'Smaller pictures, and a before / after compare', tab: 'usage', sub: 'img' } ] },
+  { title: 'Visitors & history', icon: '📊', pages: [
+    { id: 'visitors', icon: '📊', title: 'Visitor log', desc: 'Who visited, from where, on what', tab: 'visitors' },
+    { id: 'history', icon: '📅', title: 'Table history', desc: 'Past tables and how they ended', tab: 'history' } ] },
+  { title: 'Usage & cost', icon: '📈', pages: [
+    { id: 'dashboard', icon: '🧭', title: 'At a glance', desc: 'Data, cost, RAM, voice and server health on one screen', tab: 'usage', sub: 'dashboard' },
+    { id: 'data', icon: '📶', title: 'Data used', desc: 'Network traffic per day', tab: 'usage', sub: 'data' },
+    { id: 'breakdown', icon: '🧮', title: 'Where the data goes', desc: 'Pages, avatars, games, voice, time and the voice relay allowance', tab: 'usage', sub: 'breakdown' },
+    { id: 'ram', icon: '🧠', title: 'RAM & server health', desc: 'Linked graphs: RAM, people, data, CPU, requests, voice, delay', tab: 'usage', sub: 'ram' },
+    { id: 'bill', icon: '💵', title: 'Railway bill', desc: 'This month so far, projection, history', tab: 'usage', sub: 'bill' } ] },
+];
+const NAV_FLAT = NAV.flatMap(sec => sec.pages.map(pg => Object.assign({ section: sec.title }, pg)));
+let currentPageId = 'comments', currentUsagePage = 'dashboard', currentAvatarsPage = 'avatars', dashTimer = null;
+function buildMenu() {
+  document.getElementById('navList').innerHTML = NAV.map(sec => `<div class="nm-sec"><h4>${sec.icon} ${sec.title}</h4>` + sec.pages.map(pg =>
+    `<button class="nm-item${pg.id === currentPageId ? ' on' : ''}" type="button" data-go="${pg.id}"><span class="ic">${pg.icon}</span><span class="tx"><b>${pg.title}</b><span>${pg.desc}</span></span></button>`).join('') + '</div>').join('');
+  document.querySelectorAll('#navList [data-go]').forEach(b => b.addEventListener('click', () => goPage(b.dataset.go)));
+}
+function openMenu(open) { document.getElementById('navMenu').style.display = open ? 'block' : 'none'; document.body.style.overflow = open ? 'hidden' : ''; if (open) buildMenu(); }
+function showUsagePage(pg) {
+  currentUsagePage = pg || 'dashboard';
+  document.querySelectorAll('#usageView .up').forEach(el => { el.style.display = el.dataset.up === currentUsagePage ? '' : 'none'; });
+  if (dashTimer) { clearInterval(dashTimer); dashTimer = null; }
+  if (currentUsagePage === 'dashboard') { refreshDashboard(); dashTimer = setInterval(refreshDashboard, 20000); }
+  else if (currentUsagePage === 'data') refreshNetworkUsage();
+  else if (currentUsagePage === 'img') refreshImgOpt();
+  else if (currentUsagePage === 'ram') refreshRam();
+  else if (currentUsagePage === 'breakdown' || currentUsagePage === 'bill') refreshUsageBreakdown();
+}
+function showAvatarsPage(pg) {
+  currentAvatarsPage = pg || 'avatars';
+  document.querySelectorAll('#avatarsView [data-ap]').forEach(el => { el.style.display = el.dataset.ap.split(' ').includes(currentAvatarsPage) ? '' : 'none'; });
+  const h = document.querySelector('#avatarsView > h3.ub-h'); if (h) h.textContent = currentAvatarsPage === 'kunukku' ? '🥥 Kunukku pictures' : '🖼️ Avatars';
+}
+function goPage(id) {
+  const pg = NAV_FLAT.find(x => x.id === id) || NAV_FLAT[0];
+  currentPageId = pg.id;
+  if (pg.tab === 'usage') currentUsagePage = pg.sub || 'dashboard';
+  if (pg.tab === 'avatars') currentAvatarsPage = pg.sub || 'avatars';
+  switchTab(pg.tab);
+  document.getElementById('navSection').textContent = pg.section;
+  document.getElementById('navPage').textContent = pg.title;
+  openMenu(false); window.scrollTo(0, 0);
+}
+document.getElementById('navMenuBtn').addEventListener('click', () => openMenu(true));
+document.getElementById('navClose').addEventListener('click', () => openMenu(false));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openMenu(false); });
+
+// ---------------- Usage & cost: at a glance ----------------
+async function refreshDashboard() {
+  const body = document.getElementById('dashBody'); if (!body) return;
+  const get = async (u) => { try { const r = await adminFetch(u); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+  const [ub, mem, img] = await Promise.all([get('/api/admin/usage-breakdown?range=today'), get('/api/admin/memory?range=1h'), get('/api/admin/image-optimization')]);
+  const dec = (n) => { n = Number(n) || 0; return n >= 1e12 ? (n / 1e12).toFixed(2) + ' TB' : n >= 1e9 ? (n / 1e9).toFixed(2) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.round(n / 1e3) + ' KB'; };
+  const card = (go, icon, k, v, s, tone, wide) => `<button class="dash-card ${tone || ''} ${wide ? 'wide' : ''}" type="button" data-go="${go}"><div class="k">${icon} ${k}</div><div class="v">${v}</div><div class="s">${s || ''}</div></button>`;
+  let h = '<div class="dash-grid">';
+  if (mem && mem.ok) {
+    const S = mem.stats, P = mem.points, lastP = P[P.length - 1] || [], high = S.baseline && S.now > S.baseline * 1.5;
+    h += card('ram', '🧠', 'RAM now', ramFmt(S.now), `normal ${ramFmt(S.baseline)} · highest this hour ${ramFmt(S.peak)}`, high ? 'warn' : 'good');
+    h += card('live', '👥', 'People connected', String(S.nowConns), `${Math.round(Number(lastP[15]) || 0)} live table${Math.round(Number(lastP[15]) || 0) === 1 ? '' : 's'} · ${Math.round(Number(lastP[14]) || 0)} on voice`, '');
+    const spikes = (mem.spikes || []).length, lag = Math.max(0, ...P.map(p => Number(p[16]) || 0)), errs = Math.round(P.reduce((a, p) => a + (Number(p[12]) || 0), 0));
+    h += card('ram', '⚠️', 'Last hour', spikes ? `${spikes} RAM spike${spikes === 1 ? '' : 's'}` : 'Calm', `${errs} failed request${errs === 1 ? '' : 's'} · slowest moment ${Math.round(lag)} ms behind`, spikes || errs > 5 || lag > 1000 ? 'warn' : 'good');
+    h += card('ram', '⚙️', 'CPU (latest minute)', ((Number(lastP[10]) || 0).toFixed(1)) + '%', `${Math.round(Number(lastP[11]) || 0)} web requests · ${Math.round(Number(lastP[13]) || 0)} game messages per minute`, '');
+  } else h += card('ram', '🧠', 'RAM', '—', 'No data yet', '');
+  if (ub && ub.ok) {
+    h += card('data', '📶', 'Data today', ramFmt(ub.server.containerBytes), `server · voice on phones ${ramFmt(ub.voice.phoneBytes)}`, '');
+    const b = ub.bill;
+    if (b) h += card('bill', '💵', 'Railway this cycle', '$' + (b.totalUsd < 0.005 ? '0.00' : b.totalUsd.toFixed(2)), `projected $${b.projectedUsd.toFixed(2)} · resets in ${b.daysLeft} day${b.daysLeft === 1 ? '' : 's'}`, '');
+    const q = ub.turnQuota;
+    if (q) { const pct = q.limitBytes ? (q.estimatedUsedBytes / q.limitBytes) * 100 : 0; h += card('breakdown', '🎙', 'Voice relay allowance', `${pct < 0.1 ? '<0.1' : pct.toFixed(1)}%`, `${dec(q.estimatedUsedBytes)} of ${dec(q.limitBytes)} free · charge so far $${q.estimatedCharge.toFixed(2)}`, pct >= 80 ? 'warn' : 'good'); }
+  }
+  if (img && img.ok) {
+    const g = img.groups || {}; const o = (g.avatars ? g.avatars.orig : 0) + (g.backgrounds ? g.backgrounds.orig : 0) + (g.kunukku ? g.kunukku.orig : 0), w = (g.avatars ? g.avatars.webp : 0) + (g.backgrounds ? g.backgrounds.webp : 0) + (g.kunukku ? g.kunukku.webp : 0);
+    h += card('pictures', '📦', 'Smaller pictures (WebP)', img.enabled ? `−${o ? Math.round((1 - w / o) * 100) : 0}%` : 'OFF', img.enabled ? `${dec(o)} → ${dec(w)} when a phone downloads everything` : 'Everyone gets the original pictures', img.enabled ? 'good' : 'warn');
+  }
+  h += '</div>';
+  body.innerHTML = h;
+  body.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => goPage(b.dataset.go)));
+  document.getElementById('dashStamp').textContent = 'updated ' + new Date().toLocaleTimeString();
+}
+document.getElementById('btnRefreshDash').addEventListener('click', refreshDashboard);
+
 function switchCategory(cat) {
   document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('on', b.dataset.cat === cat));
   document.querySelectorAll('#subTabBar .tab').forEach(b => {
@@ -2228,89 +2370,124 @@ function renderImgOpt(selectedFile) {
   const z = document.getElementById('btnImgZoom'); if (z) z.addEventListener('click', () => { document.querySelectorAll('#imgPair .io-pane').forEach(p => p.classList.toggle('zoom')); });
 }
 
-// ---------------- RAM (Railway-style graph + why it spikes) ----------------
+// ---------------- RAM + server health: linked graphs ----------------
 let ramRangeSel = '6h';
 const ramFmt = (b) => { b = Number(b) || 0; return b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? Math.round(b / 1048576) + ' MB' : b > 0 ? Math.round(b / 1024) + ' KB' : '0 B'; };
 function ramNiceMax(v) { const steps = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16]; const g = (v * 1.12) / 1073741824; return (steps.find(x => x >= g) || Math.ceil(g)) * 1073741824; }
+function niceMax(v) { if (!(v > 0)) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))); const m = v / e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * e; }
 function ramTime(t, withDate) {
   const d = new Date(t), p = (n) => String(n).padStart(2, '0');
   return (withDate ? `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` : '') + `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-// one chart: kind 'ram' (purple area + spike/restart/backup marks) or 'people' (green steps). Both share the pointer tooltip.
-function ramChartHtml(id, d, kind) {
-  const pts = d.points; if (!pts.length) return '<div class="empty" style="padding:14px">No samples yet — the server records one every 15 seconds. Check back in a minute.</div>';
-  const W = 640, H = kind === 'ram' ? 230 : 110, padL = 6, padR = 100, padT = 14, padB = 30;
-  const t0 = d.from, t1 = Math.max(d.to, pts[pts.length - 1][0] + 1);
-  const val = (p) => kind === 'ram' ? p[1] : p[6];
-  const vmax = kind === 'ram' ? ramNiceMax(Math.max(...pts.map(val))) : Math.max(4, Math.ceil(Math.max(...pts.map(val)) * 1.2));
-  const X = (t) => padL + ((t - t0) / (t1 - t0)) * (W - padL - padR), Y = (v) => padT + (1 - v / vmax) * (H - padT - padB);
-  let line = '', area = '';
-  pts.forEach((p, i) => {
-    const x = X(p[0]), y = Y(val(p));
-    if (i === 0) { line = `M${x.toFixed(1)},${y.toFixed(1)}`; area = `M${x.toFixed(1)},${(H - padB)} L${x.toFixed(1)},${y.toFixed(1)}`; }
-    else { const px = X(pts[i - 1][0]); line += ` H${x.toFixed(1)} V${y.toFixed(1)}`; area += ` H${x.toFixed(1)} V${y.toFixed(1)}`; }
-  });
-  const xe = X(t1); line += ` H${xe.toFixed(1)}`; area += ` H${xe.toFixed(1)} V${H - padB} Z`;
-  const col = kind === 'ram' ? '#8b5cf6' : '#4fe0a0';
-  const labels = [vmax, vmax / 2, 0].map((v) => `<text x="${W - padR + 8}" y="${(Y(v) + 6).toFixed(1)}" fill="#a2a2ba" font-size="19">${kind === 'ram' ? (v === 0 ? '0 B' : ramFmt(v)) : (v === 0 ? '0' : Math.round(v))}</text><line x1="${padL}" x2="${W - padR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="#2c2c40" stroke-dasharray="${v === 0 ? '0' : '3 4'}"/>`).join('');
-  const long = (t1 - t0) > 36 * 3600e3;
-  const xl = [0, 0.5, 1].map((f, i) => `<text x="${(padL + f * (W - padL - padR)).toFixed(1)}" y="${H - 7}" fill="#a2a2ba" font-size="19" text-anchor="${i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}">${ramTime(t0 + f * (t1 - t0), long)}</text>`).join('');
-  let marks = '';
-  if (kind === 'ram') {
-    (d.markers || []).forEach((m) => {
-      const x = X(m.t); if (x < padL || x > W - padR) return;
-      if (m.type === 'boot') marks += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${padT}" y2="${H - padB}" stroke="#9db8ff" stroke-dasharray="4 3" opacity=".8"/><text x="${(x + 3).toFixed(1)}" y="${padT + 9}" fill="#9db8ff" font-size="20">↻</text>`;
-      else marks += `<circle cx="${x.toFixed(1)}" cy="${H - padB - 8}" r="6" fill="#7fd8ff"/>`;
-    });
-    (d.spikes || []).forEach((sp, i) => { const x = X(sp.peakAt), y = Y(sp.peak); marks += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="8" fill="none" stroke="#ffb454" stroke-width="3"/><text x="${(x + 11).toFixed(1)}" y="${(y - 8).toFixed(1)}" fill="#ffb454" font-size="20" font-weight="700">${i + 1}</text>`; });
-  }
-  return `<div class="ram-wrap" id="${id}" data-kind="${kind}">
-    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">
-      <defs><linearGradient id="g_${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${col}" stop-opacity=".38"/><stop offset="100%" stop-color="${col}" stop-opacity=".04"/></linearGradient></defs>
-      ${labels}${xl}<path d="${area}" fill="url(#g_${id})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="2.2" vector-effect="non-scaling-stroke"/>${marks}
-      <line class="guide" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#cfcfe6" stroke-width="1.5" style="display:none"/><circle class="dot" r="7" fill="${col}" stroke="#fff" stroke-width="2.5" style="display:none"/>
-    </svg><div class="ram-tip"></div></div>`;
+// every graph reads one number (or two) from each point: [time, RAM peak, RAM avg, process, objects, buffers, connected, seated,
+//   data in/min, data out/min, CPU %, requests/min, failed/min, messages/min, on voice, live tables, delay ms]
+const RAM_GRAPHS = [
+  { id: 'ram', title: 'RAM', h: 230, ram: true },
+  { id: 'people', title: 'People connected', sub: 'players, watchers, the admin panel — bots do not count', h: 112, lines: [{ i: 6, color: '#4fe0a0', label: 'connected' }], fmt: (v) => String(Math.round(v)), min: 4 },
+  { id: 'data', title: 'Data going out / in', sub: 'per minute', h: 124, lines: [{ i: 9, color: '#ffb454', label: 'out' }, { i: 8, color: '#6ea8ff', label: 'in' }], fmt: (v) => ramFmt(v), bytes: true },
+  { id: 'cpu', title: 'Server busy (CPU)', sub: '100% = one full core', h: 104, lines: [{ i: 10, color: '#ff8a5b', label: 'CPU' }], fmt: (v) => (v < 10 ? v.toFixed(1) : Math.round(v)) + '%', min: 10 },
+  { id: 'req', title: 'Web requests', sub: 'per minute · red = failed', h: 104, lines: [{ i: 11, color: '#5fd8e8', label: 'requests' }, { i: 12, color: '#ff6b6b', label: 'failed' }], fmt: (v) => String(Math.round(v)), min: 5 },
+  { id: 'msgs', title: 'Live game messages', sub: 'moves, chat, state — per minute', h: 104, lines: [{ i: 13, color: '#e879c9', label: 'messages' }], fmt: (v) => String(Math.round(v)), min: 5 },
+  { id: 'voice', title: 'People on voice', h: 92, lines: [{ i: 14, color: '#a78bfa', label: 'on voice' }], fmt: (v) => String(Math.round(v)), min: 2 },
+  { id: 'tables', title: 'Live tables', sub: 'real tables only', h: 92, lines: [{ i: 15, color: '#2dd4bf', label: 'tables' }], fmt: (v) => String(Math.round(v)), min: 2 },
+  { id: 'lag', title: 'Server delay', sub: 'how late the server ran — high = struggling', h: 92, lines: [{ i: 16, color: '#f87171', label: 'delay' }], fmt: (v) => Math.round(v) + ' ms', min: 100 },
+];
+const RG = { W: 640, padL: 6, padR: 100, padT: 14, padB: 28 };
+function ramGeom(d) { const t1 = Math.max(d.to, d.points.length ? d.points[d.points.length - 1][0] + 1 : d.to); return { t0: d.from, t1 }; }
+function graphMax(g, d) {
+  if (g.ram) return ramNiceMax(Math.max(...d.points.map(p => p[1])));
+  const m = Math.max(g.min || 1, ...d.points.flatMap(p => g.lines.map(l => Number(p[l.i]) || 0)));
+  return niceMax(m * 1.1);
 }
-function ramWirePointer(id, d, kind) {
-  const wrap = document.getElementById(id); if (!wrap || !d.points.length) return;
-  const svg = wrap.querySelector('svg'), tip = wrap.querySelector('.ram-tip'), guide = wrap.querySelector('.guide'), dot = wrap.querySelector('.dot');
-  const W = 640, H = kind === 'ram' ? 230 : 110, padL = 6, padR = 100, padT = 14, padB = 30;
-  const t0 = d.from, t1 = Math.max(d.to, d.points[d.points.length - 1][0] + 1);
-  const vmax = kind === 'ram' ? ramNiceMax(Math.max(...d.points.map(p => p[1]))) : Math.max(4, Math.ceil(Math.max(...d.points.map(p => p[6])) * 1.2));
-  const move = (ev) => {
-    const r = svg.getBoundingClientRect(); const fx = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)); const vx = fx * W;
-    const t = t0 + ((vx - padL) / (W - padL - padR)) * (t1 - t0);
-    let best = d.points[0]; for (const p of d.points) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p;
-    const x = padL + ((best[0] - t0) / (t1 - t0)) * (W - padL - padR), v = kind === 'ram' ? best[1] : best[6], y = padT + (1 - v / vmax) * (H - padT - padB);
-    guide.setAttribute('x1', x); guide.setAttribute('x2', x); guide.style.display = ''; dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.style.display = '';
-    const long = (t1 - t0) > 36 * 3600e3;
-    tip.innerHTML = kind === 'ram' ? `${ramTime(best[0], true)} &nbsp; <b>${ramFmt(best[1])}</b> &nbsp;·&nbsp; ${best[6]} connected` : `${ramTime(best[0], true)} &nbsp; <b>${best[6]}</b> connected · ${best[7]} seated`;
-    tip.style.display = 'block'; const tw = tip.offsetWidth; const px = (x / W) * r.width;
-    tip.style.left = Math.max(0, Math.min(r.width - tw, px - tw / 2)) + 'px'; tip.style.top = '-2px';
-  };
-  const leave = () => { guide.style.display = 'none'; dot.style.display = 'none'; tip.style.display = 'none'; };
-  svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); svg.addEventListener('pointerleave', leave); svg.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') setTimeout(leave, 2500); });
+function graphHtml(g, d, last) {
+  const pts = d.points; const { t0, t1 } = ramGeom(d); const H = g.h, { W, padL, padR, padT } = RG, padB = (g.ram || last) ? RG.padB : 12;
+  const vmax = graphMax(g, d); const X = (t) => padL + ((t - t0) / (t1 - t0)) * (W - padL - padR), Y = (v) => padT + (1 - v / vmax) * (H - padT - padB);
+  const lines = g.ram ? [{ i: 1, color: '#8b5cf6', label: 'RAM' }] : g.lines;
+  const labFmt = (v) => g.ram ? (v === 0 ? '0 B' : ramFmt(v)) : (v === 0 ? '0' : g.fmt(v));
+  const grid = [vmax, vmax / 2, 0].map((v) => `<text x="${W - padR + 8}" y="${(Y(v) + 6).toFixed(1)}" fill="#a2a2ba" font-size="${g.ram ? 19 : 17}">${labFmt(v)}</text><line x1="${padL}" x2="${W - padR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="#2c2c40" stroke-dasharray="${v === 0 ? '0' : '3 4'}"/>`).join('');
+  const long = (t1 - t0) > 36 * 3600e3;
+  const xl = (g.ram || last) ? [0, 0.5, 1].map((f, i) => `<text x="${(padL + f * (W - padL - padR)).toFixed(1)}" y="${H - 7}" fill="#a2a2ba" font-size="19" text-anchor="${i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}">${ramTime(t0 + f * (t1 - t0), long)}</text>`).join('') : '';
+  const stepPath = (i) => { let line = ''; pts.forEach((p, k) => { const x = X(p[0]), y = Y(Number(p[i]) || 0); line += k === 0 ? `M${x.toFixed(1)},${y.toFixed(1)}` : ` H${x.toFixed(1)} V${y.toFixed(1)}`; }); return line + ` H${X(t1).toFixed(1)}`; };
+  let paths = '';
+  lines.forEach((l, k) => {
+    const lp = stepPath(l.i);
+    if (k === 0) paths += `<path d="${lp} V${H - padB} H${X(pts[0][0]).toFixed(1)} Z" fill="url(#g_${g.id})"/>`;
+    paths += `<path d="${lp}" fill="none" stroke="${l.color}" stroke-width="${g.ram ? 2.2 : 2}" vector-effect="non-scaling-stroke"/>`;
+  });
+  let marks = '';
+  (d.markers || []).forEach((m) => {
+    const x = X(m.t); if (x < padL || x > W - padR) return;
+    if (m.type === 'boot') marks += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${padT}" y2="${H - padB}" stroke="#9db8ff" stroke-dasharray="4 3" opacity="${g.ram ? .85 : .45}"/>` + (g.ram ? `<text x="${(x + 3).toFixed(1)}" y="${padT + 9}" fill="#9db8ff" font-size="20">↻</text>` : '');
+    else if (g.ram) marks += `<circle cx="${x.toFixed(1)}" cy="${H - padB - 8}" r="6" fill="#7fd8ff"/>`;
+  });
+  if (g.ram) (d.spikes || []).forEach((sp, i) => { const x = X(sp.peakAt), y = Y(sp.peak); marks += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="8" fill="none" stroke="#ffb454" stroke-width="3"/><text x="${(x + 11).toFixed(1)}" y="${(y - 8).toFixed(1)}" fill="#ffb454" font-size="20" font-weight="700">${i + 1}</text>`; });
+  const dots = lines.map((l) => `<circle class="dot" data-i="${l.i}" r="6" fill="${l.color}" stroke="#fff" stroke-width="2" style="display:none"/>`).join('');
+  const legend = lines.length > 1 ? '<span style="float:right;font-weight:500">' + lines.map(l => `<span class="ram-dotc" style="background:${l.color}"></span>${l.label}`).join(' &nbsp; ') + '</span>' : '';
+  return `<div class="ram-card"><div class="t">${g.title}${g.sub ? `<small>${g.sub}</small>` : ''}${legend}</div><div class="ram-wrap" id="rg_${g.id}" data-g="${g.id}">
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"><defs><linearGradient id="g_${g.id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${lines[0].color}" stop-opacity=".34"/><stop offset="100%" stop-color="${lines[0].color}" stop-opacity=".04"/></linearGradient></defs>
+      ${grid}${xl}${paths}${marks}<line class="guide" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#cfcfe6" stroke-width="1.5" style="display:none"/>${dots}</svg></div></div>`;
+}
+let ramData = null;
+// ONE touch moves a line through EVERY graph at the same moment, and the box above lists every number from that moment
+function ramShowAt(t) {
+  const d = ramData; if (!d || !d.points.length) return;
+  const { t0, t1 } = ramGeom(d); let best = d.points[0]; for (const p of d.points) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p;
+  const x = RG.padL + ((best[0] - t0) / (t1 - t0)) * (RG.W - RG.padL - RG.padR);
+  RAM_GRAPHS.forEach((g) => {
+    const wrap = document.getElementById('rg_' + g.id); if (!wrap) return;
+    const guide = wrap.querySelector('.guide'), vmax = graphMax(g, d), padB = (g.ram || g === RAM_GRAPHS[RAM_GRAPHS.length - 1]) ? RG.padB : 12;
+    guide.setAttribute('x1', x); guide.setAttribute('x2', x); guide.style.display = '';
+    wrap.querySelectorAll('.dot').forEach((dot) => { const v = Number(best[Number(dot.dataset.i)]) || 0; dot.setAttribute('cx', x); dot.setAttribute('cy', RG.padT + (1 - v / vmax) * (g.h - RG.padT - padB)); dot.style.display = ''; });
+  });
+  const f = ramFmt, N = (v) => Math.round(Number(v) || 0);
+  const box = document.getElementById('ramReadout'); window.__ramPoint = best;
+  box.innerHTML = `<div class="rt"><span>🕒 ${ramTime(best[0], true)}</span><em>${best.length ? 'all graphs at this moment' : ''}</em></div><div class="rg">
+    <span>🧠 RAM <b>${f(best[1])}</b> <span style="opacity:.6">(avg ${f(best[2])})</span></span><span>👥 Connected <b>${N(best[6])}</b> · seated <b>${N(best[7])}</b></span>
+    <span>📤 Data out <b>${f(best[9])}</b>/min</span><span>📥 Data in <b>${f(best[8])}</b>/min</span>
+    <span>⚙️ CPU <b>${(Number(best[10]) || 0).toFixed(1)}%</b></span><span>🎙 On voice <b>${N(best[14])}</b></span>
+    <span>🌐 Requests <b>${N(best[11])}</b>/min${Number(best[12]) > 0 ? ` · <b style="color:#ff8d8d">${Number(best[12]).toFixed(1)} failed</b>` : ''}</span><span>🃏 Live tables <b>${N(best[15])}</b></span>
+    <span>💬 Messages <b>${N(best[13])}</b>/min</span><span>⏱ Server delay <b>${N(best[16])} ms</b></span></div>`;
+}
+function ramClear() { document.querySelectorAll('#ramBody .guide,#ramBody .dot').forEach((n) => { n.style.display = 'none'; }); const b = document.getElementById('ramReadout'); if (b) b.innerHTML = '<div class="rt"><span>👆 Touch any graph</span></div><div class="note">A line moves through every graph below and this box shows every number from that exact moment: RAM, people, data, CPU, requests, messages, voice, tables and delay.</div>'; window.__ramPoint = null; }
+function ramWire() {
+  const d = ramData; if (!d || !d.points.length) return;
+  document.querySelectorAll('#ramBody .ram-wrap').forEach((wrap) => {
+    const svg = wrap.querySelector('svg'); const { t0, t1 } = ramGeom(d);
+    const at = (ev) => { const r = svg.getBoundingClientRect(); const vx = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)) * RG.W; ramShowAt(t0 + ((vx - RG.padL) / (RG.W - RG.padL - RG.padR)) * (t1 - t0)); };
+    svg.addEventListener('pointerdown', at); svg.addEventListener('pointermove', at);
+  });
 }
 const RAM_KIND_LABEL = { restart: 'Restart', backup: 'Backup', players: 'Players', heap: 'Game objects', buffers: 'Big data', unexplained: 'Unexplained' };
 function renderRam(d) {
-  const el = document.getElementById('ramBody');
+  const el = document.getElementById('ramBody'); ramData = d && d.ok ? d : null;
   if (!d || !d.ok) { el.innerHTML = '<div class="empty">Could not load the RAM history.</div>'; return; }
   const S = d.stats; let h = '';
   h += `<div class="ub-cards">${ubCard(ramFmt(S.now), 'RAM now<br>' + S.nowConns + ' connected', true)}${ubCard(ramFmt(S.peak), 'highest in this period<br>' + (S.peak ? ramTime(S.peakAt, true) : ''))}${ubCard(ramFmt(S.baseline), 'normal level<br>(typical, ignoring spikes)')}</div>`;
-  h += `<div class="ram-card" style="margin-top:10px"><div class="t">RAM</div>${ramChartHtml('ramChartMain', d, 'ram')}</div>`;
-  h += `<div class="ram-card"><div class="t">People connected <span style="font-weight:500;color:#8f8fa8">· players, watchers and the admin panel — bots don't count</span></div>${ramChartHtml('ramChartPeople', d, 'people')}</div>`;
+  // what the spikes were, in one line
+  const kinds = {}; (d.spikes || []).forEach(sp => { kinds[sp.kind] = (kinds[sp.kind] || 0) + 1; });
+  const bootN = (d.markers || []).filter(m => m.type === 'boot').length;
+  const sum = !d.spikes.length ? 'No spikes in this period — memory stayed close to its normal level.' : `${d.spikes.length} spike${d.spikes.length === 1 ? '' : 's'}: ` + Object.keys(kinds).map(k => `${kinds[k]} from ${({ restart: 'a restart or deploy', backup: 'a GitHub backup', players: 'players joining', heap: 'game objects growing', buffers: 'big data', unexplained: 'no clear cause' })[k] || k}`).join(', ') + '.';
+  h += `<div class="ub-row" style="border-left:4px solid #ffb454"><div class="top"><span>In this period</span><em>${bootN} restart${bootN === 1 ? '' : 's'}</em></div><div class="note" style="color:#e8edf2;font-size:0.8rem;margin-top:6px">${esc(sum)}</div></div>`;
+  h += '<div id="ramReadout"></div>';
+  RAM_GRAPHS.forEach((g, i) => { h += d.points.length ? graphHtml(g, d, i === RAM_GRAPHS.length - 1) : (i === 0 ? '<div class="ram-card"><div class="empty" style="padding:14px">No samples yet — the server records one every 15 seconds. Check back in a minute.</div></div>' : ''); });
   h += `<div class="ub-row ram-verdict ${esc(d.verdict.level)}"><div class="top"><span>Is it too many people at once?</span></div><div class="note" style="color:#e8e8f2;font-size:0.8rem;margin-top:6px">${esc(d.verdict.text)}</div>` +
     (d.correlation ? `<div class="note" style="margin-top:6px">Based on ${d.correlation.n} one-minute samples · connected people ranged ${d.correlation.minConns}–${d.correlation.maxConns}</div>` : '') + `</div>`;
-  h += `<div class="ub-sec">What are the spikes?<small>Numbers match the circles on the graph. A spike is memory at least a quarter above normal and 50 MB or more. Each is checked against restarts, GitHub backups, players joining and what kind of memory grew.</small></div>`;
-  if (!d.spikes.length) h += '<div class="ub-row"><div class="note" style="color:#e8e8f2">No spikes in this period — memory stayed close to its normal level.</div></div>';
+  h += `<div class="ub-sec">What are the spikes?<small>Numbers match the circles on the RAM graph. A spike is memory at least a quarter above normal and 50 MB or more. Each is checked against restarts, GitHub backups, players joining and what kind of memory grew.</small></div>`;
+  if (!d.spikes.length) h += '<div class="ub-row"><div class="note" style="color:#e8edf2">No spikes in this period.</div></div>';
   d.spikes.forEach((sp, i) => {
     h += `<div class="ub-row"><div class="top"><span><b style="color:#ffb454">${i + 1}</b> &nbsp;${ramFmt(sp.peak)} at ${ramTime(sp.peakAt, true)}</span><em>+${ramFmt(sp.delta)}</em></div>
       <div class="note" style="margin-top:6px"><span class="ram-badge ${esc(sp.kind)}">${esc(RAM_KIND_LABEL[sp.kind] || sp.kind)}</span>${esc(sp.why)}</div>
       <div class="note">normal then ${ramFmt(sp.base)} · lasted about ${Math.max(1, Math.round((sp.end - sp.start) / 60000))} min · people connected ${sp.connsBase} → ${sp.connsPeak} · seated ${sp.seatedPeak}</div></div>`;
   });
-  h += `<div class="ub-row"><div class="note">Resolution: ${esc(d.resolution)} samples (a sample every 15 seconds, kept as each minute's highest). ↻ marks a server restart; a blue dot marks a large GitHub backup. History survives restarts.</div></div>`;
-  el.innerHTML = h;
-  ramWirePointer('ramChartMain', d, 'ram'); ramWirePointer('ramChartPeople', d, 'people');
+  h += `<div class="ub-sec">What makes RAM jump?<small>The usual causes, most common first</small></div><div class="ub-row"><div class="note" style="color:#dfe5f0;line-height:1.55">
+    <b>🔁 A restart or deploy.</b> Every time you upload a new version, Railway starts the new copy <i>before</i> it stops the old one, so for a minute or two both are in memory. Those are the dashed ↻ lines — if a spike sits on one, that is the cause.<br>
+    <b>💾 A GitHub backup.</b> The visitor log, comments and table history are turned into one big piece of text before they are sent. Larger files, bigger jump.<br>
+    <b>👥 Many people joining together.</b> Each connection and each table takes a little memory. You would see the "People connected" graph climb at the same moment.<br>
+    <b>🖼 Big files read at once</b> — uploading an avatar or a background, or a big picture being prepared.<br>
+    <b>🧹 Memory cleanup (garbage collection).</b> Node lets unused memory pile up and clears it in one go: a small saw-tooth, not a real problem.<br>
+    <b>🐛 A leak</b> looks different: RAM that keeps climbing hour after hour and never comes back down, even with nobody connected.</div></div>`;
+  h += `<div class="ub-row"><div class="note">Resolution: ${esc(d.resolution)} (a sample every 15 seconds, kept as each minute's highest). ↻ marks a server restart; a blue dot marks a large GitHub backup. History survives restarts.</div></div>`;
+  el.innerHTML = h; ramClear(); ramWire();
 }
 async function refreshRam() {
   try {
@@ -2324,6 +2501,7 @@ document.getElementById('ramRange').addEventListener('click', (e) => {
   const b = e.target.closest('[data-r]'); if (!b) return;
   ramRangeSel = b.dataset.r; [...document.getElementById('ramRange').children].forEach(x => x.classList.toggle('on', x === b)); refreshRam();
 });
+document.addEventListener('pointerdown', (e) => { if (ramData && !e.target.closest('#ramBody .ram-wrap') && !e.target.closest('#ramReadout')) ramClear(); });
 
 // ---------------- Railway bill ----------------
 const usd = (v) => '$' + (Math.abs(v) < 0.005 ? '0.00' : Number(v).toFixed(2));
