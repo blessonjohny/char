@@ -2,7 +2,7 @@
 // editor-nav.js  --  one shared "Exit" and "Switch editor" bar for every layout editor
 // (4-player, 6-player, 56 and Hold'em, classic and Pro).
 //
-//   * Exit goes back to the admin panel's Layout Editors section (the page you came from),
+//   * Exit goes back to the admin panel's Edit › Tables page (the page you came from),
 //     where you can pick another table. The admin keeps you logged in for this tab.
 //   * Switch editor jumps straight to another table's editor.
 //   * Both ask first if you have changes that are not saved yet, so nothing is lost by accident.
@@ -50,7 +50,7 @@
     return confirm('You have changes that are not saved yet.\n\nLeave anyway and lose them?');
   }
   function go(url) { leaving = true; location.href = url; }
-  function exit() { if (confirmLeave()) go('/admin.html#layout'); }
+  function exit() { if (confirmLeave()) go('/admin.html#/edit/tables'); }
   function switchTo(url) {
     if (url === here) return;
     if (confirmLeave()) go(url);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>28 Kerala Gulan — Comments Admin</title>
+<title>28 Gulan — Admin</title>
 <style>
   :root{--bg:#0a1628;--panel:#111d2e;--accent:#f4c430;--text:#fff;--text2:#9fb0c3;--border:rgba(255,255,255,0.12);--danger:#ff5c5c}
   *{box-sizing:border-box}
@@ -94,19 +94,33 @@
   .ave-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
   .ave-touch canvas{width:100%;border-radius:10px;border:1px solid var(--border);touch-action:none;cursor:crosshair;background:repeating-conic-gradient(#d8d8d8 0% 25%,#f2f2f2 0% 50%) 50%/16px 16px;display:block}
   .ed-mini.on{background:var(--accent);border-color:var(--accent);color:#241a12}
-  /* New menu: one button, one title, one clear list */
+  /* Navigation: ONE bar with every main category; the active category's pages sit right under it; a header says where you are */
   #catBar,#subTabBar{display:none !important}
-  #navBar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;margin:-4px 0 12px;padding:10px 0 10px;background:linear-gradient(#0a1220 82%,rgba(10,18,32,0))}
-  #navMenuBtn{flex:none;padding:12px 16px;border-radius:12px;border:0;background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;font-weight:800;font-size:0.9rem;cursor:pointer;box-shadow:0 2px 14px rgba(244,196,48,.25)}
-  #navCrumb{min-width:0;line-height:1.2}#navCrumb small{display:block;color:var(--text2);font-size:0.7rem;letter-spacing:.3px}#navCrumb b{display:block;color:#fff;font-size:1.02rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #navMenu{position:fixed;inset:0;z-index:60;background:#070c16;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 40px;display:none}
-  #navMenu .nm-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;position:sticky;top:0;background:#070c16;padding:6px 0 10px;z-index:2}
-  #navMenu .nm-head b{font-size:1.1rem;color:#fff}
-  #navMenu .nm-close{border:1px solid var(--border);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer}
-  .nm-sec{margin-top:16px}.nm-sec h4{margin:0 0 8px;font-size:0.74rem;letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
-  .nm-item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);background:rgba(255,255,255,.045);color:#e8edf2;cursor:pointer}
-  .nm-item .ic{font-size:1.4rem;flex:none;width:34px;text-align:center}.nm-item .tx{min-width:0}.nm-item .tx b{display:block;font-size:0.92rem;color:#fff}.nm-item .tx span{display:block;font-size:0.72rem;color:var(--text2);margin-top:2px;line-height:1.3}
-  .nm-item.on{border-color:var(--accent);background:rgba(244,196,48,.12)}
+  #topNav{position:sticky;top:0;z-index:50;margin:-4px -2px 0;padding:6px 2px 0;background:#0a1220;box-shadow:0 8px 14px -10px rgba(0,0,0,.7)}
+  #mainBar{display:flex;gap:6px}
+  #mainBar button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 2px 8px;border-radius:12px;border:1.5px solid var(--border);background:rgba(255,255,255,.045);color:#c9d2de;font-size:0.7rem;font-weight:700;cursor:pointer;line-height:1.1}
+  #mainBar button .ic{font-size:1.25rem;line-height:1}
+  #mainBar button.on{background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;border-color:transparent;box-shadow:0 2px 14px rgba(244,196,48,.25)}
+  #subBar{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:9px 2px 10px;scrollbar-width:none}
+  #subBar::-webkit-scrollbar{display:none}
+  #subBar:empty{display:none}
+  #subBar button{flex:none;padding:8px 14px;border-radius:999px;border:1.5px solid var(--border);background:rgba(255,255,255,.04);color:#c9d2de;font-size:0.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
+  #subBar button.on{border-color:var(--accent);color:var(--accent);background:rgba(244,196,48,.12)}
+  #pageHead{display:flex;align-items:center;gap:12px;margin:12px 0 12px;min-height:40px}
+  #pageBack{flex:none;display:none;padding:9px 14px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,.06);color:#fff;font-weight:700;font-size:0.82rem;cursor:pointer}
+  #navCrumb{min-width:0;line-height:1.2}#navCrumb small{display:block;color:var(--text2);font-size:0.7rem;letter-spacing:.4px;text-transform:uppercase}#navCrumb b{display:block;color:#fff;font-size:1.12rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Edit hub */
+  .hub-sec{margin:18px 0 8px;font-size:0.72rem;letter-spacing:1px;text-transform:uppercase;color:var(--accent);font-weight:800}
+  .hub-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px}
+  .hub-top{display:flex;align-items:center;gap:12px}.hub-ic{font-size:1.9rem;flex:none;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center}
+  .hub-top b{display:block;color:#fff;font-size:1.02rem}.hub-top span{display:block;color:var(--text2);font-size:0.74rem;margin-top:2px;line-height:1.3}
+  .hub-chips{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+  .hub-chip{font-size:0.7rem;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.07);color:#cfd8e6}.hub-chip.ok{background:rgba(61,214,140,.14);color:#4fe0a0}.hub-chip.dim{opacity:.7}
+  .hub-act{display:flex;gap:8px;flex-wrap:wrap}.hub-act a,.hub-act button{flex:1 1 auto;text-align:center;text-decoration:none;padding:11px 12px;border-radius:11px;border:1.5px solid var(--border);background:rgba(255,255,255,.06);color:#fff;font-weight:700;font-size:0.84rem;cursor:pointer}
+  .hub-act .primary{flex:2 1 160px;background:linear-gradient(135deg,#f4c430,#e6a817);color:#0a1628;border-color:transparent}
+  .hub-act .quiet{flex:0 1 auto;font-weight:600;font-size:0.76rem;opacity:.8}
+  .hub-help{font-size:0.76rem;color:var(--text2);line-height:1.55}.hub-help b{color:#e8edf2}
+  .sc-filter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}.sc-filter button{padding:7px 13px;border-radius:999px;border:1.5px solid var(--border);background:rgba(255,255,255,.04);color:#c9d2de;font-weight:700;font-size:0.78rem;cursor:pointer}.sc-filter button.on{border-color:var(--accent);color:var(--accent);background:rgba(244,196,48,.12)}
   /* usage dashboard */
   .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .dash-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px;cursor:pointer;text-align:left;color:#e8edf2;min-height:92px}
@@ -175,8 +189,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>💌 Comments — Admin</h1>
-  <div class="sub">28 Kerala Gulan · messages left from the welcome screen</div>
+  <h1>🎛️ 28 Gulan — Admin</h1>
+  <div class="sub">Control panel</div>
 
   <div class="gate" id="gate">
     <input type="password" id="pwd" placeholder="Admin password" autocomplete="off">
@@ -188,8 +202,8 @@
     <!-- Top-level menu: pick a category, its own sub-tabs appear right below.
          Every tab button below keeps its original id and click wiring exactly
          as before -- this only changes which ones are visible at once. -->
-    <div id="navBar"><button id="navMenuBtn" type="button">☰ Menu</button><div id="navCrumb"><small id="navSection">Home</small><b id="navPage">Comments</b></div></div>
-    <div id="navMenu"><div class="nm-head"><b>Where do you want to go?</b><button class="nm-close" id="navClose" type="button">✕ Close</button></div><div id="navList"></div></div>
+    <div id="topNav"><div id="mainBar"></div><div id="subBar"></div></div>
+    <div id="pageHead"><button id="pageBack" type="button">← Back</button><div id="navCrumb"><small id="navSection"></small><b id="navPage"></b></div></div>
     <div class="cat-bar" id="catBar">
       <button class="cat-btn on" data-cat="overview" type="button">🏠 Overview</button>
       <button class="cat-btn" data-cat="tools" type="button">🎮 Game Tools</button>
@@ -344,6 +358,7 @@
           <button class="btn" id="beSave" style="margin-top:6px" disabled>Save background</button>
         </div>
       </div>
+      <div class="sc-filter" id="scFilter"><button type="button" data-f="all" class="on">All tables</button><button type="button" data-f="4p">4-Player</button><button type="button" data-f="6p">6-Player</button><button type="button" data-f="56">56</button></div>
       <div id="sceneryList"></div>
     </div>
 
@@ -511,34 +526,7 @@
       <div id="pokerList"></div>
     </div>
     <div id="layoutView" style="display:none">
-      <div class="sub" style="margin-top:0">
-        Visual, drag-and-drop editors for each table's on-screen layout — seats, avatars,
-        cards, dealer, etc. Positioning only, never touches game logic. Opens in a new tab;
-        you'll join/host a real (or bot-filled) table inside the editor itself to see the
-        real elements to drag.
-      </div>
-      <div class="card">
-        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎴 4-Player Table</div>
-        <a class="btn" href="/layout-editor-pro.html?table=4p" style="display:block;text-align:center;text-decoration:none">✨ Open 4-Player Pro Editor ↗</a>
-        <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
-        <a class="btn" href="/layout-editor.html" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 4-Player Layout Editor ↗</a>
-      </div>
-      <div class="card">
-        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎰 Hold'em Table</div>
-        <a class="btn" href="/layout-editor-holdem.html" style="display:block;text-align:center;text-decoration:none">Open Hold'em Layout Editor ↗</a>
-      </div>
-      <div class="card">
-        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🎲 6-Player Table</div>
-        <a class="btn" href="/layout-editor-pro.html?table=6p" style="display:block;text-align:center;text-decoration:none">✨ Open 6-Player Pro Editor ↗</a>
-        <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
-        <a class="btn" href="/layout-editor-6p.html" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 6-Player Layout Editor ↗</a>
-      </div>
-      <div class="card">
-        <div style="font-weight:700;font-size:0.85rem;margin-bottom:10px;color:var(--accent)">🂡 56 Table</div>
-        <a class="btn" href="/layout-editor-pro.html?table=56" style="display:block;text-align:center;text-decoration:none">✨ Open 56 Pro Editor ↗</a>
-        <div style="font-size:0.68rem;color:var(--text2);margin:6px 2px 10px;line-height:1.4">Pick anything on the table (even the Kunukku and popups), set X / Y / W / H, pause the game, and check for problems on other phones.</div>
-        <a class="btn" href="/layout-editor-56.html" style="display:block;text-align:center;text-decoration:none;opacity:.7">Open the older 56 Layout Editor ↗</a>
-      </div>
+      <div id="hubBody"><div class="empty">Loading…</div></div>
     </div>
   </div>
 </div>
@@ -628,8 +616,7 @@ async function unlock() {
   document.getElementById('gate').style.display = 'none';
   document.getElementById('panel').style.display = 'block';
   refresh();
-  buildMenu(); goPage(location.hash === '#layout' ? 'layout' : 'comments');                     // "Exit" from an editor lands on Edit & design › Table layout editors
-  if (location.hash === '#layout') history.replaceState(null, '', location.pathname);
+  startNav();                                              // lands on the Visitor log, or on the page named in the address (an editor's Exit comes back to Edit › Tables)
 }
 
 async function refresh() {
@@ -696,6 +683,7 @@ function switchTab(tab) {
   document.getElementById('leaderboardView').style.display = tab === 'leaderboard' ? 'block' : 'none';
   document.getElementById('pokerView').style.display = tab === 'poker' ? 'block' : 'none';
   document.getElementById('layoutView').style.display = tab === 'layout' ? 'block' : 'none';
+  if (tab === 'layout') renderEditHub();
   document.getElementById('usageView').style.display = tab === 'usage' ? 'block' : 'none';
   if (tab === 'leaderboard') refreshLeaderboard();
   if (tab === 'poker') {
@@ -1071,40 +1059,39 @@ document.getElementById('btnRefreshHistory').addEventListener('click', refreshTa
 // Every original tab id/click-handler/switchTab() call is untouched -- this
 // purely controls which sub-tab buttons are visible.
 const CATEGORY_DEFAULT_TAB = { overview: 'comments', tools: 'bots', stats: 'visitors', design: 'layout' };
-// ---------------- The menu: one button, grouped pages, a title that always says where you are ----------------
+// ---------------- Navigation: one bar of main categories, that category's pages under it, a header with Back ----------------
+// Structure (what is where):
+//   📊 Visitors  : Visitor log · Table history · Leaderboard          <- you land here
+//   🟢 Live      : Players & tables · Bot tables · Ghost players · Hold'em admin
+//   💌 Comments
+//   🎨 Edit      : Tables (layout editors) · Backgrounds · Avatars · Kunukku · Picture sizes
+//   📈 Usage     : At a glance · Data used · Where data goes · RAM & health · Railway bill
+// Every page has its own web address (#/edit/scenery ...) and every move is recorded in the browser history, so the phone's Back
+// button (and the ← Back button here) steps back through the pages you visited INSIDE the admin -- it never throws you out of it.
 const NAV = [
-  { title: 'Home', icon: '🏠', pages: [
-    { id: 'comments', icon: '💌', title: 'Comments', desc: 'Messages players left on the welcome screen', tab: 'comments' },
-    { id: 'live', icon: '🟢', title: 'Live players & tables', desc: 'Who is playing right now (editor tables are marked)', tab: 'live' } ] },
-  { title: 'Games & players', icon: '🎮', pages: [
-    { id: 'bots', icon: '🤖', title: 'Bot tables', desc: 'Start a table that plays itself', tab: 'bots' },
-    { id: 'ghost', icon: '🕵️', title: 'Ghost players', desc: 'Watch or join tables without being seen', tab: 'ghost' },
-    { id: 'poker', icon: '🃏', title: "Hold'em admin", desc: "Hold'em tables and settings", tab: 'poker' },
-    { id: 'leaderboard', icon: '🏆', title: 'Leaderboard', desc: 'Top players', tab: 'leaderboard' } ] },
-  { title: 'Edit & design', icon: '🎨', pages: [
-    { id: 'layout', icon: '🎨', title: 'Table layout editors', desc: 'Move and resize everything on the 4-player, 6-player, 56 and Hold\'em tables', tab: 'layout' },
-    { id: 'scenery', icon: '🌄', title: 'Backgrounds', desc: 'Add, replace or delete table backgrounds for each screen type', tab: 'scenery' },
-    { id: 'avatars', icon: '🖼️', title: 'Avatars', desc: 'Add, edit and delete avatars', tab: 'avatars', sub: 'avatars' },
-    { id: 'kunukku', icon: '🥥', title: 'Kunukku pictures', desc: 'Change the sad coconut pictures', tab: 'avatars', sub: 'kunukku' },
-    { id: 'pictures', icon: '📦', title: 'Picture sizes (WebP)', desc: 'Smaller pictures, and a before / after compare', tab: 'usage', sub: 'img' } ] },
-  { title: 'Visitors & history', icon: '📊', pages: [
-    { id: 'visitors', icon: '📊', title: 'Visitor log', desc: 'Who visited, from where, on what', tab: 'visitors' },
-    { id: 'history', icon: '📅', title: 'Table history', desc: 'Past tables and how they ended', tab: 'history' } ] },
-  { title: 'Usage & cost', icon: '📈', pages: [
-    { id: 'dashboard', icon: '🧭', title: 'At a glance', desc: 'Data, cost, RAM, voice and server health on one screen', tab: 'usage', sub: 'dashboard' },
-    { id: 'data', icon: '📶', title: 'Data used', desc: 'Network traffic per day', tab: 'usage', sub: 'data' },
-    { id: 'breakdown', icon: '🧮', title: 'Where the data goes', desc: 'Pages, avatars, games, voice, time and the voice relay allowance', tab: 'usage', sub: 'breakdown' },
-    { id: 'ram', icon: '🧠', title: 'RAM & server health', desc: 'Linked graphs: RAM, people, data, CPU, requests, voice, delay', tab: 'usage', sub: 'ram' },
-    { id: 'bill', icon: '💵', title: 'Railway bill', desc: 'This month so far, projection, history', tab: 'usage', sub: 'bill' } ] },
+  { id: 'visitors', icon: '📊', title: 'Visitors', pages: [
+    { id: 'visitorlog', title: 'Visitor log', tab: 'visitors' }, { id: 'history', title: 'Table history', tab: 'history' }, { id: 'leaderboard', title: 'Leaderboard', tab: 'leaderboard' } ] },
+  { id: 'live', icon: '🟢', title: 'Live', pages: [
+    { id: 'live', title: 'Players & tables', tab: 'live' }, { id: 'bots', title: 'Bot tables', tab: 'bots' }, { id: 'ghost', title: 'Ghost players', tab: 'ghost' }, { id: 'poker', title: "Hold'em admin", tab: 'poker' } ] },
+  { id: 'comments', icon: '💌', title: 'Comments', pages: [ { id: 'comments', title: 'Comments', tab: 'comments' } ] },
+  { id: 'edit', icon: '🎨', title: 'Edit', pages: [
+    { id: 'tables', title: 'Tables', tab: 'layout' }, { id: 'scenery', title: 'Backgrounds', tab: 'scenery' },
+    { id: 'avatars', title: 'Avatars', tab: 'avatars', sub: 'avatars' }, { id: 'kunukku', title: 'Kunukku', tab: 'avatars', sub: 'kunukku' },
+    { id: 'pictures', title: 'Picture sizes', tab: 'usage', sub: 'img' } ] },
+  { id: 'usage', icon: '📈', title: 'Usage', pages: [
+    { id: 'dashboard', title: 'At a glance', tab: 'usage', sub: 'dashboard' }, { id: 'data', title: 'Data used', tab: 'usage', sub: 'data' },
+    { id: 'breakdown', title: 'Where data goes', tab: 'usage', sub: 'breakdown' }, { id: 'ram', title: 'RAM & health', tab: 'usage', sub: 'ram' }, { id: 'bill', title: 'Railway bill', tab: 'usage', sub: 'bill' } ] },
 ];
-const NAV_FLAT = NAV.flatMap(sec => sec.pages.map(pg => Object.assign({ section: sec.title }, pg)));
-let currentPageId = 'comments', currentUsagePage = 'dashboard', currentAvatarsPage = 'avatars', dashTimer = null;
-function buildMenu() {
-  document.getElementById('navList').innerHTML = NAV.map(sec => `<div class="nm-sec"><h4>${sec.icon} ${sec.title}</h4>` + sec.pages.map(pg =>
-    `<button class="nm-item${pg.id === currentPageId ? ' on' : ''}" type="button" data-go="${pg.id}"><span class="ic">${pg.icon}</span><span class="tx"><b>${pg.title}</b><span>${pg.desc}</span></span></button>`).join('') + '</div>').join('');
-  document.querySelectorAll('#navList [data-go]').forEach(b => b.addEventListener('click', () => goPage(b.dataset.go)));
+const NAV_FLAT = NAV.flatMap(cat => cat.pages.map(pg => Object.assign({ cat }, pg)));
+const NAV_DEFAULT = 'visitorlog';
+let currentPageId = NAV_DEFAULT, currentUsagePage = 'dashboard', currentAvatarsPage = 'avatars', dashTimer = null, navLoggedIn = false;
+const navRoute = (id) => { const pg = NAV_FLAT.find(x => x.id === id); return pg ? '#/' + pg.cat.id + '/' + id : '#/visitors/visitorlog'; };
+function navParse() {
+  const m = location.hash.match(/^#\/([a-z]+)\/([a-z0-9]+)$/);
+  if (m && NAV_FLAT.some(p => p.id === m[2] && p.cat.id === m[1])) return m[2];
+  if (location.hash === '#layout') return 'tables';                         // older editors' Exit link
+  return null;
 }
-function openMenu(open) { document.getElementById('navMenu').style.display = open ? 'block' : 'none'; document.body.style.overflow = open ? 'hidden' : ''; if (open) buildMenu(); }
 function showUsagePage(pg) {
   currentUsagePage = pg || 'dashboard';
   document.querySelectorAll('#usageView .up').forEach(el => { el.style.display = el.dataset.up === currentUsagePage ? '' : 'none'; });
@@ -1120,19 +1107,102 @@ function showAvatarsPage(pg) {
   document.querySelectorAll('#avatarsView [data-ap]').forEach(el => { el.style.display = el.dataset.ap.split(' ').includes(currentAvatarsPage) ? '' : 'none'; });
   const h = document.querySelector('#avatarsView > h3.ub-h'); if (h) h.textContent = currentAvatarsPage === 'kunukku' ? '🥥 Kunukku pictures' : '🖼️ Avatars';
 }
-function goPage(id) {
-  const pg = NAV_FLAT.find(x => x.id === id) || NAV_FLAT[0];
+function drawNav() {
+  const pg = NAV_FLAT.find(x => x.id === currentPageId) || NAV_FLAT[0], cat = pg.cat;
+  document.getElementById('mainBar').innerHTML = NAV.map(c => `<button type="button" class="${c.id === cat.id ? 'on' : ''}" data-cat="${c.id}"><span class="ic">${c.icon}</span>${c.title}</button>`).join('');
+  document.getElementById('subBar').innerHTML = cat.pages.length > 1 ? cat.pages.map(x => `<button type="button" class="${x.id === pg.id ? 'on' : ''}" data-page="${x.id}">${x.title}</button>`).join('') : '';
+  document.querySelectorAll('#mainBar [data-cat]').forEach(b => b.addEventListener('click', () => goPage(NAV.find(c => c.id === b.dataset.cat).pages[0].id)));
+  document.querySelectorAll('#subBar [data-page]').forEach(b => b.addEventListener('click', () => goPage(b.dataset.page)));
+  document.getElementById('navSection').textContent = cat.pages.length > 1 ? cat.icon + ' ' + cat.title : '';
+  document.getElementById('navPage').textContent = cat.pages.length > 1 ? pg.title : cat.icon + ' ' + pg.title;
+  const back = document.getElementById('pageBack'); const depth = (history.state && history.state.depth) || 0;
+  back.style.display = (depth > 0 || pg.id !== cat.pages[0].id) ? 'block' : 'none';
+  const act = document.querySelector('#subBar button.on'); if (act && act.scrollIntoView) { try { act.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) {} }
+}
+// opts.push === false: just show it (used when the browser's own Back / Forward moved us); opts.replace: swap the current history entry
+function goPage(id, opts) {
+  opts = opts || {};
+  const pg = NAV_FLAT.find(x => x.id === id) || NAV_FLAT.find(x => x.id === NAV_DEFAULT);
   currentPageId = pg.id;
   if (pg.tab === 'usage') currentUsagePage = pg.sub || 'dashboard';
   if (pg.tab === 'avatars') currentAvatarsPage = pg.sub || 'avatars';
+  if (opts.push !== false) {
+    const same = history.state && history.state.page === pg.id;
+    if (opts.replace || same) history.replaceState({ page: pg.id, depth: (history.state && history.state.depth) || 0 }, '', navRoute(pg.id));
+    else history.pushState({ page: pg.id, depth: ((history.state && history.state.depth) || 0) + 1 }, '', navRoute(pg.id));
+  }
   switchTab(pg.tab);
-  document.getElementById('navSection').textContent = pg.section;
-  document.getElementById('navPage').textContent = pg.title;
-  openMenu(false); window.scrollTo(0, 0);
+  drawNav(); window.scrollTo(0, 0);
 }
-document.getElementById('navMenuBtn').addEventListener('click', () => openMenu(true));
-document.getElementById('navClose').addEventListener('click', () => openMenu(false));
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openMenu(false); });
+function startNav() {
+  navLoggedIn = true;
+  const start = navParse() || NAV_DEFAULT;
+  history.replaceState({ page: start, depth: 0 }, '', navRoute(start));
+  goPage(start, { push: false });
+}
+window.addEventListener('popstate', (ev) => {
+  if (!navLoggedIn) return;
+  const id = (ev.state && ev.state.page) || navParse() || NAV_DEFAULT;
+  goPage(id, { push: false });
+});
+document.getElementById('pageBack').addEventListener('click', () => {
+  const depth = (history.state && history.state.depth) || 0;
+  if (depth > 0) history.back();
+  else { const pg = NAV_FLAT.find(x => x.id === currentPageId); if (pg && pg.id !== pg.cat.pages[0].id) goPage(pg.cat.pages[0].id, { replace: true }); }
+});
+
+// ---------------- Edit › Tables: one hub for everything you can change on each table ----------------
+const HUB_TABLES = [
+  { key: '4p', icon: '🎴', name: '4-Player (28)', blurb: 'The main 28 table', pro: '/layout-editor-pro.html?table=4p', classic: '/layout-editor.html', sceneryKey: '4p' },
+  { key: '6p', icon: '🎲', name: '6-Player', blurb: 'Six seats, two teams', pro: '/layout-editor-pro.html?table=6p', classic: '/layout-editor-6p.html', sceneryKey: '6p' },
+  { key: '56', icon: '🂡', name: '56', blurb: 'Six players, two teams of three', pro: '/layout-editor-pro.html?table=56', classic: '/layout-editor-56.html', sceneryKey: '56' },
+  { key: 'holdem', icon: '🎰', name: "Hold'em", blurb: 'Poker table (has its own editor)', pro: null, classic: '/layout-editor-holdem.html', sceneryKey: null },
+];
+let pendingSceneryFilter = null;
+async function renderEditHub() {
+  const body = document.getElementById('hubBody'); if (!body) return;
+  try { await renderEditHubInner(body); } catch (e) { body.innerHTML = '<div class="empty">Could not load this page. <button class="ed-mini" id="hubRetry" type="button">Try again</button></div>'; const r = document.getElementById('hubRetry'); if (r) r.addEventListener('click', renderEditHub); console.error('[admin hub]', e); }
+}
+async function renderEditHubInner(body) {
+  const get = async (u) => { try { const r = await adminFetch(u); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+  const [cfgs, sc, av, kun, img] = await Promise.all([
+    Promise.all(HUB_TABLES.map(t => get('/api/layout-config/' + t.key))), get('/api/admin/scenery'), get('/api/admin/avatars'), null, get('/api/admin/image-optimization')]);
+  const LAY = [['portrait', 'phone upright'], ['landscape', 'phone sideways'], ['desktop', 'computer']];
+  let h = '<div class="hub-sec">Table layouts &amp; backgrounds</div>';
+  HUB_TABLES.forEach((t, i) => {
+    const cfg = cfgs[i] && cfgs[i].ok ? cfgs[i].config : null;
+    const items = cfg && cfg.__pro && cfg.__pro.items && typeof cfg.__pro.items === 'object' ? cfg.__pro.items : {};
+    const proN = LAY.reduce((a, [k]) => a + ((items[k] || []).length), 0);
+    const proText = LAY.map(([k, label]) => (items[k] || []).length ? `${(items[k] || []).length} on ${label}` : null).filter(Boolean).join(' · ');
+    const classic = cfg && Object.keys(cfg).some(k => k !== '__pro' && cfg[k] && typeof cfg[k] === 'object' && Object.keys(cfg[k]).length);
+    const bgs = sc && sc.ok && Array.isArray(sc.backgrounds) && t.sceneryKey ? sc.backgrounds.filter(b => b.table === t.sceneryKey) : [];
+    const bgN = bgs.filter(b => b.custom).length;
+    h += `<div class="hub-card"><div class="hub-top"><div class="hub-ic">${t.icon}</div><div><b>${t.name}</b><span>${t.blurb}</span></div></div>
+      <div class="hub-chips">
+        <span class="hub-chip ${proN || classic ? 'ok' : 'dim'}">${t.pro ? (proN ? '✨ ' + proN + ' item' + (proN === 1 ? '' : 's') + ' changed (' + proText + ')' : '✨ nothing changed yet') : (classic ? '✓ layout saved' : 'layout: original')}</span>
+        ${t.pro && classic ? '<span class="hub-chip ok">✓ classic layout saved</span>' : ''}
+        ${t.sceneryKey ? `<span class="hub-chip ${bgN ? 'ok' : 'dim'}">🌄 ${bgN ? bgN + ' of 3 backgrounds are yours' : 'original backgrounds'}</span>` : '<span class="hub-chip dim">🌄 background is set inside its editor</span>'}
+      </div>
+      <div class="hub-act">
+        <a class="primary" href="${t.pro || t.classic}">${t.pro ? '✨ Edit layout' : '✏️ Open the editor'}</a>
+        ${t.sceneryKey ? `<button type="button" data-hub-bg="${t.sceneryKey}">🌄 Backgrounds</button>` : ''}
+        ${t.pro ? `<a class="quiet" href="${t.classic}">Classic editor</a>` : ''}
+      </div></div>`;
+  });
+  const avList2 = av && av.ok && Array.isArray(av.avatars) ? av.avatars : null;
+  const act = avList2 ? avList2.filter(a => !a.removed) : [], upl = avList2 ? avList2.filter(a => a.source === 'uploaded').length : 0;
+  const g = img && img.ok && img.groups && typeof img.groups === 'object' ? img.groups : {}; const o = ['avatars', 'backgrounds', 'kunukku'].reduce((a, k) => a + (g[k] ? g[k].orig : 0), 0), w = ['avatars', 'backgrounds', 'kunukku'].reduce((a, k) => a + (g[k] ? g[k].webp : 0), 0);
+  h += '<div class="hub-sec">Pictures shared by every table</div>';
+  h += [['avatars', '🖼️', 'Avatars', avList2 ? `${act.length} in use · ${upl} uploaded by you` : 'Add, edit and delete'], ['kunukku', '🥥', 'Kunukku pictures', 'The sad coconut and icon'], ['pictures', '📦', 'Picture sizes', img && img.ok ? (img.enabled ? `Smaller pictures ON — about ${o ? Math.round((1 - w / o) * 100) : 0}% less data` : 'Smaller pictures are OFF') : 'WebP and compare']]
+    .map(([id, ic, n, d]) => `<div class="hub-card"><div class="hub-top"><div class="hub-ic">${ic}</div><div><b>${n}</b><span>${d}</span></div></div><div class="hub-act" style="margin-top:12px"><button type="button" class="primary" data-hub-go="${id}">Open</button></div></div>`).join('');
+  h += `<div class="hub-sec">How editing works</div><div class="hub-card hub-help">
+    <b>1. Open an editor</b> — it shows the real table. Start a game with bots inside it (it is private: players never see it, you see it under Live › Players &amp; tables, and it closes by itself when you leave).<br>
+    <b>2. Tap anything</b> to move or resize it — X, Y, W and H, and ⏸ Pause to hold animations and popups still.<br>
+    <b>3. Check and Save.</b> Nothing reaches players until you press Save. Unsaved work is kept as a draft, and Exit (⬅) always asks first.</div>`;
+  body.innerHTML = h;
+  body.querySelectorAll('[data-hub-bg]').forEach(b => b.addEventListener('click', () => { pendingSceneryFilter = b.dataset.hubBg; goPage('scenery'); }));
+  body.querySelectorAll('[data-hub-go]').forEach(b => b.addEventListener('click', () => goPage(b.dataset.hubGo)));
+}
 
 // ---------------- Usage & cost: at a glance ----------------
 async function refreshDashboard() {
@@ -2147,15 +2217,18 @@ const BG_DEVICES = {
   landscape: [[740, 360, 'Small phone'], [844, 390, 'iPhone'], [932, 430, 'Large phone']],
   desktop: [[1024, 768, 'Tablet'], [1280, 720, 'Laptop'], [1440, 900, 'Desktop'], [1920, 1080, 'Full HD']],
 };
-let sceneryData = null;
+let sceneryData = null, sceneryFilter = 'all';
+function setSceneryFilter(f) { sceneryFilter = f; document.querySelectorAll('#scFilter button').forEach(b => b.classList.toggle('on', b.dataset.f === f)); if (sceneryData) renderScenery(); }
+document.getElementById('scFilter').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) setSceneryFilter(b.dataset.f); });
 async function refreshScenery() {
+  if (pendingSceneryFilter) { setSceneryFilter(pendingSceneryFilter); pendingSceneryFilter = null; }
   try { const r = await adminFetch('/api/admin/scenery'); if (!r.ok) throw new Error('bad'); sceneryData = await r.json(); kunukkuData = sceneryData.kunukku || kunukkuData; renderScenery(); }
   catch (e) { document.getElementById('sceneryList').innerHTML = '<div class="empty">Could not load the backgrounds.</div>'; }
 }
 function renderScenery() {
   const el = document.getElementById('sceneryList'); if (!sceneryData) return;
   const kb = (n) => Math.round(n / 1024) + ' KB';
-  el.innerHTML = ['4p', '6p', '56'].map(t => `<div class="ub-row" style="margin-top:10px"><div class="top"><span><b>${BG_TABLE_LABEL[t]}</b></span></div>` +
+  el.innerHTML = ['4p', '6p', '56'].filter(t => sceneryFilter === 'all' || sceneryFilter === t).map(t => `<div class="ub-row" style="margin-top:10px"><div class="top"><span><b>${BG_TABLE_LABEL[t]}</b></span></div>` +
     sceneryData.backgrounds.filter(b => b.table === t).map(b => {
       const src = b.custom ? b.custom.url : (b.original ? b.original + '?t=1' : '');
       const st = b.custom ? `Your picture · ${kb(b.custom.bytes)} · ${b.custom.w} × ${b.custom.h}` : (b.original ? 'Original picture that comes with the game' : 'No picture yet — plain dark table');
