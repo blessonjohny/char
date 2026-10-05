@@ -470,9 +470,10 @@ function renderMyAvatarPicker6p() {
   if (!el) return;
   el.innerHTML = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatar6p('${key}')">
-      <img src="/images/hero-avatars/${key}.png" alt="">
+      <img src="${window.LAZY_BLANK}" data-src="/images/hero-avatars/${key}.png" alt="" decoding="async">
     </div>`
   ).join('');
+  lazyPickerImages(el);
 }
 async function pickMyAvatar6p(key) {
   if (!(await checkAvatarPin(key))) return;
@@ -5069,10 +5070,11 @@ function confirmSixpChangeBot(pos, newName) {
 function openSixpChangeAvatarPicker(pos) {
   const gridHtml = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice" data-key="${key}" onclick="confirmSixpChangeAvatar(${pos}, '${key}')" style="display:inline-block">
-      <img src="/images/hero-avatars/${key}.png" alt="">
+      <img src="${window.LAZY_BLANK}" data-src="/images/hero-avatars/${key}.png" alt="" decoding="async">
     </div>`
   ).join('');
   $('botPickerList').innerHTML = `<div class="my-avatar-picker">${gridHtml}</div>`;
+  lazyPickerImages($('botPickerList').querySelector('.my-avatar-picker'));
   $('hostMenuMainView').style.display = 'none';
   $('hostMenuBotPickerView').style.display = 'block';
 }

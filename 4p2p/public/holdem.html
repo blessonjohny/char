@@ -2071,6 +2071,7 @@ body.k28-in-game #btnSoundMute { left: 14px; right: auto; top: 60px; bottom: aut
 </style>
 <script src="name-filter.js?v=1"></script>
 <script src="/avatar-catalog.js"></script>
+<script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
 </head>
 <body>
@@ -2968,9 +2969,10 @@ function renderMyAvatarPickerHoldem() {
   if (!el) return;
   el.innerHTML = shuffledAvatarKeys().map(key =>
     `<div class="my-avatar-choice${key === MY_AVATAR_KEY ? ' picked' : ''}" data-key="${key}" onclick="pickMyAvatarHoldem('${key}')">
-      <img src="/images/hero-avatars/${key}.png" alt="">
+      <img src="${window.LAZY_BLANK}" data-src="/images/hero-avatars/${key}.png" alt="" decoding="async">
     </div>`
   ).join('');
+  lazyPickerImages(el);
 }
 async function pickMyAvatarHoldem(key) {
   if (!(await checkAvatarPin(key))) return;

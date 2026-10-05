@@ -127,9 +127,12 @@
   .dash-card:active{transform:scale(.98)}.dash-card .k{font-size:0.7rem;color:var(--text2);margin-bottom:4px}.dash-card .v{font-size:1.35rem;font-weight:800;color:#fff;line-height:1.1}.dash-card .s{font-size:0.68rem;color:var(--text2);margin-top:5px;line-height:1.35}
   .dash-card.warn{border-color:rgba(255,154,90,.6)}.dash-card.good{border-color:rgba(61,214,140,.45)}.dash-card.wide{grid-column:1/-1}
   /* linked graphs */
-  #ramReadout{position:sticky;top:64px;z-index:30;background:rgba(14,18,30,.97);border:1px solid #3a3a52;border-radius:12px;padding:10px 12px;margin:10px 0;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+  #ramReadout{position:sticky;top:calc(var(--navH,150px) + 6px);z-index:30;background:rgba(14,18,30,.97);border:1px solid #3a3a52;border-radius:12px;padding:10px 12px;margin:10px 0;box-shadow:0 6px 18px rgba(0,0,0,.45)}
   #ramReadout .rt{font-weight:800;color:#fff;font-size:0.8rem;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px}
   #ramReadout .rt em{font-style:normal;font-weight:500;color:#8f8fa8;font-size:0.66rem}
+  #ramReadout .rb{display:flex;gap:6px;flex:none}#ramReadout .rb button{padding:4px 10px;border-radius:8px;border:1px solid #3a3a52;background:rgba(255,255,255,.07);color:#e8edf2;font-size:0.68rem;font-weight:700;cursor:pointer}
+  #ramReadout .rc{font-size:0.74rem;color:#c9cfdc}#ramReadout .rc b{color:#fff}
+  .ram-wrap svg{touch-action:pan-y}
   #ramReadout .rg{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:0.72rem;color:#c9cfdc}
   #ramReadout .rg b{color:#fff}.ram-dotc{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
   .ram-card .t small{font-weight:500;color:#8f8fa8;margin-left:6px;font-size:0.66rem}
@@ -1107,6 +1110,8 @@ function showAvatarsPage(pg) {
   document.querySelectorAll('#avatarsView [data-ap]').forEach(el => { el.style.display = el.dataset.ap.split(' ').includes(currentAvatarsPage) ? '' : 'none'; });
   const h = document.querySelector('#avatarsView > h3.ub-h'); if (h) h.textContent = currentAvatarsPage === 'kunukku' ? '🥥 Kunukku pictures' : '🖼️ Avatars';
 }
+function setNavH() { const n = document.getElementById('topNav'); if (n) document.documentElement.style.setProperty('--navH', n.offsetHeight + 'px'); }
+window.addEventListener('resize', setNavH);
 function drawNav() {
   const pg = NAV_FLAT.find(x => x.id === currentPageId) || NAV_FLAT[0], cat = pg.cat;
   document.getElementById('mainBar').innerHTML = NAV.map(c => `<button type="button" class="${c.id === cat.id ? 'on' : ''}" data-cat="${c.id}"><span class="ic">${c.icon}</span>${c.title}</button>`).join('');
@@ -1118,6 +1123,7 @@ function drawNav() {
   const back = document.getElementById('pageBack'); const depth = (history.state && history.state.depth) || 0;
   back.style.display = (depth > 0 || pg.id !== cat.pages[0].id) ? 'block' : 'none';
   const act = document.querySelector('#subBar button.on'); if (act && act.scrollIntoView) { try { act.scrollIntoView({ block: 'nearest', inline: 'center' }); } catch (e) {} }
+  setNavH();
 }
 // opts.push === false: just show it (used when the browser's own Back / Forward moved us); opts.replace: swap the current history entry
 function goPage(id, opts) {
@@ -1263,7 +1269,7 @@ function buildBotAvatarGrid() {
   botAvatarGridBuilt = true;
   const grid = document.getElementById('botAvatarGrid');
   grid.innerHTML = BOT_AVATAR_KEYS.map(key => `
-    <img src="/images/hero-avatars/${key}.png" data-key="${key}" class="bot-avatar-thumb"
+    <img src="/images/hero-avatars/${key}.png" loading="lazy" decoding="async" data-key="${key}" class="bot-avatar-thumb"
       style="width:40px;height:40px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid ${key === selectedBotAvatar ? 'var(--accent)' : 'transparent'}">
   `).join('');
   grid.querySelectorAll('.bot-avatar-thumb').forEach(img => {
@@ -1351,7 +1357,7 @@ function buildGhostAvatarGrid() {
   ghostAvatarGridBuilt = true;
   const grid = document.getElementById('ghostAvatarGrid');
   grid.innerHTML = GHOST_AVATAR_KEYS.map(key => `
-    <img src="/images/hero-avatars/${key}.png" data-key="${key}" class="ghost-avatar-thumb"
+    <img src="/images/hero-avatars/${key}.png" loading="lazy" decoding="async" data-key="${key}" class="ghost-avatar-thumb"
       style="width:40px;height:40px;border-radius:8px;object-fit:cover;cursor:pointer;border:2px solid ${key === selectedGhostAvatar ? 'var(--accent)' : 'transparent'}">
   `).join('');
   grid.querySelectorAll('.ghost-avatar-thumb').forEach(img => {
@@ -2500,11 +2506,13 @@ function graphHtml(g, d, last) {
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"><defs><linearGradient id="g_${g.id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${lines[0].color}" stop-opacity=".34"/><stop offset="100%" stop-color="${lines[0].color}" stop-opacity=".04"/></linearGradient></defs>
       ${grid}${xl}${paths}${marks}<line class="guide" x1="0" x2="0" y1="${padT}" y2="${H - padB}" stroke="#cfcfe6" stroke-width="1.5" style="display:none"/>${dots}</svg></div></div>`;
 }
-let ramData = null;
-// ONE touch moves a line through EVERY graph at the same moment, and the box above lists every number from that moment
+let ramData = null, ramPinnedT = null, ramCompact = false;
+// TAP a graph (or drag sideways along it) to pin a moment: a line goes through EVERY graph and the box above lists every number from it.
+// The pin STAYS until you press ✕ Clear or tap somewhere else on a graph, so you can scroll down through all the graphs with it in place.
 function ramShowAt(t) {
   const d = ramData; if (!d || !d.points.length) return;
   const { t0, t1 } = ramGeom(d); let best = d.points[0]; for (const p of d.points) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p;
+  ramPinnedT = best[0];
   const x = RG.padL + ((best[0] - t0) / (t1 - t0)) * (RG.W - RG.padL - RG.padR);
   RAM_GRAPHS.forEach((g) => {
     const wrap = document.getElementById('rg_' + g.id); if (!wrap) return;
@@ -2514,20 +2522,40 @@ function ramShowAt(t) {
   });
   const f = ramFmt, N = (v) => Math.round(Number(v) || 0);
   const box = document.getElementById('ramReadout'); window.__ramPoint = best;
-  box.innerHTML = `<div class="rt"><span>🕒 ${ramTime(best[0], true)}</span><em>${best.length ? 'all graphs at this moment' : ''}</em></div><div class="rg">
+  const head = `<div class="rt"><span>📌 ${ramTime(best[0], true)}</span><span class="rb"><button type="button" id="ramCompactBtn">${ramCompact ? '▾ More' : '▴ Less'}</button><button type="button" id="ramClearBtn">✕ Clear</button></span></div>`;
+  box.innerHTML = ramCompact
+    ? head + `<div class="rc">🧠 <b>${f(best[1])}</b> · 👥 <b>${N(best[6])}</b> · 📤 <b>${f(best[9])}</b>/min · ⚙️ <b>${(Number(best[10]) || 0).toFixed(1)}%</b></div>`
+    : head + `<div class="rg">
     <span>🧠 RAM <b>${f(best[1])}</b> <span style="opacity:.6">(avg ${f(best[2])})</span></span><span>👥 Connected <b>${N(best[6])}</b> · seated <b>${N(best[7])}</b></span>
     <span>📤 Data out <b>${f(best[9])}</b>/min</span><span>📥 Data in <b>${f(best[8])}</b>/min</span>
     <span>⚙️ CPU <b>${(Number(best[10]) || 0).toFixed(1)}%</b></span><span>🎙 On voice <b>${N(best[14])}</b></span>
     <span>🌐 Requests <b>${N(best[11])}</b>/min${Number(best[12]) > 0 ? ` · <b style="color:#ff8d8d">${Number(best[12]).toFixed(1)} failed</b>` : ''}</span><span>🃏 Live tables <b>${N(best[15])}</b></span>
     <span>💬 Messages <b>${N(best[13])}</b>/min</span><span>⏱ Server delay <b>${N(best[16])} ms</b></span></div>`;
+  document.getElementById('ramClearBtn').addEventListener('click', ramClear);
+  document.getElementById('ramCompactBtn').addEventListener('click', () => { ramCompact = !ramCompact; ramShowAt(ramPinnedT); });
 }
-function ramClear() { document.querySelectorAll('#ramBody .guide,#ramBody .dot').forEach((n) => { n.style.display = 'none'; }); const b = document.getElementById('ramReadout'); if (b) b.innerHTML = '<div class="rt"><span>👆 Touch any graph</span></div><div class="note">A line moves through every graph below and this box shows every number from that exact moment: RAM, people, data, CPU, requests, messages, voice, tables and delay.</div>'; window.__ramPoint = null; }
+function ramClear() {
+  document.querySelectorAll('#ramBody .guide,#ramBody .dot').forEach((n) => { n.style.display = 'none'; });
+  const b = document.getElementById('ramReadout'); ramPinnedT = null;
+  if (b) b.innerHTML = '<div class="rt"><span>👆 Tap a graph to pin a moment</span></div><div class="note">A line goes through every graph and this box lists every number from that exact moment. It stays put while you scroll down through the graphs — drag sideways along a graph to move it, press ✕ Clear to remove it.</div>';
+  window.__ramPoint = null;
+}
 function ramWire() {
   const d = ramData; if (!d || !d.points.length) return;
   document.querySelectorAll('#ramBody .ram-wrap').forEach((wrap) => {
-    const svg = wrap.querySelector('svg'); const { t0, t1 } = ramGeom(d);
+    const svg = wrap.querySelector('svg'); const { t0, t1 } = ramGeom(d); let st = null;
     const at = (ev) => { const r = svg.getBoundingClientRect(); const vx = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)) * RG.W; ramShowAt(t0 + ((vx - RG.padL) / (RG.W - RG.padL - RG.padR)) * (t1 - t0)); };
-    svg.addEventListener('pointerdown', at); svg.addEventListener('pointermove', at);
+    // A finger that goes DOWN the page is scrolling -- it must never move or clear the pin. Only a tap, or a clearly sideways drag, sets the moment.
+    svg.addEventListener('pointerdown', (ev) => { st = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, t: Date.now(), scrub: false }; if (ev.pointerType === 'mouse') at(ev); });
+    svg.addEventListener('pointermove', (ev) => {
+      if (ev.pointerType === 'mouse') { if (ev.buttons) at(ev); return; }
+      if (!st || ev.pointerId !== st.id) return;
+      const dx = ev.clientX - st.x, dy = ev.clientY - st.y;
+      if (!st.scrub && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) st.scrub = true;
+      if (st.scrub) at(ev);
+    });
+    svg.addEventListener('pointerup', (ev) => { if (st && ev.pointerType !== 'mouse' && !st.scrub && Math.hypot(ev.clientX - st.x, ev.clientY - st.y) < 10 && Date.now() - st.t < 600) at(ev); st = null; });
+    svg.addEventListener('pointercancel', () => { st = null; });          // the browser took the touch to scroll: leave the pin exactly as it was
   });
 }
 const RAM_KIND_LABEL = { restart: 'Restart', backup: 'Backup', players: 'Players', heap: 'Game objects', buffers: 'Big data', unexplained: 'Unexplained' };
@@ -2560,7 +2588,8 @@ function renderRam(d) {
     <b>🧹 Memory cleanup (garbage collection).</b> Node lets unused memory pile up and clears it in one go: a small saw-tooth, not a real problem.<br>
     <b>🐛 A leak</b> looks different: RAM that keeps climbing hour after hour and never comes back down, even with nobody connected.</div></div>`;
   h += `<div class="ub-row"><div class="note">Resolution: ${esc(d.resolution)} (a sample every 15 seconds, kept as each minute's highest). ↻ marks a server restart; a blue dot marks a large GitHub backup. History survives restarts.</div></div>`;
-  el.innerHTML = h; ramClear(); ramWire();
+  el.innerHTML = h; const keep = ramPinnedT; ramClear(); ramWire();
+  if (keep != null && d.points.length && keep >= d.from && keep <= d.to) ramShowAt(keep);
 }
 async function refreshRam() {
   try {
@@ -2574,7 +2603,6 @@ document.getElementById('ramRange').addEventListener('click', (e) => {
   const b = e.target.closest('[data-r]'); if (!b) return;
   ramRangeSel = b.dataset.r; [...document.getElementById('ramRange').children].forEach(x => x.classList.toggle('on', x === b)); refreshRam();
 });
-document.addEventListener('pointerdown', (e) => { if (ramData && !e.target.closest('#ramBody .ram-wrap') && !e.target.closest('#ramReadout')) ramClear(); });
 
 // ---------------- Railway bill ----------------
 const usd = (v) => '$' + (Math.abs(v) < 0.005 ? '0.00' : Number(v).toFixed(2));
