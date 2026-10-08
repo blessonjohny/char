@@ -653,11 +653,8 @@
   /* Room background = the 6-player room, on the BODY so the admin Backgrounds editor (scenery.css, !important) still overrides it. */
   body.k56-table-on{
     background-color:#1a0e08;
-    background-image:url('/images/table-bg-6p.jpg');
-    background-size:100% auto; background-position:center; background-repeat:no-repeat; background-attachment:fixed;
-  }
-  @media (min-width:521px){
-    body.k56-table-on{background-image:url('/images/desktop-bg-6p.jpg');background-size:cover;background-position:center center}
+    background-image:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,.6)),url('/images/table-bg-56.jpg');
+    background-size:cover; background-position:center bottom; background-repeat:no-repeat; background-attachment:fixed;
   }
   /* Mic sits where it does on the 6-player table */
   body.k56-table-on #k28vBtn{left:10px !important;bottom:auto !important;top:113px !important}
@@ -781,7 +778,7 @@
 <script src="/avatar-catalog.js"></script>
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
-<script src="k56-ui.js?v=3"></script>
+<script src="k56-ui.js?v=4"></script>
 <link rel="stylesheet" href="/scenery.css">
 <script src="/fs-hide.js"></script>
 </head>

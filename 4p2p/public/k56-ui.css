@@ -1903,3 +1903,10 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .r56-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:12px}
 .r56-bar i{display:block;height:100%;width:100%;background:var(--rc,#3ddc84);transform-origin:left;animation:r56Bar 8s linear forwards}
 @keyframes r56Bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+/* ---- new 56 table photo: the baked-in lamps/oval replace the drawn ones ---- */
+.fake-lamp-glow,.table-oval{display:none !important}
+/* cards played onto the felt: sized to fit the photo's smaller table */
+.trickslot .card,.trickslot .card.tiny{width:54px !important;height:77px !important}
+.trickslot .card .cr,.trickslot .card .crb,.trickslot .card.tiny .cr,.trickslot .card.tiny .crb{font-size:1.2rem !important}
+.trickslot .card .suit-icon-center,.trickslot .card.tiny .suit-icon-center{width:1.6rem !important;height:1.6rem !important}
