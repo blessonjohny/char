@@ -122,7 +122,7 @@
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=5">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=6">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -303,7 +303,7 @@
       else if (seat) lbl = seat.name + "'s turn";
     }
     setText($('turnLabel'), lbl);
-    (function (l) { if (!l || !l.textContent) return; l.style.fontSize = ''; var fs = parseFloat(getComputedStyle(l).fontSize) || 12; while (l.scrollWidth > l.clientWidth + 1 && fs > 8) { fs -= 0.5; l.style.fontSize = fs + 'px'; } })($('turnLabel'));
+    (function (l) { if (!l) return; l.style.setProperty('width', 'fit-content', 'important'); l.style.setProperty('min-width', '0', 'important'); l.style.setProperty('max-width', '92vw', 'important'); if (!l.textContent) return; l.style.fontSize = ''; var fs = parseFloat(getComputedStyle(l).fontSize) || 12; while (l.scrollWidth > l.clientWidth + 1 && fs > 8) { fs -= 0.5; l.style.fontSize = fs + 'px'; } })($('turnLabel'));
     var tl = $('turnLabel'), has = !!lbl, tmine = st.turn === ms, tpart = !tmine && st.turn != null && team(st.turn) === team(me());
     tog(tl, 'tl-mine', has && tmine); tog(tl, 'tl-partner', has && tpart); tog(tl, 'tl-opp', has && !tmine && !tpart);
   }

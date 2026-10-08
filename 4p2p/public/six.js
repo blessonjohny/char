@@ -3590,7 +3590,10 @@ function animateCardsToWinner(winnerPos) {
 
 // shrink the text until it fits inside the fixed-size pill, so long names / messages never look cramped or cut off
 function fitTurnLabel(l) {
-  if (!l || !l.textContent) return;
+  if (!l) return;
+  // inline !important outranks any saved layout-editor width/height rule, so the ring always hugs its text
+  l.style.setProperty('width', 'fit-content', 'important'); l.style.setProperty('min-width', '0', 'important'); l.style.setProperty('max-width', '92vw', 'important');
+  if (!l.textContent) return;
   l.style.fontSize = '';
   let fs = parseFloat(getComputedStyle(l).fontSize) || 12;
   while (l.scrollWidth > l.clientWidth + 1 && fs > 8) { fs -= 0.5; l.style.fontSize = fs + 'px'; }
