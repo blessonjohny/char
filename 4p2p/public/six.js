@@ -3551,7 +3551,7 @@ function showTrickWinPopup6p(lastTrick) {
   let p = $('trickWinPopup6p');
   if (!p) {
     p = document.createElement('div'); p.id = 'trickWinPopup6p';
-    p.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:125;width:min(86vw,340px);box-sizing:border-box;padding:14px 16px;border-radius:16px;pointer-events:none;background:#0b1220;border:3px solid #3ddc84;text-align:center;font-family:Inter,-apple-system,Segoe UI,sans-serif;font-weight:800;font-size:1rem;line-height:1.35;color:#3ddc84;display:none';
+    p.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:125;width:min(92vw,360px);box-sizing:border-box;padding:10px 14px;border-radius:14px;pointer-events:none;background:rgba(10,29,20,.38);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);border:2px solid #3ddc84;text-align:center;font-family:Inter,-apple-system,Segoe UI,sans-serif;font-weight:800;font-size:.92rem;line-height:1.3;color:#3ddc84;text-shadow:0 1px 3px rgba(0,0,0,.85);display:none';
     document.body.appendChild(p);
   }
   const seat = latestState && latestState.seats && latestState.seats[lastTrick.winner];
@@ -3560,9 +3560,15 @@ function showTrickWinPopup6p(lastTrick) {
   p.firstChild.textContent = seat ? seat.name : 'Player';
   p.style.borderColor = mine ? '#3ddc84' : '#ef4444';
   p.style.color = mine ? '#3ddc84' : '#ff6b6b';
-  p.style.background = mine ? '#0a1d14' : '#220c0e';
+  p.style.background = mine ? 'rgba(10,29,20,.38)' : 'rgba(34,12,14,.38)';
   p.style.transition = ''; p.style.opacity = '1'; p.style.transform = 'translate(-50%,-50%)';
   p.style.display = 'block';
+  /* sits in the empty space above the top player's head (clear of the header and of the avatar), see-through */
+  const topAv = $('av3');
+  if (topAv) {
+    const h = p.offsetHeight, avTop = topAv.getBoundingClientRect().top;
+    p.style.top = Math.max(avTop - 12 - h / 2, window.innerHeight * 0.23 + h / 2) + 'px';
+  } else p.style.top = '28%';
 }
 function flyTrickWinPopup6p(winnerAv) {
   const p = $('trickWinPopup6p');

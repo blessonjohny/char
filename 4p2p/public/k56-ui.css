@@ -1803,6 +1803,20 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #bidWinnerBubble6p .bwb-turn.bwb-turn-partner,#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-partner{color:#3ddc84 !important;animation:none !important}
 #bidWinnerBubble6p .bwb-turn.bwb-turn-opp,#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-opp{color:#ff6b6b !important;animation:none !important}
 @keyframes k56TurnTextBlink{0%{opacity:1}50%{opacity:.35}}
+/* cards played onto the felt: sized to fit the table pictures (K28Stage), so they stop covering the avatars */
+.trickslot .card,.trickslot .card.tiny{width:54px !important;height:77px !important}
+.trickslot .card .cr,.trickslot .card .crb,.trickslot .card.tiny .cr,.trickslot .card.tiny .crb{font-size:1.2rem !important}
+.trickslot .card .suit-icon-center,.trickslot .card.tiny .suit-icon-center{width:1.6rem !important;height:1.6rem !important}
+/* ---- every popup: see-through (frosted glass), text kept readable with a soft shadow ---- */
+.bid-status-banner{background:rgba(11,18,32,.38) !important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);text-shadow:0 1px 3px rgba(0,0,0,.9)}
+#roundEndOverlay .modal-box{background:rgba(11,18,32,.4) !important;-webkit-backdrop-filter:blur(3px) !important;backdrop-filter:blur(3px) !important;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+#roundEndOverlay .modal-box.re-win{background:rgba(10,29,20,.4) !important}
+#roundEndOverlay .modal-box.re-lose{background:rgba(34,12,14,.4) !important}
+#roundEndOverlay.modal-overlay,#roundEndOverlay{background:rgba(0,0,0,.12) !important}
+.game-event-box{background:linear-gradient(155deg,rgba(18,14,10,.3),rgba(8,6,4,.34)) !important;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+#bidWinnerBubble6p{background:radial-gradient(ellipse at center,rgba(120,90,15,.45),rgba(40,28,4,.5)) !important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.modal-box{background:rgba(15,23,42,.58) !important;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.modal-overlay{background:rgba(0,0,0,.2) !important}
 
 /* ===== 56 additions (appended after the converted 6-player stylesheet) ===== */
 :host{display:block;position:static;height:0;margin:0;background:none!important;color:#fff;
@@ -1816,8 +1830,8 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .k56-wrap{display:contents}
 .seat.empty-seat{opacity:.25}
 .seat.on .av{animation:none}
-#k56Trick{position:fixed;top:50%;left:50%;z-index:125;width:min(86vw,340px);box-sizing:border-box;margin:0;padding:14px 16px;border-radius:16px;pointer-events:none;
-  background:#0b1220;border:3px solid #3ddc84;text-align:center;font-family:'Inter',-apple-system,'Segoe UI',sans-serif;font-weight:800;font-size:1rem;line-height:1.35;color:#3ddc84;
+#k56Trick{position:fixed;top:50%;left:50%;z-index:125;width:min(92vw,360px);box-sizing:border-box;margin:0;padding:10px 14px;border-radius:14px;pointer-events:none;
+  background:rgba(10,29,20,.38);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);border:2px solid #3ddc84;text-align:center;font-family:'Inter',-apple-system,'Segoe UI',sans-serif;font-weight:800;font-size:.92rem;line-height:1.3;color:#3ddc84;text-shadow:0 1px 3px rgba(0,0,0,.85);
   transform:translate(-50%,-50%);display:none}
 #k56Trick b{color:#fff}
 #k56Trick.on{display:block}
@@ -1910,3 +1924,9 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .trickslot .card,.trickslot .card.tiny{width:54px !important;height:77px !important}
 .trickslot .card .cr,.trickslot .card .crb,.trickslot .card.tiny .cr,.trickslot .card.tiny .crb{font-size:1.2rem !important}
 .trickslot .card .suit-icon-center,.trickslot .card.tiny .suit-icon-center{width:1.6rem !important;height:1.6rem !important}
+
+/* ---- 56 popups: see-through too ---- */
+.r56-box{background:rgba(11,18,32,.4) !important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.r56-box.r56-win{background:rgba(10,29,20,.4) !important}
+.r56-box.r56-lose{background:rgba(34,12,14,.4) !important}
+.r56-ov{background:rgba(0,0,0,.12) !important}

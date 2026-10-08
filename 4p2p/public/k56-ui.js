@@ -119,7 +119,7 @@
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=11">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=13">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -369,10 +369,16 @@
       once('trickBanner', pt.ts + ':' + pt.winnerSeat, function () {
         tb.style.transition = ''; tb.style.transform = ''; tb.style.opacity = '';
         var mineW = ctx.relTeam(pt.winnerSeat) === 'Team';
-        tb.style.borderColor = mineW ? '#3ddc84' : '#ef4444'; tb.style.color = mineW ? '#3ddc84' : '#ff6b6b'; tb.style.background = mineW ? '#0a1d14' : '#220c0e';
+        tb.style.borderColor = mineW ? '#3ddc84' : '#ef4444'; tb.style.color = mineW ? '#3ddc84' : '#ff6b6b'; tb.style.background = mineW ? 'rgba(10,29,20,.38)' : 'rgba(34,12,14,.38)';
         tb.innerHTML = '<b>' + esc(w ? w.name : '') + '</b> wins the trick · +' + pt.points + ' pts to ' + esc(ctx.relTeam(pt.winnerSeat));
       });
       tog(tb, 'on', true);
+      /* sits in the empty space above the top player's head, clear of the header and the avatar */
+      var topAv = $('av3');
+      if (topAv && !tb.style.transform) {
+        var th = tb.offsetHeight, sw3 = $('seatWrap3'), avTop = sw3 && sw3.style.top ? parseFloat(sw3.style.top) - (parseFloat(topAv.style.height || 108) + 16) / 2 : topAv.getBoundingClientRect().top;
+        tb.style.top = Math.max(avTop - 12 - th / 2, window.innerHeight * 0.23 + th / 2) + 'px';
+      }
       var key = 'c' + pt.ts;
       if (collectKey !== key) {
         collectKey = key; clearTimeout(collectTimer);
