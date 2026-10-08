@@ -1905,7 +1905,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @keyframes r56Bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
 /* ---- new 56 table photo: the baked-in lamps/oval replace the drawn ones ---- */
-.fake-lamp-glow,.table-oval{display:none !important}
+.table-oval{display:none !important}
 /* cards played onto the felt: sized to fit the photo's smaller table */
 .trickslot .card,.trickslot .card.tiny{width:54px !important;height:77px !important}
 .trickslot .card .cr,.trickslot .card .crb,.trickslot .card.tiny .cr,.trickslot .card.tiny .crb{font-size:1.2rem !important}

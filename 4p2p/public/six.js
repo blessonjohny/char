@@ -1233,7 +1233,7 @@ function showScreen(id) {
   // the class synchronously right here instead, at the one point that
   // actually changes visibility, so it's always already correct by
   // the time anything renders off of it.
-  document.body.classList.toggle('k28-in-game', id === 'gameScreen' && window.innerWidth >= 521);
+  document.body.classList.toggle('k28-in-game', false);   /* the table pictures use the phone layout everywhere (K28Stage) */
 }
 // Per explicit request, same addition as the 4-player table's identical
 // change -- see there for the fuller reasoning: mirrors #gameScreen's
@@ -1259,7 +1259,7 @@ function showScreen(id) {
 setInterval(() => {
   const gs = document.getElementById('gameScreen');
   if (!gs) return;
-  const shouldBeActive = !gs.classList.contains('hidden') && window.innerWidth >= 521;
+  const shouldBeActive = false;   /* see showScreen(): phone layout everywhere */
   document.body.classList.toggle('k28-in-game', shouldBeActive);
 }, 500);
 function showToast(msg, kind, ms) {
@@ -3100,7 +3100,20 @@ function enforceSeatAvatarSizing6p() {
     av.style.setProperty('height', s.h + 'px', 'important');
     av.style.setProperty('font-size', s.fs + 'rem', 'important');
   }
+  placeTable6p();
 }
+/* Table picture + seats + played-card slots + corner lights, all computed from the chosen picture (table-stage.js). */
+function placeTable6p() {
+  if (!window.K28Stage) return;
+  const gs = document.getElementById('gameScreen');
+  if (!gs || gs.classList.contains('hidden')) return;
+  const seats = [], tricks = [], avs = [];
+  for (let i = 0; i < 6; i++) { seats.push($('seatWrap' + i)); tricks.push($('trickSlot' + i)); avs.push($('av' + i)); }
+  const glows = {};
+  ['tl', 'tr', 'bl', 'br'].forEach(k => { glows[k] = gs.querySelector('.fake-lamp-glow-' + k); });
+  K28Stage.place('six', gs, { seats, tricks, avs, glows, column: false });
+}
+if (window.K28Stage) K28Stage.onChange(placeTable6p);
 window.addEventListener('resize', enforceSeatAvatarSizing6p);
 
 function renderSeats(state) {

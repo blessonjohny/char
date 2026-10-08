@@ -10,13 +10,6 @@
   var SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
   var SUITID = { S: 'spade', H: 'heart', D: 'diamond', C: 'club' };
   var RED = { S: false, H: true, D: true, C: false };
-  var PHONE = { 0: [150, 192, 4.1], 3: [92, 118, 2.55], 2: [104, 133, 2.9], 4: [104, 133, 2.9], 1: [112, 143, 3.1], 5: [112, 143, 3.1] };
-  /* Table photo (images/table-bg-56.jpg): 6 stools. STOOL = top-surface centre of each stool as % of the ORIGINAL
-     1152x2048 photo; the file has IMG.add px of dark wall added on top so it fits a tall phone screen. */
-  var IMG = { w: 1152, h: 2495, add: 447, oh: 2048 };
-  var STOOL = [[50, 70.3], [88.5, 58.1], [85, 37.9], [50, 30.3], [15.6, 37.6], [10.8, 57.6]];
-  var CENTRE = [50, 45.4];
-  var LIFT = [0.30, 0.28, 0.28, 0.30, 0.28, 0.28]; /* seat sits this fraction of its avatar height above the stool top */
   var DESK = { 0: [321, 321, 8.25], 3: [180, 180, 4.7], 2: [225, 225, 5.8], 4: [195, 195, 5], 1: [225, 225, 5.8], 5: [250, 250, 6.4] };
   var SORT = ['S', 'H', 'C', 'D'], RANKS = ['J', '9', 'A', '10', 'K', 'Q'];
   var SPRITE = "<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-hidden=\"true\">\n  <filter id=\"cloudyEdge\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"140%\">\n    <feTurbulence type=\"fractalNoise\" baseFrequency=\"0.018 0.05\" numOctaves=\"2\" seed=\"7\" result=\"cloudNoise\"/>\n    <feDisplacementMap in=\"SourceGraphic\" in2=\"cloudNoise\" scale=\"9\" xChannelSelector=\"R\" yChannelSelector=\"G\"/>\n  </filter>\n</svg>\n<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-hidden=\"true\">\n<defs>\n<symbol id=\"suit-spade\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,8 C35,28 8,48 8,68 C8,85 22,95 37,90 C42,88.5 46,85 48.5,80.5 C47,90 42,98 30,100 L70,100 C58,98 53,90 51.5,80.5 C54,85 58,88.5 63,90 C78,95 92,85 92,68 C92,48 65,28 50,8 Z\"/></symbol>\n<symbol id=\"suit-club\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"34\" r=\"24\" fill=\"currentColor\"/><circle cx=\"27\" cy=\"58\" r=\"24\" fill=\"currentColor\"/><circle cx=\"73\" cy=\"58\" r=\"24\" fill=\"currentColor\"/><path fill=\"currentColor\" d=\"M42,72 C45,85 44,94 34,100 L66,100 C56,94 55,85 58,72 C53,76 47,76 42,72 Z\"/></symbol>\n<symbol id=\"suit-heart\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,92 C50,92 8,62 8,32 C8,12 24,3 38,8 C45,10.5 49,17 50,24 C51,17 55,10.5 62,8 C76,3 92,12 92,32 C92,62 50,92 50,92 Z\"/></symbol>\n<symbol id=\"suit-diamond\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,4 L88,50 L50,96 L12,50 Z\"/></symbol>\n</defs>\n</svg>";
@@ -109,45 +102,16 @@
        phone layout is used everywhere (never the old wide-photo layout) */
     tog(host, 'k28-in-game', false);
   }
-  /* Draws the photo on #gameScreen (a column no wider than the photo's own shape) and puts every seat
-     and trick card on its stool, whatever the screen shape. */
+  /* The table photo, every seat, played card, avatar size and corner light come from the shared K28Stage module
+     (table-stage.js), which scales them all from the same picture so alignment holds on every screen. */
   function placeStage() {
-    var gs = $('gameScreen'); if (!gs) return;
-    var W = window.innerWidth, H = window.innerHeight, asp = IMG.w / IMG.h;
-    var Ws = W < 521 ? W : Math.min(W, H * asp);
-    var S = Math.max(Ws / IMG.w, H / IMG.h);
-    var ox = (Ws - IMG.w * S) / 2, oy = H - IMG.h * S;
-    var imp = function (el, k, v) { el.style.setProperty(k, v, 'important'); };
-    imp(gs, 'left', ((W - Ws) / 2) + 'px'); imp(gs, 'right', 'auto'); imp(gs, 'width', Ws + 'px');
-    imp(gs, 'background-image', 'linear-gradient(to bottom,rgba(0,0,0,.72) 0%,rgba(0,0,0,.35) 9%,rgba(0,0,0,0) 17%),url(/images/table-bg-56.jpg)');
-    imp(gs, 'background-size', '100% 100%,' + (IMG.w * S) + 'px ' + (IMG.h * S) + 'px');
-    imp(gs, 'background-position', '0 0,' + ox + 'px ' + oy + 'px');
-    imp(gs, 'background-repeat', 'no-repeat');
-    imp(gs, 'background-color', '#120a08');
-    var px = function (fx, fy) { return [ox + fx / 100 * IMG.w * S, oy + (IMG.add + fy / 100 * IMG.oh) * S]; };
-    var m = Math.max(0.85, Math.min(1.4, Ws / 390));
-    for (var i = 0; i < 6; i++) {
-      var h = PHONE[i][1] * m, sp = px(STOOL[i][0], STOOL[i][1]);
-      var sw = $('seatWrap' + i), ts = $('trickSlot' + i);
-      sw.style.left = sp[0] + 'px'; sw.style.top = (sp[1] - h * LIFT[i]) + 'px';
-      var tx = CENTRE[0] + (STOOL[i][0] - CENTRE[0]) * 0.5, ty = CENTRE[1] + (STOOL[i][1] - CENTRE[1]) * 0.42;
-      var tp = px(tx, ty); ts.style.left = tp[0] + 'px'; ts.style.top = tp[1] + 'px';
-    }
-    cache.stageM = m;
+    var S = window.K28Stage; if (!S || !root) return;
+    var g = {}, seats = [], tricks = [], avs = [];
+    for (var i = 0; i < 6; i++) { seats.push($('seatWrap' + i)); tricks.push($('trickSlot' + i)); avs.push($('av' + i)); }
+    ['tl', 'tr', 'bl', 'br'].forEach(function (k) { g[k] = root.querySelector('.fake-lamp-glow-' + k); });
+    S.place('k56', $('gameScreen'), { seats: seats, tricks: tricks, avs: avs, glows: g, column: true });
   }
-  function applySizes() {
-    var Ws = window.innerWidth < 521 ? window.innerWidth : Math.min(window.innerWidth, window.innerHeight * IMG.w / IMG.h);
-    var m = Math.max(0.85, Math.min(1.4, Ws / 390));
-    for (var s = 0; s < 6; s++) {
-      var av = $('av' + s), v = PHONE[s], k = m.toFixed(3) + ':' + s;
-      if (!av || cache['sz' + s] === k) continue;
-      cache['sz' + s] = k;
-      av.style.setProperty('width', Math.round(v[0] * m) + 'px', 'important');
-      av.style.setProperty('height', Math.round(v[1] * m) + 'px', 'important');
-      av.style.setProperty('font-size', (v[2] * m) + 'rem', 'important');
-    }
-    placeStage();
-  }
+  function applySizes() { placeStage(); }
   function mount(c) {
     if (host) { ctx = c; return; }
     ctx = c;
@@ -155,7 +119,7 @@
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=10">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=11">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -171,6 +135,7 @@
     });
     sizeClass(); applySizes();
     window.addEventListener('resize', function () { sizeClass(); applySizes(); fitHand(); });
+    if (window.K28Stage) window.K28Stage.onChange(placeStage);
     var lk = root.querySelector('link');
     if (lk) lk.addEventListener('load', function () { sizeClass(); applySizes(); fitHand(); });
     wire();

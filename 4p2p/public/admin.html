@@ -252,6 +252,7 @@
       <button class="tab" id="tabPoker" data-cat="tools" style="display:none">🃏 Hold'em Admin</button>
       <button class="tab" id="tabAvatars" data-cat="tools" style="display:none">🖼️ Avatars</button>
       <button class="tab" id="tabScenery" data-cat="tools" style="display:none">🌄 Backgrounds</button>
+      <button class="tab" id="tabTblThemes" data-cat="tools" style="display:none">🪑 Table pictures</button>
       <button class="tab" id="tabVisitors" data-cat="stats" style="display:none">📊 Visitor Log</button>
       <button class="tab" id="tabHistory" data-cat="stats" style="display:none">📅 Table History</button>
       <button class="tab" id="tabUsage" data-cat="stats" style="display:none">📶 Data Usage</button>
@@ -370,6 +371,11 @@
         <div class="toolbar"><button class="btn ghost" id="btnRefreshUb">🔄 Refresh breakdown</button></div>
         <div id="ubBody"><div class="empty">Loading…</div></div>
       </div>
+    </div>
+    <div id="tblThemesView" style="display:none">
+      <h3 class="ub-h">🪑 Table pictures</h3>
+      <div class="sub" style="margin-top:0">Pick which of the 20 tables each game uses. The change is live right away: a table that is already open picks it up within a minute, and every seat, card slot and corner light lines up with the new picture by itself.</div>
+      <div id="tblThemesList"></div>
     </div>
     <div id="sceneryView" style="display:none">
       <h3 class="ub-h">🌄 Backgrounds</h3>
@@ -713,6 +719,9 @@ function switchTab(tab) {
   document.getElementById('tabUsage').classList.toggle('on', tab === 'usage');
   document.getElementById('tabAvatars').classList.toggle('on', tab === 'avatars');
   document.getElementById('tabScenery').classList.toggle('on', tab === 'scenery');
+  document.getElementById('tabTblThemes').classList.toggle('on', tab === 'tblthemes');
+  document.getElementById('tblThemesView').style.display = tab === 'tblthemes' ? 'block' : 'none';
+  if (tab === 'tblthemes') refreshTblThemes();
   document.getElementById('sceneryView').style.display = tab === 'scenery' ? 'block' : 'none';
   if (tab === 'scenery') refreshScenery();
   document.getElementById('avatarsView').style.display = tab === 'avatars' ? 'block' : 'none';
@@ -1092,6 +1101,7 @@ document.getElementById('tabLayout').addEventListener('click', () => switchTab('
 document.getElementById('tabUsage').addEventListener('click', () => switchTab('usage'));
 document.getElementById('tabAvatars').addEventListener('click', () => switchTab('avatars'));
 document.getElementById('tabScenery').addEventListener('click', () => switchTab('scenery'));
+document.getElementById('tabTblThemes').addEventListener('click', () => switchTab('tblthemes'));
 document.getElementById('btnRefreshLive').addEventListener('click', refreshLivePlayers);
 document.getElementById('btnRefreshHistory').addEventListener('click', refreshTableHistory);
 
@@ -1118,7 +1128,7 @@ const NAV = [
     { id: 'live', title: 'Players & tables', tab: 'live' }, { id: 'bots', title: 'Bot tables', tab: 'bots' }, { id: 'ghost', title: 'Ghost players', tab: 'ghost' }, { id: 'poker', title: "Hold'em admin", tab: 'poker' } ] },
   { id: 'comments', icon: '💌', title: 'Comments', pages: [ { id: 'comments', title: 'Comments', tab: 'comments' } ] },
   { id: 'edit', icon: '🎨', title: 'Edit', pages: [
-    { id: 'tables', title: 'Tables', tab: 'layout' }, { id: 'scenery', title: 'Backgrounds', tab: 'scenery' },
+    { id: 'tables', title: 'Tables', tab: 'layout' }, { id: 'scenery', title: 'Backgrounds', tab: 'scenery' }, { id: 'tablepics', title: 'Table pictures', tab: 'tblthemes' },
     { id: 'avatars', title: 'Avatars', tab: 'avatars', sub: 'avatars' }, { id: 'kunukku', title: 'Kunukku', tab: 'avatars', sub: 'kunukku' },
     { id: 'pictures', title: 'Picture sizes', tab: 'usage', sub: 'img' } ] },
   { id: 'usage', icon: '📈', title: 'Usage', pages: [
@@ -2514,6 +2524,29 @@ const BG_DEVICES = {
   landscape: [[740, 360, 'Small phone'], [844, 390, 'iPhone'], [932, 430, 'Large phone']],
   desktop: [[1024, 768, 'Tablet'], [1280, 720, 'Laptop'], [1440, 900, 'Desktop'], [1920, 1080, 'Full HD']],
 };
+
+// ---- Table pictures: which of the 20 tables the 6-player and 56 games use ----
+const TBL_NAMES = ['Royal Blue Velvet', 'Tan Leather', 'Black & Emerald', 'Crimson Velvet', 'Slate Grey', 'Navy & Silver', 'Purple Velvet', 'Black & Gold', 'Ivory', 'Ruby Red', 'Teal Velvet', 'White Marble', 'Violet', 'Sapphire', 'Red & Black Leather', 'Deep Teal', 'Forest Green', 'Emerald & Silver', 'Ivory & Green', 'Cream & Burgundy'];
+let tblThemes = null;
+async function refreshTblThemes() {
+  const el = document.getElementById('tblThemesList');
+  try { const r = await fetch('/api/table-themes', { cache: 'no-store' }); tblThemes = await r.json(); renderTblThemes(); }
+  catch (e) { el.innerHTML = '<div class="empty">Could not load the table pictures.</div>'; }
+}
+function renderTblThemes() {
+  const el = document.getElementById('tblThemesList'); if (!tblThemes) return;
+  const games = [['six', '🎲 6-Player table'], ['k56', '🂡 56 table']];
+  el.innerHTML = games.map(([g, label]) => `<div class="ub-row" style="margin-top:12px"><div class="top"><span><b>${label}</b></span><span style="color:var(--accent)">Now: ${tblThemes[g]} · ${TBL_NAMES[tblThemes[g] - 1]}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:10px">` +
+    TBL_NAMES.map((n, i) => { const id = i + 1, on = tblThemes[g] === id; const pad = id < 10 ? '0' + id : '' + id;
+      return `<button type="button" data-tbl="${g}:${id}" style="padding:4px;border-radius:10px;border:2px solid ${on ? 'var(--accent)' : 'var(--border)'};background:${on ? 'rgba(244,196,48,.14)' : 'rgba(255,255,255,.04)'};color:#fff;cursor:pointer;text-align:center"><img src="/images/tables/t${pad}-th.jpg" alt="" loading="lazy" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:7px;display:block"><div style="font-size:.62rem;margin-top:3px;line-height:1.15">${id}. ${n}${on ? ' ✓' : ''}</div></button>`; }).join('') + '</div></div>').join('');
+  el.querySelectorAll('[data-tbl]').forEach(b => b.addEventListener('click', async () => {
+    const [g, id] = b.dataset.tbl.split(':');
+    const r = await avCall('/api/admin/table-themes', 'POST', { game: g, id: Number(id) });
+    if (!r.ok) { alert(r.data.error || 'Could not save.'); return; }
+    tblThemes = { ok: true, six: r.data.six, k56: r.data.k56 }; renderTblThemes();
+  }));
+}
 let sceneryData = null, sceneryFilter = 'all';
 function setSceneryFilter(f) { sceneryFilter = f; document.querySelectorAll('#scFilter button').forEach(b => b.classList.toggle('on', b.dataset.f === f)); if (sceneryData) renderScenery(); }
 document.getElementById('scFilter').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) setSceneryFilter(b.dataset.f); });
