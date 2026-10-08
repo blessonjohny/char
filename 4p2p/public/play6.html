@@ -1867,6 +1867,10 @@ body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !im
 #bidWinnerBubble6p .bwb-turn.bwb-turn-partner,#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-partner{color:#3ddc84 !important;animation:none !important}
 #bidWinnerBubble6p .bwb-turn.bwb-turn-opp,#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-opp{color:#ff6b6b !important;animation:none !important}
 @keyframes k56TurnTextBlink{0%{opacity:1}50%{opacity:.35}}
+/* cards played onto the felt: sized to fit the table pictures (K28Stage), so they stop covering the avatars */
+.trickslot .card,.trickslot .card.tiny{width:54px !important;height:77px !important}
+.trickslot .card .cr,.trickslot .card .crb,.trickslot .card.tiny .cr,.trickslot .card.tiny .crb{font-size:1.2rem !important}
+.trickslot .card .suit-icon-center,.trickslot .card.tiny .suit-icon-center{width:1.6rem !important;height:1.6rem !important}
 </style>
 <script src="name-filter.js?v=1"></script>
 <script src="/avatar-catalog.js"></script>
@@ -2398,7 +2402,7 @@ body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !im
      under this exact URL indefinitely, even after the file on disk changed and the server
      redeployed. Bump this number on every future six.js delivery (same convention as the
      layout-editor-* files already use). -->
-<script src="/table-stage.js?v=1"></script>
+<script src="/table-stage.js?v=2"></script>
 <script src="/six.js?v=14"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including

@@ -10,9 +10,11 @@
   /* top-surface centre of each stool, % of the ORIGINAL picture. slot0=me/bottom, 1=lower-right, 2=upper-right, 3=top, 4=upper-left, 5=lower-left */
   var STOOL = [[50, 75], [89, 60], [86, 39.8], [50, 31.5], [15, 38.5], [10.5, 58.5]];
   var CENTRE = [50, 45.5];
+  /* where each seat's played card lands on the felt (% of the original picture): spread so six cards don't cover each other */
+  var TRICK = [[50, 55.5], [66, 53], [66, 41.5], [50, 39.5], [34, 41.5], [34, 53]];
   var LAMPS = { tl: [13, 17.9], tr: [88, 17.9], bl: [3.5, 11], br: [96.5, 11] };  /* 2 lamps + the warm wall glow behind each */
   var SIZE = { 0: [132, 170, 3.6], 1: [100, 128, 2.8], 2: [92, 118, 2.6], 3: [80, 102, 2.2], 4: [92, 118, 2.6], 5: [100, 128, 2.8] };
-  var LIFT = [0.30, 0.28, 0.28, 0.30, 0.28, 0.28];   /* seat sits this fraction of its avatar height above the stool top */
+  var LIFT = [0.10, 0.02, 0.28, 0.42, 0.28, 0.02];   /* seat sits this fraction of its avatar height above the stool top */
   var NAMES = ['Royal Blue Velvet', 'Tan Leather', 'Black & Emerald', 'Crimson Velvet', 'Slate Grey', 'Navy & Silver', 'Purple Velvet', 'Black & Gold',
     'Ivory', 'Ruby Red', 'Teal Velvet', 'White Marble', 'Violet', 'Sapphire', 'Red & Black Leather', 'Deep Teal', 'Forest Green', 'Emerald & Silver',
     'Ivory & Green', 'Cream & Burgundy'];
@@ -68,7 +70,7 @@
       if (sw) { imp(sw, 'left', sp[0] + 'px'); imp(sw, 'top', (sp[1] - h * LIFT[i]) + 'px'); }
       var ts = o.tricks && o.tricks[i];
       if (ts) {
-        var tp = px(CENTRE[0] + (STOOL[i][0] - CENTRE[0]) * 0.5, CENTRE[1] + (STOOL[i][1] - CENTRE[1]) * 0.34);
+        var tp = px(TRICK[i][0], TRICK[i][1]);
         imp(ts, 'left', tp[0] + 'px'); imp(ts, 'top', tp[1] + 'px');
       }
     }
