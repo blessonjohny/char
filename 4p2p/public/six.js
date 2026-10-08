@@ -2612,8 +2612,12 @@ function applyState(state) {
     const fireRoundEndEvent = () => {
     if (rw) {
       const bidderName = (state.seats && state.seats[rw.bidder]) ? state.seats[rw.bidder].name : 'The bidder';
-      if (rw.bidderWon) showGameEvent('🏆', 'Bid Made', bidderName + ' — ' + rw.highestBid, '#2ecc71');
-      else showGameEvent('💥', 'Bid Failed', bidderName + ' — ' + rw.highestBid, '#e74c3c');
+      // Colour/wording is from EACH viewer's side: my team won the round -> green, otherwise red
+      // (the bidder's own result alone made defenders see green when they had actually lost).
+      const myTeamWonRound = (sixpGetTeam(MY_POS) === sixpGetTeam(rw.bidder)) ? rw.bidderWon : !rw.bidderWon;
+      const evtTitle = rw.bidderWon ? 'Bid Made' : 'Bid Failed';
+      const evtDetail = bidderName + ' — ' + rw.highestBid + '<br><span style="font-size:1.05rem">' + (myTeamWonRound ? 'Your team wins the round' : 'Your team loses the round') + '</span>';
+      showGameEvent(myTeamWonRound ? '🏆' : '💥', evtTitle, evtDetail, myTeamWonRound ? '#2ecc71' : '#ef4444');
       // Real, confirmed feature per explicit request ("every player or
       // team should hear sounds according to win/lose bid and kunukku
       // for all, same 4 and 6"): matches the 4-player table's identical
@@ -4419,7 +4423,9 @@ function showGameOver(state) {
   const myTeam = sixpGetTeam(MY_POS);
   const won = state.gameOver.winningTeam === myTeam;
   const scoreText = `Final score — Your Team: ${state.gameOver.finalScore[myTeam]}, Opp Team: ${state.gameOver.finalScore[1 - myTeam]}`;
-  showToast((won ? '🏆 Championship won! ' : '😢 Championship lost. ') + scoreText, won ? 'win' : 'lose', 5000);
+  // Same rule as the round popup: green for the winning team, red for everyone who lost; shown
+  // shortly after the last-trick popup has cleared.
+  setTimeout(() => showGameEvent(won ? '🏆' : '😢', won ? 'Championship Won' : 'Championship Lost', scoreText, won ? '#2ecc71' : '#ef4444', { holdMs: 4500 }), 700);
   scheduleAutoNewChampionship(state);
 }
 
