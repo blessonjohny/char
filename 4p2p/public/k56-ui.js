@@ -295,6 +295,8 @@
       else if (seat) lbl = seat.name + "'s turn";
     }
     setText($('turnLabel'), lbl);
+    var tl = $('turnLabel'), has = !!lbl, tmine = st.turn === ms, tpart = !tmine && st.turn != null && team(st.turn) === team(me());
+    tog(tl, 'tl-mine', has && tmine); tog(tl, 'tl-partner', has && tpart); tog(tl, 'tl-opp', has && !tmine && !tpart);
   }
 
   /* ---------------- seats / table ---------------- */
@@ -408,6 +410,8 @@
       html += '<span class="bsb-turn">' + (st.turn === ms ? 'Your turn' : esc(ts ? ts.name : '') + "'s turn") + '</span>';
       if (st.lastNote && st.lastNote.text) html += '<span style="display:block;margin-top:3px;font-style:italic;color:#e8d9a8">' + esc((st.seats[st.lastNote.seat] || {}).name) + ': “' + esc(st.lastNote.text) + '”</span>';
       once('banner', html, function () { b.innerHTML = html; });
+      var bm = st.turn === ms, bp = !bm && st.turn != null && team(st.turn) === team(me());
+      tog(b, 'bsb-mine', bm); tog(b, 'bsb-partner', bp); tog(b, 'bsb-opp', !bm && !bp);
       show(b, true);
     } else show(b, false);
 
@@ -428,8 +432,10 @@
       var ln = $('bwbTurnLine'), ls = st.seats[st.turn], txt = '';
       if (st.phase === 'auctionClosed') { var lead = st.seats[(st.dealer + 1) % 6]; txt = (lead ? lead.name : '') + ' leads first…'; }
       else txt = st.turn === ms ? 'Your turn to play' : (ls ? ls.name + "'s turn to play" : '');
-      if (ln) { setText(ln, txt); tog(ln, 'bwb-turn-mine', st.turn === ms); tog(ln, 'bwb-turn-opp', st.turn !== ms); }
-      tog(bub, 'bwb-border-mine', ms === cb.seat || team(cb.seat) === team(me())); tog(bub, 'bwb-border-other', !(ms === cb.seat || team(cb.seat) === team(me())));
+      var lpart = st.turn != null && st.turn !== ms && team(st.turn) === team(me());
+      if (ln) { setText(ln, txt); tog(ln, 'bwb-turn-mine', st.turn === ms); tog(ln, 'bwb-turn-partner', lpart); tog(ln, 'bwb-turn-opp', st.turn != null && st.turn !== ms && !lpart); }
+      var okSide = st.turn === ms || (st.turn != null && team(st.turn) === team(me()));
+      tog(bub, 'bwb-border-mine', okSide); tog(bub, 'bwb-border-other', !okSide);
     } else if (bub.style.display !== 'none') {
       winnerKey = null; bub.style.display = 'none'; bub.classList.remove('leaving', 'settled');
     }

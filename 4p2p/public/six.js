@@ -2806,8 +2806,8 @@ function updateBidWinnerTurnText6p(state) {
   turnEl.classList.toggle('bwb-turn-opp', !isMe && !isPartner);
   // Per explicit request, same addition as the 4-player table's
   // identical change -- see there for the fuller reasoning.
-  bubble.classList.toggle('bwb-border-mine', isMe);
-  bubble.classList.toggle('bwb-border-other', !isMe);
+  bubble.classList.toggle('bwb-border-mine', isMe || isPartner);
+  bubble.classList.toggle('bwb-border-other', !isMe && !isPartner);
   if (changed) {
     turnEl.classList.remove('bwb-turn-pop');
     void turnEl.offsetWidth;
@@ -3562,6 +3562,15 @@ function animateCardsToWinner(winnerPos) {
 }
 
 function updateTurnLabel(state) {
+  updateTurnLabelInner(state);
+  const l = $('turnLabel'), cp = state.currentPlayer;
+  const mine = cp === MY_POS, partner = !mine && cp >= 0 && sixpGetTeam(cp) === sixpGetTeam(MY_POS);
+  const has = !!l.textContent;
+  l.classList.toggle('tl-mine', has && mine);
+  l.classList.toggle('tl-partner', has && partner);
+  l.classList.toggle('tl-opp', has && cp >= 0 && !mine && !partner && !state.pendingMidTrickQuote);
+}
+function updateTurnLabelInner(state) {
   const lbl = $('turnLabel');
   if (state.phase === 'roundEnd' || state.gameOver) { lbl.textContent = ''; return; }
   // While a mid-trick COT/MaruCOT offer is pending, currentPlayer still points at whoever
@@ -3936,6 +3945,13 @@ function renderBidStatusBanner6p(state) {
   if (state.currentPlayer >= 0) {
     const turnLabel = state.currentPlayer === MY_POS ? 'Your turn' : sixpRelLabel(state.currentPlayer, seats) + "'s turn";
     html += `<span class="bsb-turn">${turnLabel}</span>`;
+  }
+  {
+    const cp = state.currentPlayer;
+    const mine = cp === MY_POS, partner = !mine && cp >= 0 && sixpGetTeam(cp) === sixpGetTeam(MY_POS);
+    el.classList.toggle('bsb-mine', mine);
+    el.classList.toggle('bsb-partner', partner);
+    el.classList.toggle('bsb-opp', cp >= 0 && !mine && !partner);
   }
   el.innerHTML = html;
   el.style.display = 'block';

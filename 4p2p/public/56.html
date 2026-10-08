@@ -666,6 +666,116 @@
     body.k56-table-on #k28vBtn{top:195px !important}
     body.k56-table-on #k28vPanel{top:249px !important}
   }
+
+  /* ===================== PREMIUM 56 FRONT-END (landing / lobby / popups) =====================
+     Same visual language as the 6-player table: navy glass, gold edge, Cinzel headings. Phone-first. */
+  :root{--p-navy:#0a1628;--p-panel:#111d2e;--p-gold:#f4c430;--p-gold2:#e0a912;--p-text:#fff;--p-sub:#9fb0c3;--p-green:#3ddc84;--p-red:#ef6b6b;
+        --p-serif:'Cinzel','Playfair Display',serif;}
+  body:not(.k56-table-on){
+    background-color:#0a1628;background-image:url('/images/table-bg-6p.jpg');background-size:cover;background-position:center top;
+    background-repeat:no-repeat;background-attachment:fixed;color:var(--p-text);
+  }
+  body:not(.k56-table-on)::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 0%,rgba(244,196,48,.10),transparent 55%),linear-gradient(180deg,rgba(6,12,22,.80),rgba(6,12,22,.92))}
+  body:not(.k56-table-on) .link-back{background:rgba(10,22,40,.75);border:1px solid rgba(244,196,48,.35);color:#e8d9a8;backdrop-filter:blur(6px);font-family:var(--p-serif);font-weight:700}
+
+  /* buttons everywhere on the 56 page */
+  .btn{min-height:46px;border-radius:12px;font-family:'Inter',sans-serif;font-weight:800;font-size:15px;letter-spacing:.2px}
+  .btn-gold{background:linear-gradient(135deg,#f6d35b,#e0a912);color:#1a1305;box-shadow:0 6px 18px rgba(224,169,18,.28),inset 0 1px 0 rgba(255,255,255,.45)}
+  .btn-ghost{background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.22);color:#fff}
+  .btn-maroon{background:linear-gradient(135deg,#c0392b,#8e1f16);color:#fff;box-shadow:0 6px 16px rgba(142,31,22,.35)}
+  .btn-small{min-height:36px;padding:7px 14px;font-size:13px;border-radius:10px}
+
+  /* ---------- landing ---------- */
+  #landing{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:max(58px,env(safe-area-inset-top)) 16px 28px;text-align:center}
+  .lp-hero{margin-bottom:14px}
+  .lp-crest{width:72px;height:72px;margin:0 auto 8px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-family:'Cinzel Decorative',var(--p-serif);font-weight:900;font-size:30px;color:#1a1305;
+    background:radial-gradient(circle at 35% 30%,#ffe9a0,#f4c430 55%,#b98a0f);box-shadow:0 0 0 3px rgba(244,196,48,.25),0 10px 30px rgba(244,196,48,.35)}
+  #landing h1{font-family:'Cinzel Decorative',var(--p-serif);font-size:28px;font-weight:900;letter-spacing:1px;margin:0;color:#f4c430;text-shadow:0 2px 12px rgba(0,0,0,.7)}
+  #landing .tag{font-family:var(--p-serif);font-size:12.5px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--p-sub);margin:6px 0 0;font-style:normal}
+  .lp-card{text-align:left;margin-bottom:12px;padding:14px;border-radius:18px;background:linear-gradient(160deg,rgba(22,36,58,.88),rgba(10,18,32,.9));
+    border:1.5px solid rgba(244,196,48,.28);box-shadow:0 12px 34px rgba(0,0,0,.45);backdrop-filter:blur(8px)}
+  .lp-label{font-family:var(--p-serif);font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#f4c430;margin:0 0 7px}
+  .lp-card input{width:100%;height:50px;border-radius:12px;border:1.5px solid rgba(255,255,255,.18);background:rgba(0,0,0,.4);color:#fff;font-size:17px;padding:0 14px;font-family:'Inter',sans-serif;font-weight:600}
+  .lp-card input:focus{outline:none;border-color:#f4c430;box-shadow:0 0 0 3px rgba(244,196,48,.18)}
+  .lp-card input::placeholder{color:rgba(255,255,255,.35);font-weight:500}
+  #landing .my-avatar-picker{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;max-height:none;padding:6px 2px 10px;margin:0;justify-content:flex-start;
+    scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+  #landing .my-avatar-choice{flex:0 0 auto;width:64px;height:64px;scroll-snap-align:center;border:2.5px solid rgba(255,255,255,.18)}
+  #landing .my-avatar-choice.picked{transform:scale(1.1);border-color:#f4c430;box-shadow:0 0 0 3px rgba(244,196,48,.3),0 0 18px rgba(244,196,48,.55)}
+  .lp-actions{display:flex;flex-direction:column;gap:10px;margin:2px 0 14px}
+  #landing .btn{width:100%;min-height:52px;font-size:16px}
+  .lp-or{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--p-sub);font-family:var(--p-serif);font-weight:700}
+  .lp-live-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .lp-led{width:10px;height:10px;border-radius:50%;background:#3ddc84;box-shadow:0 0 10px #3ddc84;animation:lpBlink 1.4s ease-in-out infinite}
+  @keyframes lpBlink{50%{opacity:.35}}
+  #landing .room-row{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px}
+  #landing .room-row .rn{font-family:var(--p-serif);font-weight:700;font-size:14px;color:#fff}
+  #landing .room-row .rmeta{color:var(--p-sub);opacity:1}
+  #landing .hint{color:var(--p-sub);font-size:12px;margin-top:6px}
+  #l56RoomListEmpty{color:var(--p-sub);font-size:13px;padding:6px 2px}
+  .lp-how{margin:6px 4px 0;text-align:left;font-size:12.5px;color:var(--p-sub);line-height:1.55}
+  .lp-how summary{cursor:pointer;font-family:var(--p-serif);font-weight:700;letter-spacing:1px;text-transform:uppercase;font-size:11px;color:#e8d9a8;padding:8px 0}
+  .lp-back{display:block;margin:14px auto 0;font-family:var(--p-serif);font-weight:700;color:#e8d9a8;text-decoration:none;font-size:13px;letter-spacing:.5px}
+  #inviteBanner56{background:linear-gradient(135deg,rgba(244,196,48,.18),rgba(244,196,48,.06))!important;border:1.5px solid rgba(244,196,48,.5);color:#fff;font-family:var(--p-serif);font-weight:600;border-radius:16px!important;padding:14px!important;margin-bottom:12px!important}
+
+  /* ---------- popups (join pending, reconnecting, join request, seat picker, still there) ---------- */
+  .overlay-msg{background:rgba(5,10,20,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);align-items:center}
+  .overlay-msg .box{width:100%;max-width:400px;padding:24px 20px;border-radius:22px;text-align:center;
+    background:linear-gradient(160deg,#16243a,#0b1423);border:1.5px solid rgba(244,196,48,.45);box-shadow:0 0 40px rgba(244,196,48,.15),0 20px 50px rgba(0,0,0,.6)}
+  .overlay-msg h2{font-family:var(--p-serif);font-weight:800;font-size:21px;color:#f4c430;margin:0 0 8px;letter-spacing:.5px}
+  .overlay-msg p{color:var(--p-sub);opacity:1;font-size:14px;line-height:1.55;margin:0}
+  .overlay-msg p b{color:#fff}
+  .mini-table-surface{background:radial-gradient(ellipse at center,#8a2330 0%,#5a1620 70%);border:5px solid #6b4a1f;box-shadow:inset 0 0 30px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.5)}
+  .mini-seat{background:rgba(10,20,36,.92);border:1.5px solid rgba(255,255,255,.2);color:#fff;font-family:'Inter',sans-serif}
+  .mini-seat.clickable{border-color:#f4c430;box-shadow:0 0 14px rgba(244,196,48,.5)}
+  .mini-seat.team-A{background:rgba(61,220,132,.16)}.mini-seat.team-B{background:rgba(239,107,107,.16)}
+  #seatPicker56Options .btn{width:100%}
+
+  /* ---------- lobby ---------- */
+  body.k56-lobby-on #gameHeader, body.k56-lobby-on #game, body.k56-lobby-on #waitingStrip, body.k56-lobby-on .link-back{display:none !important}
+  body.k56-lobby-on #overlay{top:0;height:100%;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;align-items:flex-start;z-index:5;padding:0}
+  body.k56-lobby-on #overlay .box{background:none;border:none;box-shadow:none;padding:0;max-width:none;width:100%;margin:0;animation:none}
+  .lb-wrap{max-width:460px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 16px 28px;text-align:left}
+  .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+  .lb-top button{height:38px;padding:0 14px;border-radius:12px;border:1.5px solid rgba(255,255,255,.2);background:rgba(10,22,40,.7);color:#fff;font-weight:700;font-size:13px;font-family:'Inter',sans-serif;position:relative;cursor:pointer}
+  .lb-code{font-family:var(--p-serif);font-size:11px;letter-spacing:1.6px;color:var(--p-sub);text-transform:uppercase}
+  .lb-code b{color:#f4c430;font-size:14px;letter-spacing:2px}
+  .lb-title{font-family:'Cinzel Decorative',var(--p-serif);font-weight:900;font-size:24px;color:#f4c430;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.7);margin:4px 0 6px}
+  .lb-dots{display:flex;gap:7px;justify-content:center;align-items:center;margin-bottom:14px;font-family:var(--p-serif);font-size:12px;color:var(--p-sub);letter-spacing:1px}
+  .lb-dots i{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25)}
+  .lb-dots i.on{background:#3ddc84;border-color:#3ddc84;box-shadow:0 0 8px #3ddc84}
+  .lb-actions{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+  .lb-actions .btn{width:100%;min-height:54px;font-size:17px;font-family:var(--p-serif);letter-spacing:1px;text-transform:uppercase}
+  .lb-actions .btn.sec{min-height:46px;font-size:14px;font-family:'Inter',sans-serif;text-transform:none;letter-spacing:.2px}
+  .lb-actions .btn:disabled{opacity:.45;box-shadow:none;cursor:not-allowed}
+  .lb-note{font-size:12px;color:var(--p-sub);text-align:center;margin-top:-4px}
+  .lb-seats{display:flex;flex-direction:column;gap:8px}
+  .lb-seat{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:16px;background:linear-gradient(160deg,rgba(22,36,58,.9),rgba(10,18,32,.92));border:1.5px solid rgba(255,255,255,.12)}
+  .lb-seat.team{border-color:rgba(61,220,132,.45)}.lb-seat.opp{border-color:rgba(239,107,107,.45)}
+  .lb-seat.empty{background:rgba(0,0,0,.25);border:1.5px dashed rgba(255,255,255,.22);color:var(--p-sub)}
+  .lb-av{flex:0 0 54px;width:54px;height:54px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25)}
+  .lb-av img{width:100%;height:100%;object-fit:cover}
+  .lb-av .hero-avatar-face,.lb-av img{position:static!important;display:block;width:100%!important;height:100%!important;max-width:none!important;object-fit:cover;object-position:50% 12%;transform:none!important;margin:0!important;filter:none!important;border-radius:0!important}
+  .lb-seat.empty .lb-av{border-style:dashed;font-size:20px;opacity:.6}
+  .lb-info{flex:1;min-width:0}
+  .lb-name{font-family:var(--p-serif);font-weight:800;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lb-meta{font-size:11.5px;color:var(--p-sub);margin-top:2px;display:flex;gap:6px;align-items:center}
+  .lb-chip{padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase}
+  .lb-chip.team{background:rgba(61,220,132,.18);color:#3ddc84;border:1px solid #3ddc84}
+  .lb-chip.opp{background:rgba(239,107,107,.18);color:#ef6b6b;border:1px solid #ef6b6b}
+  .lb-kick{flex:0 0 auto;width:36px;height:36px;border-radius:50%;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font-size:14px;cursor:pointer}
+  .lb-hint{margin-top:16px;font-size:12px;line-height:1.55;color:var(--p-sub);text-align:center}
+
+  /* ---------- themed dialogs (replace browser alert/confirm) ---------- */
+  .d56-ov{position:fixed;inset:0;z-index:3500;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,8,16,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:popupIn .2s ease}
+  .d56-box{width:100%;max-width:360px;padding:24px 20px 18px;border-radius:22px;text-align:center;background:linear-gradient(160deg,#16243a,#0b1423);border:1.5px solid rgba(244,196,48,.5);box-shadow:0 0 40px rgba(244,196,48,.18),0 20px 50px rgba(0,0,0,.6)}
+  .d56-icon{font-size:2.2rem;line-height:1}
+  .d56-title{font-family:var(--p-serif);font-weight:800;font-size:19px;color:#f4c430;margin-top:8px}
+  .d56-msg{color:var(--p-sub);font-size:14px;line-height:1.55;margin:8px 0 16px;white-space:pre-line}
+  .d56-btns{display:flex;gap:10px}.d56-btns .btn{flex:1}
+  .toast56{background:linear-gradient(160deg,#16243a,#0b1423)!important;border:1.5px solid rgba(244,196,48,.5)!important;color:#fff!important;border-radius:999px!important;padding:10px 18px!important;font-family:'Inter',sans-serif;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.5)!important}
 </style>
 <script src="name-filter.js?v=1"></script>
 <script src="/avatar-catalog.js"></script>
@@ -682,39 +792,41 @@
 
 <!-- ======================= LANDING ======================= -->
 <div id="landing">
-  <div class="brand-mark">56</div>
-  <h1>56 &mdash; The Kerala Card Game</h1>
-  <div class="tag">Six players. Two teams of three. One target: 56 points.</div>
-
-  <div id="inviteBanner56" class="hidden" style="background:linear-gradient(160deg,#5FA8F5,#2E63D6);border-radius:12px;padding:14px;margin-bottom:16px;text-align:center;font-size:0.85rem">
-    🎉 You've been invited to a table! Enter your name below, then tap Join.
+  <div class="lp-hero">
+    <div class="lp-crest">56</div>
+    <h1>Kerala 56</h1>
+    <div class="tag">Six players · Two teams · One target</div>
   </div>
 
-  <div class="field">
-    <label for="nameInput">Your name</label>
-    <input id="nameInput" placeholder="" autocomplete="off" maxlength="18">
+  <div id="inviteBanner56" class="hidden" style="text-align:center;font-size:0.85rem">
+    🎉 You've been invited to a table! Enter your name, pick an avatar, then tap Join.
   </div>
-  <div class="field">
-    <label>Choose your avatar</label>
+
+  <div class="lp-card">
+    <div class="lp-label">Your name</div>
+    <input id="nameInput" placeholder="Enter your name" autocomplete="off" maxlength="18">
+    <div class="lp-label" style="margin-top:14px">Pick your avatar</div>
     <div id="myAvatarPicker56" class="my-avatar-picker"></div>
   </div>
-  <button class="btn btn-gold hidden" id="btnJoinInvite56" style="width:100%;margin-bottom:8px">💌 Join This Table</button>
-  <button class="btn btn-gold" id="createTableBtn" style="width:100%">🏠 Create a Table</button>
-  <button type="button" id="btnInviteGeneric56" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#f4c430,#c99a1e);color:#241a12;font-weight:800;font-size:0.85rem;cursor:pointer">📨 Send Invitation to Join 56</button>
 
-  <div class="field" style="margin-top:20px;text-align:left">
-    <label>🌐 Public tables</label>
-    <div id="l56RoomList" style="margin-top:6px"></div>
-    <div id="l56RoomListEmpty" class="hint" style="margin-top:6px">No tables running right now — create one!</div>
+  <div class="lp-actions">
+    <button class="btn btn-gold hidden" id="btnJoinInvite56">💌 Join This Table</button>
+    <button class="btn btn-gold" id="createTableBtn">🏠 Create a Table</button>
+    <button type="button" class="btn btn-ghost" id="btnInviteGeneric56">📨 Invite Friends to 56</button>
   </div>
 
-  <a href="/" class="btn btn-outline" style="text-decoration:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box;margin-top:8px">⬅️ Back to Main Menu</a>
-
-  <div class="hint">
-    Seats fill in order &mdash; seats 1‑3‑5 are one team, seats 2‑4‑6 are the other, alternating around the table.
-    Whoever creates a table is the host and can approve who joins, fill/replace bots, and kick seats; if the host
-    leaves, the next connected player automatically becomes host.
+  <div class="lp-card">
+    <div class="lp-live-head"><span class="lp-led"></span><span class="lp-label" style="margin:0">Live tables</span></div>
+    <div id="l56RoomList"></div>
+    <div id="l56RoomListEmpty" class="hint">No tables running right now — create one!</div>
   </div>
+
+  <details class="lp-how">
+    <summary>How seats &amp; teams work</summary>
+    Seats 1‑3‑5 are one team, 2‑4‑6 the other, alternating around the table. Whoever creates a table is the host: they approve who joins,
+    fill or replace bots, and can remove seats. If the host leaves, the next connected player becomes host.
+  </details>
+  <a href="/" class="lp-back">⬅ Back to Main Menu</a>
 </div>
 
 <!-- ======================= JOIN-REQUEST PENDING (shown to the joiner) ======================= -->
@@ -1214,8 +1326,7 @@ function ensureSyncSocket(){
     // table closed) -- nothing to silently recover from, let the player
     // know instead of leaving them stuck looking at a stale screen.
     if(roomCode && mySeat !== null){
-      alert("Couldn't reconnect you to your seat — it may have been given up while you were away.");
-      location.reload();
+      dlg56.alert("Couldn't reconnect you to your seat — it may have been given up while you were away.", {icon:'🔌', title:'Reconnect failed'}).then(() => location.reload());
     }
   });
   syncSocket.on('disconnect', (reason) => {
@@ -1272,7 +1383,7 @@ function ensureSyncSocket(){
   // ---------------- Lobby / table discovery ----------------
   syncSocket.on('l56_roomList', renderRoomList);
   syncSocket.on('createBlocked', ({maxRooms}) => {
-    alert(`🚧 Table creation is temporarily capped at ${maxRooms} total tables across the whole site. Try again in a bit, or join an existing table instead.`);
+    dlg56.alert(`Table creation is temporarily capped at ${maxRooms} total tables across the whole site. Try again in a bit, or join an existing table instead.`, {icon:'🚧', title:'Tables are full'});
   });
 
   syncSocket.on('l56_created', async ({code, playerId, pos, isHost: hostFlag}) => {
@@ -1317,7 +1428,7 @@ function ensureSyncSocket(){
       host_declined: 'The host declined to let you in.',
       not_found: "That table doesn't exist anymore."
     };
-    alert(msgs[reason] || 'Could not join that table.');
+    dlg56.alert(msgs[reason] || 'Could not join that table.', {icon:'🚪', title:'Can\'t join'});
   });
 
   syncSocket.on('l56_joinApproved', ({code, openSeats, botSeats, hostSeat, hostName}) => {
@@ -1347,8 +1458,7 @@ function ensureSyncSocket(){
     // wipes everything. hideKickNotice() clears it immediately instead
     // of leaving that awkward overlap even briefly.
     hideKickNotice();
-    alert('You were removed from the table by the host.');
-    location.reload();
+    dlg56.alert('You were removed from the table by the host.', {icon:'👋', title:'Removed from table'}).then(() => location.reload());
   });
 
   // The 5-second vetoable kick -- same event names/pattern as the
@@ -1374,8 +1484,7 @@ function ensureSyncSocket(){
       no_host: "This table closed — no human host was present within 3 minutes.",
       lastPlayerLeft: "This table closed — no real players left."
     };
-    alert(msgs[reason] || 'This table closed.');
-    location.reload();
+    dlg56.alert(msgs[reason] || 'This table closed.', {icon:'🔒', title:'Table closed'}).then(() => location.reload());
   });
 
   syncSocket.on('l56_stillPlayingCheck', ({seconds}) => showStillPlaying56(seconds));
@@ -1584,10 +1693,33 @@ let isHost = false;
 
 function requireName(){
   const name = document.getElementById('nameInput').value.trim();
-  if(!name){ alert('Please enter your name first.'); return null; }
+  if(!name){ showToast('Please enter your name first.', 2500); try{ document.getElementById('nameInput').focus(); }catch(e){} return null; }
   if(!NameFilter.guard(name, function(m){ showToast(m, 3500); })) return null;
   return name;
 }
+
+// ---- themed dialogs (replace the browser's generic alert()/confirm()) ----
+const dlg56 = {
+  _show(o){
+    return new Promise(resolve => {
+      const ov = document.createElement('div');
+      ov.className = 'd56-ov';
+      ov.innerHTML = '<div class="d56-box"><div class="d56-icon">' + o.icon + '</div><div class="d56-title"></div><div class="d56-msg"></div><div class="d56-btns"></div></div>';
+      ov.querySelector('.d56-title').textContent = o.title;
+      ov.querySelector('.d56-msg').textContent = o.msg;
+      const btns = ov.querySelector('.d56-btns');
+      o.buttons.forEach(b => {
+        const el = document.createElement('button');
+        el.className = 'btn ' + b.cls; el.textContent = b.t;
+        el.onclick = () => { ov.remove(); resolve(b.v); };
+        btns.appendChild(el);
+      });
+      document.body.appendChild(ov);
+    });
+  },
+  alert(msg, o){ o = o || {}; return this._show({icon: o.icon || 'ℹ️', title: o.title || 'Heads up', msg, buttons: [{t: 'OK', v: true, cls: 'btn-gold'}]}); },
+  confirm(msg, o){ o = o || {}; return this._show({icon: o.icon || '❓', title: o.title || 'Are you sure?', msg, buttons: [{t: o.cancel || 'Cancel', v: false, cls: 'btn-ghost'}, {t: o.ok || 'Yes', v: true, cls: o.danger ? 'btn-maroon' : 'btn-gold'}]}); }
+};
 
 function showToast(msg, ms){
   const host = document.getElementById('toastHost56');
@@ -1827,7 +1959,7 @@ function maybeAutoReconnect56(){
       // every in-memory table, since none of that state is persisted to
       // disk. A plain toast read as a vague, unexplained error; this
       // deserves an actual apology and a clear next step.
-      alert('😔 We\'re sorry — the server was recently updated, which means your previous game session was lost in the process.\n\nThis wasn\'t anything you did wrong. Please log back in and create or join a table to keep playing. Thanks for your patience!');
+      dlg56.alert('We\'re sorry — the server was recently updated, which means your previous game session was lost in the process.\n\nThis wasn\'t anything you did wrong. Please log back in and create or join a table to keep playing. Thanks for your patience!', {icon:'😔', title:'Session lost'});
     }
   }, 12000);
 }
@@ -1911,7 +2043,7 @@ function showSeatPicker56(openSeats, botSeats, hostSeat, hostName){
 async function claimSeat56(pos){
   document.getElementById('seatPicker56Overlay').classList.add('hidden');
   let state = await loadState();
-  if(!state){ alert('That table just closed.'); location.reload(); return; }
+  if(!state){ dlg56.alert('That table just closed.', {icon:'🔒', title:'Table closed'}).then(() => location.reload()); return; }
   state.seats[pos] = {name: myName, playerId: MY_PLAYER_ID, connected: true, avatar: myAvatar};
   addLog(state, myName + ' took seat ' + (pos+1) + '.');
   await saveState(state);
@@ -1997,8 +2129,8 @@ document.getElementById('stillPlaying56Btn').addEventListener('click', () => {
 });
 
 document.getElementById('exitToHomeBtn').addEventListener('click', exitToHome);
-function exitToHome(){
-  if(!confirm('Leave this table and go back to the home menu?')) return;
+async function exitToHome(){
+  if(!(await dlg56.confirm('Leave this table and go back to the home menu?', {icon:'🚪', title:'Leave table?', ok:'Leave', cancel:'Stay', danger:true}))) return;
   if(pollTimer) clearInterval(pollTimer);
   if(sessionHeartbeat) clearInterval(sessionHeartbeat);
   if(syncSocket && roomCode){
@@ -2352,6 +2484,8 @@ function render(state){
         : null).filter(Boolean));
     }
     if(!document.body.classList.contains('k56-table-on')) document.body.classList.add('k56-table-on');
+    if(document.body.classList.contains('k56-lobby-on')) document.body.classList.remove('k56-lobby-on');
+    const lo = document.getElementById('overlay'); if(lo && lo.dataset.sig){ lo.dataset.sig=''; lo.classList.add('hidden'); lo.innerHTML=''; }
     K56UI.mount(K56_CTX);
     K56UI.render(state);
     if(sideOpen) renderSide(state);
@@ -2361,6 +2495,7 @@ function render(state){
     K56UI.hide();
     if(document.body.classList.contains('k56-table-on')) document.body.classList.remove('k56-table-on');
   }
+  if(document.body.classList.contains('k56-lobby-on') !== (state.phase === 'lobby')) document.body.classList.toggle('k56-lobby-on', state.phase === 'lobby');
 
   const myTeamLetter = mySeat !== null ? TEAM_OF(mySeat) : 'A';
   const oppTeamLetter = myTeamLetter === 'A' ? 'B' : 'A';
@@ -2769,14 +2904,14 @@ function adjustHandAreaFor(fixedEl, handArea){
 }
 
 async function restartRound56(){
-  if(!isHost){ alert('Only the host can restart the round.'); return; }
-  if(!confirm('Restart this hand? Everyone gets a fresh deal for hand ' + (latestState ? latestState.handNumber : '') + '; the match score stays as-is.')) return;
+  if(!isHost){ showToast('Only the host can restart the round.', 2500); return; }
+  if(!(await dlg56.confirm('Everyone gets a fresh deal for hand ' + (latestState ? latestState.handNumber : '') + '. The match score stays as it is.', {icon:'🔄', title:'Restart this hand?', ok:'Restart'}))) return;
   syncSocket.emit('l56_restartRound', {code: roomCode});
 }
 
 async function restartGame56(){
-  if(!isHost){ alert('Only the host can restart the game.'); return; }
-  if(!confirm('Restart the whole game? Both teams go back to 12, and a new hand 1 is dealt for everyone.')) return;
+  if(!isHost){ showToast('Only the host can restart the game.', 2500); return; }
+  if(!(await dlg56.confirm('Both teams go back to 12 and a new hand 1 is dealt for everyone.', {icon:'♻️', title:'Restart the whole game?', ok:'Restart', danger:true}))) return;
   await startNewMatch();
 }
 
@@ -2830,46 +2965,54 @@ function renderSide(state){
 
 function renderLobbyOverlay(state){
   const o = document.getElementById('overlay');
-  o.classList.remove('hidden');
+  if(o.classList.contains('hidden')) o.classList.remove('hidden');
   const amHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
   isHost = amHost;
   const seated = state.seats.filter(s=>s).length;
-  const rows = state.seats.map((s,i)=>{
-    if(!s) return `<div class="room-row"><div class="rn" style="opacity:0.4">${i+1}. empty</div></div>`;
-    const hostTag = state.hostPlayerId && s.playerId === state.hostPlayerId ? ' 👑' : '';
-    const kickBtn = amHost ? `<button class="btn btn-ghost btn-small" onclick="kickSeat56(${i})">Kick</button>` : '';
-    return `<div class="room-row"><div class="rn">${i+1}. ${botFace(s, i, state)} ${escapeHtml(s.name)}${hostTag} <span class="team-tag ${TEAM_OF(i)}">${RELTEAM(i)}</span></div>${kickBtn}</div>`;
-  }).join('');
   const canStart = seated === 6;
   const hasEmpty = seated < 6;
-  o.innerHTML = `
-    <div class="box">
-      <h2>Waiting for players</h2>
-      <div style="text-align:left; margin:14px 0;">${rows}</div>
-      <p>${seated}/6 seated. Seats 1‑3‑5 form Team A, seats 2‑4‑6 form Team B.</p>
-      <button class="btn btn-gold" id="btnInviteFromLobby56" style="width:100%;margin-top:8px">💌 Invite a Friend</button>
-      ${amHost ? `
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;">
-          ${hasEmpty ? '<button class="btn btn-maroon" id="fillBotsBtn">Fill Empty Seats with Bots</button>' : ''}
-          <button class="btn btn-gold" id="startBtn" ${canStart?'':'disabled'}>Deal Cards &amp; Start</button>
-        </div>
-        <p class="hint" style="margin-top:16px;">You're the host 👑 — bots bid and play automatically. Kick a seat to remove a bot or a player; if you leave, the next connected player becomes host.</p>
-      ` : `
-        <p class="hint" style="margin-top:16px;">Waiting for the host to start the game.</p>
-      `}
-    </div>
-  `;
+  const myT = mySeat !== null ? TEAM_OF(mySeat) : null;
+  const rows = state.seats.map((s,i)=>{
+    if(!s) return `<div class="lb-seat empty"><div class="lb-av">＋</div><div class="lb-info"><div class="lb-name" style="color:#9fb0c3;font-weight:600">Open seat ${i+1}</div><div class="lb-meta">Waiting for a player or a bot</div></div></div>`;
+    const f = K56_CTX.face(s, i, state);
+    const rel = myT === null ? '' : (TEAM_OF(i) === myT ? 'team' : 'opp');
+    const hostTag = state.hostPlayerId && s.playerId === state.hostPlayerId ? ' 👑' : '';
+    const kick = (amHost && i !== mySeat) ? `<button class="lb-kick" onclick="kickSeat56(${i})" title="Remove">✕</button>` : '';
+    return `<div class="lb-seat ${rel}"><div class="lb-av" style="${f.bg ? 'background:' + f.bg : ''}">${f.html}</div><div class="lb-info"><div class="lb-name">${escapeHtml(s.name)}${hostTag}${i===mySeat?' (you)':''}</div><div class="lb-meta">Seat ${i+1}${rel ? ` <span class="lb-chip ${rel}">${rel === 'team' ? 'Team' : 'Opp'}</span>` : ''}${s.bot ? ' · 🤖 Bot' : ''}</div></div>${kick}</div>`;
+  }).join('');
+  const dots = Array.from({length:6}, (_,i) => `<i class="${i < seated ? 'on' : ''}"></i>`).join('');
+  const html = `
+    <div class="lb-wrap">
+      <div class="lb-top">
+        <button id="lbLeave">← Leave</button>
+        <div class="lb-code">Table <b>${escapeHtml(String(roomCode || ''))}</b></div>
+        <button id="lbChat" title="Table chat">💬</button>
+      </div>
+      <div class="lb-title">Waiting for players</div>
+      <div class="lb-dots">${dots}<span style="margin-left:6px">${seated}/6 seated</span></div>
+      <div class="lb-actions">
+        ${amHost ? `
+          <button class="btn btn-gold" id="startBtn" ${canStart?'':'disabled'}>Start Game</button>
+          ${canStart ? '' : '<div class="lb-note">Fill all 6 seats to start — invite friends or add bots.</div>'}
+          ${hasEmpty ? '<button class="btn btn-maroon sec" id="fillBotsBtn">🤖 Fill Empty Seats with Bots</button>' : ''}
+        ` : `<div class="lb-note" style="font-size:14px;color:#e8d9a8">Waiting for the host to start the game…</div>`}
+        <button class="btn btn-ghost sec" id="btnInviteFromLobby56">💌 Invite a Friend</button>
+      </div>
+      <div class="lb-seats">${rows}</div>
+      <div class="lb-hint">Seats 1‑3‑5 are one team, 2‑4‑6 the other.${amHost ? ' You\'re the host 👑 — bots bid and play automatically.' : ''}</div>
+    </div>`;
+  if(o.dataset.sig === html) return;   // nothing changed: leave the DOM alone (no flicker)
+  o.dataset.sig = html;
+  o.innerHTML = html;
   document.getElementById('btnInviteFromLobby56').addEventListener('click', shareInviteLink56);
-  if(amHost && canStart){
-    document.getElementById('startBtn').addEventListener('click', startGame);
-  }
-  if(amHost && hasEmpty){
-    document.getElementById('fillBotsBtn').addEventListener('click', fillEmptySeatsWithBots);
-  }
+  document.getElementById('lbLeave').addEventListener('click', exitToHome);
+  document.getElementById('lbChat').addEventListener('click', openChat56);
+  if(amHost && canStart) document.getElementById('startBtn').addEventListener('click', startGame);
+  if(amHost && hasEmpty) document.getElementById('fillBotsBtn').addEventListener('click', fillEmptySeatsWithBots);
 }
 
 async function kickSeat56(pos){
-  if(!confirm('Remove this seat? A human will be kicked from the table; a bot seat will be cleared.')) return;
+  if(!(await dlg56.confirm('A human will be kicked from the table; a bot seat will be cleared.', {icon:'🪑', title:'Remove this seat?', ok:'Remove', danger:true}))) return;
   ensureSyncSocket();
   syncSocket.emit('l56_kick', {code: roomCode, pos});
 }
@@ -2960,7 +3103,7 @@ function botFace(seatObj, seatIdx, state){
 }
 
 async function fillEmptySeatsWithBots(){
-  if(!isHost){ alert('Only the host can do that.'); return; }
+  if(!isHost){ showToast('Only the host can do that.', 2500); return; }
   let state = await loadState();
   if(!state || state.phase !== 'lobby') return;
   const emptySeats = [];
@@ -3176,7 +3319,7 @@ function linkifyEscaped(escapedText){
 // GAME ACTIONS
 // ============================================================
 async function startGame(){
-  if(!isHost){ alert('Only the host can start the game.'); return; }
+  if(!isHost){ showToast('Only the host can start the game.', 2500); return; }
   // Dealing, bot AI, and every phase transition now happen on the
   // server (see l56-engine.js / server.js) -- this just asks for it and
   // renders whatever comes back via the normal sync56_state push,
@@ -3465,7 +3608,7 @@ async function submitBid(){
   if(value > 56) value = 56;
   const minAllowed = cb ? cb.value + 1 : 28;
   if(value < minAllowed){
-    alert(`Your bid must be higher than the current bid (at least ${minAllowed}).`);
+    showToast(`Your bid must be at least ${minAllowed}.`, 2500);
     return;
   }
   const trump = bidTrumpKind === 'suit' ? bidSuit : null;
@@ -3480,7 +3623,7 @@ async function submitBid(){
 
 async function passBid(){
   if(latestState && latestState.forcedSeat === mySeat && !latestState.currentBid){
-    alert("Everyone else passed — as the opening bidder you're required to open the bidding, you can't pass here.");
+    showToast("You must open the bidding — you can't pass.", 2500);
     return;
   }
   const note = noteDraft.trim();
@@ -3506,7 +3649,7 @@ async function playCard(card){
   if(!latestState || latestState.turn !== mySeat || latestState.phase !== 'playing') return;
   const legal = legalCardIds(latestState);
   if(!legal.has(card.id)){
-    alert('You must follow suit if you can.');
+    showToast('You must follow suit if you can.', 2500);
     return;
   }
   // Legality is re-checked authoritatively server-side too (see

@@ -1726,8 +1726,9 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   top:64% !important;bottom:auto !important;left:50% !important;right:auto !important;
   width:auto !important;max-width:none !important;padding:2px 10px !important;white-space:nowrap !important;
   transform:translate(-50%,-50%);z-index:8;
-  text-shadow:0 0 3px #000,0 0 3px #000,0 2px 6px #000,0 0 14px currentColor !important;
-  animation:callBadgeOnAv .45s cubic-bezier(.22,1,.36,1) forwards,callBadgeHold 1.3s ease-in-out .45s infinite !important;
+  text-shadow:1.5px 0 0 #000,-1.5px 0 0 #000,0 1.5px 0 #000,0 -1.5px 0 #000,1.2px 1.2px 0 #000,-1.2px -1.2px 0 #000,1.2px -1.2px 0 #000,-1.2px 1.2px 0 #000 !important;
+  filter:none !important;
+  animation:callBadgeOnAv .45s cubic-bezier(.22,1,.36,1) forwards !important;
 }
 .seat .call-badge.call-badge-winner{animation:callBadgeOnAv .45s cubic-bezier(.22,1,.36,1) forwards,callBadgeWinnerBlink 1.1s ease-in-out infinite !important}
 .seat .call-badge .call-badge-header{font-size:1rem !important;letter-spacing:.03em}
@@ -1737,6 +1738,46 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   60%{opacity:1;transform:translate(-50%,-54%) scale(1.1)}
   100%{opacity:1;transform:translate(-50%,-50%) scale(1)}
 }
+
+/* ===== Clear, solid turn/status UI (no blurry glows) ===== */
+/* Names: crisp outline only - the old blurred team-colour glow made them look smeared */
+.seat .nm.name-teammate,.seat .nm.name-opponent{filter:none !important}
+/* Bidding status popup: centred, solid, readable */
+.bid-status-banner{
+  top:50% !important;left:50% !important;right:auto !important;bottom:auto !important;margin:0 !important;
+  transform:translate(-50%,-50%);width:min(86vw,400px);max-width:400px;z-index:130;
+  background:#0b1220 !important;border:3px solid #f4c430 !important;box-shadow:0 10px 28px rgba(0,0,0,.65) !important;
+  font-family:'Inter',-apple-system,'Segoe UI',sans-serif !important;font-weight:700;font-size:.9rem !important;line-height:1.45;color:#fff;
+}
+.bid-status-banner b{color:#f4c430}
+.bid-status-banner .bsb-turn{margin-top:6px;font-weight:800;font-size:1rem;color:#3ddc84}
+.bid-status-banner.bsb-opp{border-color:#ef4444 !important}
+.bid-status-banner.bsb-opp .bsb-turn{color:#ff6b6b}
+.bid-status-banner.bsb-partner{border-color:#3ddc84 !important}
+.bid-status-banner.bsb-mine{border-color:#3ddc84 !important;animation:k56BlinkBorderGreen 1s step-start infinite}
+@keyframes k56BlinkBorderGreen{0%{border-color:#3ddc84}50%{border-color:#14532d}}
+/* "Jin's turn" label above my avatar: bordered pill - red opponent, green partner, blinking green me */
+.turnlabel{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:32px;width:210px;max-width:92vw;padding:0 12px;border-radius:999px;border:2.5px solid transparent;background:rgba(6,10,18,.88);color:#fff;font-weight:800;font-size:.8rem;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.turnlabel:empty{visibility:hidden}
+/* no moving parts: the status popups keep a fixed size and never scale/pulse */
+#bidWinnerBubble6p.settled{animation:none !important;transform:translate(-50%,-50%) scale(1) !important}
+#bidWinnerBubble6p{min-width:230px}
+#bidWinnerBubble6p .bwb-turn{min-height:1.3em}
+.bid-status-banner{min-height:116px;box-sizing:border-box;padding-top:18px !important}
+.turnlabel.tl-opp{border-color:#ef4444}
+.turnlabel.tl-partner{border-color:#3ddc84}
+.turnlabel.tl-mine{border-color:#3ddc84;color:#3ddc84;animation:k56TlBlink 1s step-start infinite}
+@keyframes k56TlBlink{0%{border-color:#3ddc84;opacity:1}50%{border-color:#14532d;opacity:.55}}
+/* Middle "won the bid" popup: solid, green when it's my side's move, red for opponents; no red blink */
+#bidWinnerBubble6p{background:#14100a !important}
+#bidWinnerBubble6p.bwb-border-mine{border-color:#3ddc84 !important;box-shadow:0 10px 30px rgba(0,0,0,.65) !important}
+#bidWinnerBubble6p.bwb-border-other{border-color:#ef4444 !important;box-shadow:0 10px 30px rgba(0,0,0,.65) !important}
+#bidWinnerBubble6p .bwb-bid{text-shadow:none !important}
+#bidWinnerBubble6p .bwb-turn,#bidWinnerBubble6p .bwb-turn.bwb-turn-pop{text-shadow:none !important;font-weight:900;font-size:.95rem;color:#fff}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-mine,#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-mine{color:#3ddc84 !important;animation:k56TurnTextBlink 1s step-start infinite !important}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-partner,#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-partner{color:#3ddc84 !important;animation:none !important}
+#bidWinnerBubble6p .bwb-turn.bwb-turn-opp,#bidWinnerBubble6p .bwb-turn.bwb-turn-pop.bwb-turn-opp{color:#ff6b6b !important;animation:none !important}
+@keyframes k56TurnTextBlink{0%{opacity:1}50%{opacity:.35}}
 
 /* ===== 56 additions (appended after the converted 6-player stylesheet) ===== */
 :host{display:block;position:static;height:0;margin:0;background:none!important;color:#fff;
@@ -1828,6 +1869,3 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .r56-wait{font-size:.78rem;color:#9fb0c3;margin-top:10px}
 #auction56 .r56-box{border-color:#f4c430}
 .a56-ov{z-index:310;background:rgba(0,0,0,.35);pointer-events:none}
-@media (min-width:521px){
-  :host(.k28-in-game) .bid-status-banner{top:262px !important;left:10px !important;right:auto !important;margin:0 !important;width:210px;max-width:210px;font-size:.7rem !important}
-}
