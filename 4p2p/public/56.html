@@ -54,7 +54,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/voice.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,600&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&family=Rajdhani:wght@600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,600&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --felt-1:#0e3d2f;
@@ -644,11 +644,34 @@
     #table{height:min(40vh,320px);}
     #hand-area{padding:4px 10px 8px;}
   }
+
+  /* ===== New 56 table (k56-ui.js): drawn with the 6-player table's look. Old table pieces hidden while it is on. ===== */
+  body.k56-table-on #gameHeader, body.k56-table-on #game, body.k56-table-on #handInfoBar, body.k56-table-on #waitingStrip,
+  body.k56-table-on #tableTalk, body.k56-table-on #bid-panel-overlay, body.k56-table-on #overlay, body.k56-table-on #landing,
+  body.k56-table-on #sideToggle, body.k56-table-on .link-back{display:none !important}
+  body.k56-table-on #side{z-index:450}
+  /* Room background = the 6-player room, on the BODY so the admin Backgrounds editor (scenery.css, !important) still overrides it. */
+  body.k56-table-on{
+    background-color:#1a0e08;
+    background-image:url('/images/table-bg-6p.jpg');
+    background-size:100% auto; background-position:center; background-repeat:no-repeat; background-attachment:fixed;
+  }
+  @media (min-width:521px){
+    body.k56-table-on{background-image:url('/images/desktop-bg-6p.jpg');background-size:cover;background-position:center center}
+  }
+  /* Mic sits where it does on the 6-player table */
+  body.k56-table-on #k28vBtn{left:10px !important;bottom:auto !important;top:113px !important}
+  body.k56-table-on #k28vPanel{bottom:auto !important;top:167px !important}
+  @media (min-width:521px){
+    body.k56-table-on #k28vBtn{top:195px !important}
+    body.k56-table-on #k28vPanel{top:249px !important}
+  }
 </style>
 <script src="name-filter.js?v=1"></script>
 <script src="/avatar-catalog.js"></script>
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
+<script src="k56-ui.js?v=1"></script>
 <link rel="stylesheet" href="/scenery.css">
 </head>
 <body>
@@ -1225,6 +1248,7 @@ function ensureSyncSocket(){
     // vanishing, guests stuck on stale data). Rendering what was already
     // pushed removes that extra round-trip -- and the race it opened up
     // -- entirely for the normal case.
+    lastPushAt56 = Date.now();
     render(state);
   });
   syncSocket.on('reveal56Policy', ({disabled}) => {
@@ -2146,7 +2170,10 @@ document.getElementById('chatOverlay56').addEventListener('click', function(e){ 
 document.getElementById('btnSendChat56').addEventListener('click', sendChat56);
 document.getElementById('chatInput56').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); sendChat56(); } });
 
+let lastPushAt56 = 0;
 async function pollLoop(){
+  // The server pushes every change; the poll is only a safety net for when pushes stop.
+  if(syncSocket && syncSocket.connected && Date.now() - lastPushAt56 < 9000) return;
   const state = await loadState();
   if(!state) return;
   // render() itself now guards against stale/out-of-order responses (see
@@ -2241,6 +2268,41 @@ function showQMarkEvent56(names, direction){
   setTimeout(() => overlay.remove(), 2700);
 }
 
+const TRICK_DISPLAY_MS = 3000;
+const K56_CTX = {
+  trickMs: TRICK_DISPLAY_MS,
+  mySeat: () => mySeat,
+  teamOf: seat => TEAM_OF(seat),
+  relTeam: seat => RELTEAM(seat),
+  send: (ev, payload) => { ensureSyncSocket(); syncSocket.emit(ev, Object.assign({code: roomCode}, payload || {})); },
+  face: (occ, seat, state) => {
+    if(occ.avatar) return {html: heroAvatarHtml(occ.avatar), bg: ''};
+    if(occ.bot){
+      const meta = ALL_BOT_AVATARS_56.find(b => b.name === occ.name) || ALL_BOT_AVATARS_56[seat % ALL_BOT_AVATARS_56.length];
+      return {html: window.TableFaces ? heroAvatarHtml(TableFaces.faceFor(occ.name, meta.emoji)) : meta.emoji, bg: meta.bg};
+    }
+    return {html: seat === mySeat ? '😊' : '👤', bg: ''};
+  },
+  handLog: state => getCurrentHandLog(state).filter(l => !/dealt/i.test(l.text)).map(l => ({text: l.text, seat: l.seat})),
+  formatBid: cb => formatBidLabel(cb),
+  legalIds: state => legalCardIds(state),
+  playCard: id => {
+    if(!latestState || mySeat === null) return;
+    const card = (latestState.hands[mySeat] || []).find(c => String(c.id) === String(id));
+    if(card) playCard(card);
+  },
+  chat: () => openChat56(),
+  menu: () => { sideOpen = true; document.getElementById('side').classList.add('open'); if(latestState) renderSide(latestState); },
+  leave: () => exitToHome(),
+  invite: () => shareInviteLink56(),
+  signal: async (sig) => {
+    const fresh = await loadState();
+    if(!fresh || mySeat === null) return;
+    sendPartnerSignal56(fresh, mySeat, sig);
+    await saveState(fresh);
+  }
+};
+
 function render(state){
   // Guest-side sync is poll-based: a periodic timer AND a "someone just
   // saved, refresh now" poke can both have a loadState() fetch in flight
@@ -2279,6 +2341,26 @@ function render(state){
   // underway -- six.js has the exact same rule for the same reason.
   const linkBackEl = document.querySelector('.link-back');
   if(linkBackEl) linkBackEl.style.display = (state.phase === 'lobby') ? 'block' : 'none';
+
+  // ---- New 56 table (k56-ui.js): bidding / auction result / playing / hand end are drawn by the shared
+  // 6-player-look module. Rules, lobby and engine are unchanged. ----
+  if(window.K56UI && (state.phase === 'bidding' || state.phase === 'auctionClosed' || state.phase === 'playing' || state.phase === 'handEnd')){
+    if(window.TableFaces){
+      TableFaces.update(state.seats.map((o, i) => (o && (o.avatar || o.bot))
+        ? { name: o.name, avatar: o.avatar || null,
+            pref: (ALL_BOT_AVATARS_56.find(b => b.name === o.name) || ALL_BOT_AVATARS_56[i % ALL_BOT_AVATARS_56.length]).emoji }
+        : null).filter(Boolean));
+    }
+    if(!document.body.classList.contains('k56-table-on')) document.body.classList.add('k56-table-on');
+    K56UI.mount(K56_CTX);
+    K56UI.render(state);
+    if(sideOpen) renderSide(state);
+    return;
+  }
+  if(window.K56UI){
+    K56UI.hide();
+    if(document.body.classList.contains('k56-table-on')) document.body.classList.remove('k56-table-on');
+  }
 
   const myTeamLetter = mySeat !== null ? TEAM_OF(mySeat) : 'A';
   const oppTeamLetter = myTeamLetter === 'A' ? 'B' : 'A';
