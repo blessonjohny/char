@@ -1259,7 +1259,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    behind it (the table, cards, avatars), so this keeps a light frosted
    dark tint plus a blur, rather than genuinely see-through with
    nothing backing the text at all. */
-#roundEndOverlay .modal-box{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#roundEndOverlay .modal-box{background:#0b1220;backdrop-filter:none;-webkit-backdrop-filter:none;border:3px solid #f4c430}
+/* one solid popup per viewer: green when your team won the round, red when it lost; no Continue/Pause - it moves on by itself */
+#roundEndOverlay .modal-box.re-win{background:#0a1d14;border-color:#3ddc84}
+#roundEndOverlay .modal-box.re-lose{background:#220c0e;border-color:#ef4444}
+#btnContinueRound,#btnAckRoundEnd,#btnPauseAutoContinue,#roundEndAutoContinueText{display:none !important}
+#roundEndAutoContinueRow{display:block !important;margin-top:12px}
+.re-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.re-bar i{display:block;height:100%;width:100%;transform-origin:left;background:currentColor;animation:reBar 8s linear forwards}
+@keyframes reBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+#roundEndBody .re-called{font-size:1.05rem;font-weight:800;color:#fff;line-height:1.4}
 /* Per explicit request: same transparent treatment extended to the
    game-over (match-end) popup -- it only ever existed on roundEndOverlay
    before, gameOverOverlay was missed. */
@@ -1857,6 +1866,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
 <link rel="stylesheet" href="/scenery.css">
+<script src="/fs-hide.js"></script>
 </head>
 <body>
 <!-- Real, confirmed feature per explicit follow-up request ("the
@@ -2212,7 +2222,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
          who wants more time to read the summary or discuss - it doesn't advance anything by
          itself, it just removes the automatic pressure. -->
     <div id="roundEndAutoContinueRow" style="margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:0.72rem;color:var(--text-secondary)">
-      <span id="roundEndAutoContinueText">Auto-continuing in <b id="roundEndAutoContinueSeconds" style="color:var(--accent)">10</b>s</span>
+      <div class="re-bar" id="reBar6p"><i></i></div><span id="roundEndAutoContinueText">Auto-continuing in <b id="roundEndAutoContinueSeconds" style="color:var(--accent)">10</b>s</span>
       <button class="btn btn-outline" id="btnPauseAutoContinue" style="padding:3px 10px;font-size:0.68rem">⏸ Pause</button>
     </div>
   </div>
@@ -2381,7 +2391,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
      under this exact URL indefinitely, even after the file on disk changed and the server
      redeployed. Bump this number on every future six.js delivery (same convention as the
      layout-editor-* files already use). -->
-<script src="/six.js?v=4"></script>
+<script src="/six.js?v=6"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
 // six.js above, which may have already attached listeners to specific elements) has fully

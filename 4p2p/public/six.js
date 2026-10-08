@@ -3350,6 +3350,7 @@ function processNextSixpTrickReveal() {
   const lastTrick = sixpTrickRevealQueue.shift();
 
   renderCompletedTrick(lastTrick);
+  showTrickWinPopup6p(lastTrick);
   roundTrickHistory.push(lastTrick);
 
   // Hold the completed trick fully visible and still for 2s BEFORE
@@ -3517,10 +3518,36 @@ $('ltrickBackdrop') && $('ltrickBackdrop').addEventListener('click', toggleLastT
 // Cards flying from each seat to whoever won the trick — the 4-player
 // table has always had this; the 6-player one was just wiping the trick
 // in place with no sense of who actually took it.
+// Green "X wins the trick" card: appears in the middle of the table with the finished trick and
+// flies to the winner when the cards do. Fixed size, solid colours, never blocks taps.
+function showTrickWinPopup6p(lastTrick) {
+  let p = $('trickWinPopup6p');
+  if (!p) {
+    p = document.createElement('div'); p.id = 'trickWinPopup6p';
+    p.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:125;width:min(86vw,340px);box-sizing:border-box;padding:14px 16px;border-radius:16px;pointer-events:none;background:#0b1220;border:3px solid #3ddc84;text-align:center;font-family:Inter,-apple-system,Segoe UI,sans-serif;font-weight:800;font-size:1rem;line-height:1.35;color:#3ddc84;display:none';
+    document.body.appendChild(p);
+  }
+  const seat = latestState && latestState.seats && latestState.seats[lastTrick.winner];
+  const mine = sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS);
+  p.innerHTML = '<b style="color:#fff"></b> wins the trick \u00b7 +' + (lastTrick.points || 0) + ' pts to ' + (mine ? 'your team' : 'Opp');
+  p.firstChild.textContent = seat ? seat.name : 'Player';
+  p.style.transition = ''; p.style.opacity = '1'; p.style.transform = 'translate(-50%,-50%)';
+  p.style.display = 'block';
+}
+function flyTrickWinPopup6p(winnerAv) {
+  const p = $('trickWinPopup6p');
+  if (!p || p.style.display === 'none') return;
+  const b = p.getBoundingClientRect(), w = winnerAv.getBoundingClientRect();
+  p.style.transition = 'transform .55s cubic-bezier(.4,.1,.6,1),opacity .55s ease-in';
+  p.style.transform = 'translate(calc(-50% + ' + ((w.left + w.width / 2) - (b.left + b.width / 2)) + 'px),calc(-50% + ' + ((w.top + w.height / 2) - (b.top + b.height / 2)) + 'px)) scale(.25)';
+  p.style.opacity = '0';
+  setTimeout(() => { p.style.display = 'none'; }, 600);
+}
 function animateCardsToWinner(winnerPos) {
   const winnerSlot = slotFor(winnerPos);
   const winnerAv = $('av' + winnerSlot);
   if (!winnerAv) return;
+  flyTrickWinPopup6p(winnerAv);
 
   winnerAv.style.animation = 'none';
   void winnerAv.offsetHeight;
@@ -4248,9 +4275,10 @@ function showRoundEnd(state) {
   // everyone regardless of which team they're actually on.
   const myTeamWon = (bidTeam === myTeam) ? r.made : !r.made;
   $('roundEndTitle').textContent = myTeamWon ? '🎉 Your Team Won This Round!' : '😢 Your Team Lost This Round';
-  $('roundEndTitle').style.color = myTeamWon ? 'var(--success)' : 'var(--danger)';
+  $('roundEndTitle').style.color = myTeamWon ? '#3ddc84' : '#ff6b6b';
+  { const mb = $('roundEndOverlay').querySelector('.modal-box'); mb.classList.toggle('re-win', myTeamWon); mb.classList.toggle('re-lose', !myTeamWon); }
   const bidderName = state.seats[r.bidder] ? state.seats[r.bidder].name : ('Seat ' + r.bidder);
-  let body = `${bidderName} bid ${r.thani ? 'THANI' : r.highestBid} — ${r.made ? 'made it' : 'fell short'}.<br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${myTeamWon ? 'var(--success)' : 'var(--danger)'}">${myTeamWon ? '+' : '-'}${r.pts} match points for your team</b>`;
+  let body = `<span class="re-called">${bidderName} bid ${r.thani ? 'THANI' : r.highestBid} — ${r.made ? 'made it' : 'fell short'}</span><br>Team points: ${r.teamPoints[0]} - ${r.teamPoints[1]}<br><b style="color:${myTeamWon ? '#3ddc84' : '#ff6b6b'}">${myTeamWon ? '+' : '-'}${r.pts} match points for your team</b>`;
   $('roundEndBody').innerHTML = body;
   // Any seated player can trigger this now, not host-only -- see the
   // matching server.js handler for the full reasoning. Everyone gets
@@ -4269,8 +4297,9 @@ let roundEndAutoContinueSecondsLeft = 10;
 let roundEndAutoContinuePaused = false;
 function startRoundEndAutoContinue() {
   stopRoundEndAutoContinue();
-  roundEndAutoContinueSecondsLeft = 10;
+  roundEndAutoContinueSecondsLeft = 8;
   roundEndAutoContinuePaused = false;
+  { const bar = $('reBar6p'); if (bar) { const i = bar.firstElementChild; i.style.animation = 'none'; void i.offsetWidth; i.style.animation = ''; bar.style.color = ($('roundEndOverlay').querySelector('.modal-box').classList.contains('re-lose')) ? '#ef4444' : '#3ddc84'; } }
   const row = $('roundEndAutoContinueRow');
   const text = $('roundEndAutoContinueText');
   const secEl = $('roundEndAutoContinueSeconds');

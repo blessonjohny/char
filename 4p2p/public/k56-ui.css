@@ -1195,7 +1195,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
    behind it (the table, cards, avatars), so this keeps a light frosted
    dark tint plus a blur, rather than genuinely see-through with
    nothing backing the text at all. */
-#roundEndOverlay .modal-box{background:rgba(15,15,20,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#roundEndOverlay .modal-box{background:#0b1220;backdrop-filter:none;-webkit-backdrop-filter:none;border:3px solid #f4c430}
+/* one solid popup per viewer: green when your team won the round, red when it lost; no Continue/Pause - it moves on by itself */
+#roundEndOverlay .modal-box.re-win{background:#0a1d14;border-color:#3ddc84}
+#roundEndOverlay .modal-box.re-lose{background:#220c0e;border-color:#ef4444}
+#btnContinueRound,#btnAckRoundEnd,#btnPauseAutoContinue,#roundEndAutoContinueText{display:none !important}
+#roundEndAutoContinueRow{display:block !important;margin-top:12px}
+.re-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.re-bar i{display:block;height:100%;width:100%;transform-origin:left;background:currentColor;animation:reBar 8s linear forwards}
+@keyframes reBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+#roundEndBody .re-called{font-size:1.05rem;font-weight:800;color:#fff;line-height:1.4}
 /* Per explicit request: same transparent treatment extended to the
    game-over (match-end) popup -- it only ever existed on roundEndOverlay
    before, gameOverOverlay was missed. */
@@ -1800,10 +1809,10 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .k56-wrap{display:contents}
 .seat.empty-seat{opacity:.25}
 .seat.on .av{animation:none}
-#k56Trick{position:fixed;top:130px;left:8px;right:8px;z-index:120;max-width:420px;margin:0 auto;padding:8px 14px;border-radius:14px;pointer-events:none;
-  background:linear-gradient(155deg,rgba(18,14,10,.95),rgba(8,6,4,.96));border:1.5px solid #f4c430;text-align:center;
-  font-family:'Cinzel','Playfair Display',serif;font-size:.78rem;color:#fff;display:none}
-#k56Trick b{color:#f4c430}
+#k56Trick{position:fixed;top:50%;left:50%;z-index:125;width:min(86vw,340px);box-sizing:border-box;margin:0;padding:14px 16px;border-radius:16px;pointer-events:none;
+  background:#0b1220;border:3px solid #3ddc84;text-align:center;font-family:'Inter',-apple-system,'Segoe UI',sans-serif;font-weight:800;font-size:1rem;line-height:1.35;color:#3ddc84;
+  transform:translate(-50%,-50%);display:none}
+#k56Trick b{color:#fff}
 #k56Trick.on{display:block}
 .trickslot .card.k56-collect{transition:transform .45s cubic-bezier(.4,.1,.6,1),opacity .45s ease-in;opacity:0}
 
@@ -1878,3 +1887,12 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .r56-wait{font-size:.78rem;color:#9fb0c3;margin-top:10px}
 #auction56 .r56-box{border-color:#f4c430}
 .a56-ov{z-index:310;background:rgba(0,0,0,.35);pointer-events:none}
+
+/* round result: one solid popup, green for the winners / red for the losers, no button - moves on by itself */
+.r56-box{background:#0b1220 !important;border:3px solid var(--rc,#f4c430) !important;box-shadow:0 14px 34px rgba(0,0,0,.65) !important}
+.r56-box.r56-win{background:#0a1d14 !important}
+.r56-box.r56-lose{background:#220c0e !important}
+.r56-called{font-size:1.02rem;font-weight:800;color:#fff;margin:8px 0 2px}
+.r56-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:12px}
+.r56-bar i{display:block;height:100%;width:100%;background:var(--rc,#3ddc84);transform-origin:left;animation:r56Bar 8s linear forwards}
+@keyframes r56Bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}

@@ -122,7 +122,7 @@
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=1">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=3">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -370,6 +370,7 @@
     if (pt) {
       var w = st.seats[pt.winnerSeat];
       once('trickBanner', pt.ts + ':' + pt.winnerSeat, function () {
+        tb.style.transition = ''; tb.style.transform = ''; tb.style.opacity = '';
         tb.innerHTML = '<b>' + esc(w ? w.name : '') + '</b> wins the trick · +' + pt.points + ' pts to ' + esc(ctx.relTeam(pt.winnerSeat));
       });
       tog(tb, 'on', true);
@@ -379,6 +380,11 @@
         var elapsed = Date.now() - pt.ts, fire = Math.max(0, (ctx.trickMs || 1800) - 550 - elapsed);
         collectTimer = setTimeout(function () {
           var tgt = $('seatWrap' + slotOf(pt.winnerSeat)).getBoundingClientRect();
+          // the green "wins the trick" card flies from the middle to the winner
+          var br = tb.getBoundingClientRect();
+          tb.style.transition = 'transform .5s cubic-bezier(.4,.1,.6,1),opacity .5s ease-in';
+          tb.style.transform = 'translate(calc(-50% + ' + ((tgt.left + tgt.width / 2) - (br.left + br.width / 2)) + 'px),calc(-50% + ' + ((tgt.top + tgt.height / 2) - (br.top + br.height / 2)) + 'px)) scale(.25)';
+          tb.style.opacity = '0';
           for (var i = 0; i < 6; i++) {
             var e = $('trickSlot' + i), r = e.getBoundingClientRect();
             if (!e.firstChild) continue;
@@ -448,9 +454,10 @@
       winnerKey = null; bub.style.display = 'none'; bub.classList.remove('leaving', 'settled');
     }
   }
+  var nextTimer = null;
   function renderResult(st) {
     var ov = $('res56'), box = $('res56Box');
-    if (st.phase !== 'handEnd' || !st.currentBid) { tog(ov, 'on', false); resultKey = null; return; }
+    if (st.phase !== 'handEnd' || !st.currentBid) { tog(ov, 'on', false); resultKey = null; clearTimeout(nextTimer); return; }
     var ms = ctx.mySeat(), b = st.currentBid, bt = team(b.seat), dt = bt === 'A' ? 'B' : 'A';
     var made = st.teamPoints[bt] >= b.value;
     var lab = ctx.relTeam(b.seat), oppLab = lab === 'Team' ? 'Opp' : 'Team';
@@ -460,7 +467,7 @@
     if (resultKey === key) return;
     resultKey = key;
     var col = iWon ? '#3ddc84' : '#ef6b6b';
-    box.style.setProperty('--rc', col); box.style.setProperty('--rg', col + '55');
+    box.style.setProperty('--rc', col); box.style.setProperty('--rg', 'transparent'); box.classList.toggle('r56-win', !!iWon); box.classList.toggle('r56-lose', !iWon);
     var mt = ms != null ? team(ms) : 'A', ot = mt === 'A' ? 'B' : 'A';
     var detail = esc(lab) + ' bid ' + esc(ctx.formatBid(b)) + (st.doubled ? (st.doubled === 2 ? ' (redoubled)' : ' (doubled)') : '') + ' — ' + (made ? 'made it' : 'fell short');
     var html;
@@ -475,10 +482,11 @@
         '<div class="r56-pts"><div><span>' + esc(lab) + ' collected</span><b style="color:' + (made ? '#3ddc84' : '#ef6b6b') + '">' + st.teamPoints[bt] + '</b></div><div><span>' + esc(oppLab) + ' collected</span><b>' + st.teamPoints[dt] + '</b></div></div>' +
         '<div class="r56-sub" style="margin-bottom:6px">Tables remaining — Team <b style="color:#fff">' + st.matchScore[mt] + '</b> | Opp <b style="color:#fff">' + st.matchScore[ot] + '</b></div>' +
         (ms != null ? '<div class="r56-sig"><div class="t">💬 Signal your team for next hand</div><div class="bs"><button data-sig="same">🔁 Same</button><button data-sig="higher">⬆️ More</button><button data-sig="lower">⬇️ Less</button></div><div class="n" id="resSigNote"></div></div>' : '') +
-        '<button class="r56-main" id="resNext">Deal Next Hand</button>';
+        '<div class="r56-bar"><i></i></div>';
     }
     box.innerHTML = html;
-    var nx = box.querySelector('#resNext'); if (nx) nx.onclick = function () { ctx.send('l56_nextHand', {}); };
+    clearTimeout(nextTimer);
+    if (!st.matchOver) nextTimer = setTimeout(function () { ctx.send('l56_nextHand', {}); }, 8000);   // no button: moves on by itself
     var nm = box.querySelector('#resNew'); if (nm) nm.onclick = function () { ctx.send('l56_startNewMatch', {}); };
     box.querySelectorAll('[data-sig]').forEach(function (btn) {
       btn.onclick = function () {
