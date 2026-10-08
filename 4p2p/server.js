@@ -5226,11 +5226,11 @@ function l56ScheduleNext(code) {
     if (r.l56BotKey === key) return;
     r.l56BotKey = key;
     if (r.l56BotTimer) clearTimeout(r.l56BotTimer);
-    // A genuine bot always acts at the normal, watchable bot pace. A
+    // A genuine bot always acts at the normal, watchable bot pace (card plays use the same fixed 900ms as the 6-player table). A
     // connected-but-stuck human has already used up its full 2-minute
     // grace period by the time it gets here -- act promptly instead of
     // making everyone else wait even longer on top of that.
-    const delay = occ.bot ? (state.phase === 'bidding' ? (1400 + Math.random() * 1400) : (250 + Math.random() * 350)) : 900;
+    const delay = occ.bot ? (state.phase === 'bidding' ? (1400 + Math.random() * 1400) : 900) : 900;
     r.l56BotTimer = setTimeout(() => {
       const rr = l56Rooms[code];
       if (!rr || !rr.state) return;
