@@ -3559,6 +3559,7 @@ function showTrickWinPopup6p(lastTrick) {
   p.innerHTML = '<b style="color:#fff"></b> wins the trick \u00b7 +' + (lastTrick.points || 0) + ' pts to ' + (mine ? 'your team' : 'Opp');
   p.firstChild.textContent = seat ? seat.name : 'Player';
   p.dataset.pts = lastTrick.points || 0;
+  p.dataset.fire = trickFireLevel(lastTrick.cards, latestState && latestState.trumpSuit, lastTrick.winner);
   p.style.borderColor = mine ? '#3ddc84' : '#ef4444';
   p.style.color = mine ? '#3ddc84' : '#ff6b6b';
   p.style.background = mine ? 'rgba(10,29,20,.38)' : 'rgba(34,12,14,.38)';
@@ -3573,29 +3574,87 @@ function showTrickWinPopup6p(lastTrick) {
   } else p.style.top = '28%';
 }
 
-/* The "wins the trick" popup crumples up like a sheet of paper, rolls into a ball, then the ball spins off to the winner. */
-function crumpleFlyPopup(el, dx, dy, tint, done) {
+/* The "wins the trick" popup crumples up like a sheet of paper, rolls into a ball, then the ball spins off to the winner.
+   fire = 0 normal ball, 1 = the winner CUT the trick (fireball), 2 = cut and then over-cut (double fireball). */
+function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   if (el._crumple) { try { el._crumple.cancel(); } catch (e) {} }
+  fire = fire || 0;
   const base = 'translate(-50%,-50%)';
-  const ball = tint || '#3ddc84';
+  const ball = fire ? (fire > 1 ? '#ffb000' : '#ff5a00') : (tint || '#3ddc84');
+  const glow = fire ? ', 0 0 14px 5px rgba(255,140,0,.9), 0 0 30px 12px rgba(255,60,0,.55)' : '';
+  const ins = 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)' + glow;
   const r0 = el.getBoundingClientRect(), W0 = r0.width, H0 = r0.height;
-  el.style.overflow = 'hidden';
-  const kf = [
-    { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: 1, offset: 0, easing: 'ease-in' },
-    { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: 1, offset: .22, easing: 'ease-in' },
-    { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: 1, offset: .4, easing: 'ease-in-out' },
-    { transform: base + ' rotate(-14deg)', width: '54px', height: '54px', padding: '0px', borderRadius: '50%', backgroundColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .6, easing: 'cubic-bezier(.45,.05,.55,.95)' },
-    { transform: 'translate(calc(-50% + ' + (dx * .55) + 'px),calc(-50% + ' + (dy * .55 - 40) + 'px)) rotate(280deg)', width: '50px', height: '50px', padding: '0px', borderRadius: '50%', backgroundColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .82, easing: 'ease-in' },
-    { transform: 'translate(calc(-50% + ' + dx + 'px),calc(-50% + ' + dy + 'px)) rotate(560deg)', width: '40px', height: '40px', padding: '0px', borderRadius: '50%', backgroundColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: '4px', opacity: 0, offset: 1 }
-  ];
-  const num = document.createElement('span');
-  num.textContent = '+' + (el.dataset.pts || '0');
-  num.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:900 1.15rem Inter,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);opacity:0;pointer-events:none';
-  el.appendChild(num);
-  const na = num.animate([{ opacity: 0, offset: 0 }, { opacity: 0, offset: .45 }, { opacity: 1, offset: .6 }, { opacity: 1, offset: .9 }, { opacity: 0, offset: 1 }], { duration: 1000, fill: 'forwards' });
-  const a = el.animate(kf, { duration: 1000, fill: 'forwards' });
+  el.style.overflow = fire ? 'visible' : 'hidden';
+  const mk = (hide, sx) => {
+    sx = sx || 0;
+    const o = hide ? 0 : 1, bc = fire ? '#ffd27a' : ball;
+    return [
+      { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: o, offset: 0, easing: 'ease-in' },
+      { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: o, offset: .22, easing: 'ease-in' },
+      { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: o, offset: .4, easing: 'ease-in-out' },
+      { transform: 'translate(calc(-50% + ' + sx + 'px),-50%) rotate(-14deg)', width: '54px', height: '54px', padding: '0px', borderRadius: '50%', backgroundColor: ball, borderColor: bc, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: ins, opacity: 1, offset: .6, easing: 'cubic-bezier(.45,.05,.55,.95)' },
+      { transform: 'translate(calc(-50% + ' + (dx * .55 + sx) + 'px),calc(-50% + ' + (dy * .55 - 40) + 'px)) rotate(280deg)', width: '50px', height: '50px', padding: '0px', borderRadius: '50%', backgroundColor: ball, borderColor: bc, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: ins, opacity: 1, offset: .82, easing: 'ease-in' },
+      { transform: 'translate(calc(-50% + ' + dx + 'px),calc(-50% + ' + dy + 'px)) rotate(560deg)', width: '40px', height: '40px', padding: '0px', borderRadius: '50%', backgroundColor: ball, borderColor: bc, color: 'transparent', fontSize: '0rem', borderWidth: '4px', opacity: 0, offset: 1 }
+    ];
+  };
+  const mkNum = (txt) => {
+    const num = document.createElement('span');
+    num.textContent = txt;
+    num.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:900 1.15rem Inter,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);opacity:0;pointer-events:none';
+    return num;
+  };
+  const numFrames = [{ opacity: 0, offset: 0 }, { opacity: 0, offset: .45 }, { opacity: 1, offset: .6 }, { opacity: 1, offset: .9 }, { opacity: 0, offset: 1 }];
+  const pts = '+' + (el.dataset.pts || '0');
+  const num = mkNum(pts); el.appendChild(num);
+  const na = num.animate(numFrames, { duration: 1000, fill: 'forwards' });
+  const extras = [];
+  /* double fireball: a second ball (the over-cut) travels right behind the first */
+  if (fire > 1) {
+    const c = document.createElement('div');
+    const cs = getComputedStyle(el);
+    c.style.cssText = 'position:fixed;box-sizing:border-box;margin:0;border:4px solid transparent;border-radius:50%;pointer-events:none;overflow:visible;z-index:124;opacity:0;left:' + cs.left + ';top:' + cs.top + ';width:' + cs.width + ';height:' + cs.height;
+    const cn = mkNum('+' + (el.dataset.pts || '0')); c.appendChild(cn);
+    el.parentNode.appendChild(c);
+    const ca = c.animate(mk(true, 36).map(f => { const g = Object.assign({}, f); if (g.offset < .55) g.opacity = 0; return g; }), { duration: 1000, delay: 130, fill: 'both' });
+    const cna = cn.animate(numFrames, { duration: 1000, delay: 130, fill: 'both' });
+    extras.push(c, ca, cna);
+  }
+  /* flame trail: embers are dropped along the ball's path */
+  let tick = null;
+  if (fire) {
+    const t0 = performance.now();
+    tick = setInterval(() => {
+      const t = (performance.now() - t0) / 1000;
+      if (t < .5 || t > 1) return;
+      [el].concat(fire > 1 && extras[0] ? [extras[0]] : []).forEach(n => {
+        const r = n.getBoundingClientRect(); if (r.width < 4) return;
+        const e = document.createElement('div'), sz = 10 + Math.random() * 14;
+        e.style.cssText = 'position:fixed;z-index:123;pointer-events:none;border-radius:50%;width:' + sz + 'px;height:' + sz + 'px;left:' + (r.left + r.width / 2 - sz / 2 + (Math.random() - .5) * 10) + 'px;top:' + (r.top + r.height / 2 - sz / 2 + (Math.random() - .5) * 10) + 'px;background:radial-gradient(circle,#fff6b0 0%,#ffb000 38%,#ff4d00 70%,rgba(255,40,0,0) 100%);mix-blend-mode:screen';
+        document.body.appendChild(e);
+        const an = e.animate([{ transform: 'translateY(0) scale(1)', opacity: .95 }, { transform: 'translateY(-' + (14 + Math.random() * 14) + 'px) scale(.1)', opacity: 0 }], { duration: 420, easing: 'ease-out' });
+        an.onfinish = () => e.remove();
+      });
+    }, 35);
+  }
+  const a = el.animate(mk(false), { duration: 1000, fill: 'forwards' });
   el._crumple = a;
-  a.onfinish = () => { try { a.cancel(); na.cancel(); num.remove(); } catch (e) {} el._crumple = null; if (done) done(); };
+  a.onfinish = () => {
+    try { a.cancel(); na.cancel(); num.remove(); } catch (e) {}
+    if (tick) clearInterval(tick);
+    if (extras[0]) { try { extras[0].remove(); } catch (e) {} }
+    el._crumple = null; if (done) done();
+  };
+}
+/* 1 = the trick winner CUT (played trump on a non-trump lead and it won), 2 = cut, then another trump over-cut it */
+function trickFireLevel(cards, trump, winnerPos) {
+  if (!cards || !cards.length || !trump) return 0;
+  const lead = cards[0].card.suit;
+  if (lead === trump) return 0;
+  let cuts = 0;
+  for (const tc of cards) if (tc.card.suit === trump) cuts++;
+  const w = cards.find(tc => tc.pos === winnerPos);
+  if (!w || w.card.suit !== trump) return 0;
+  return cuts >= 2 ? 2 : 1;
 }
 function flyTrickWinPopup6p(winnerAv) {
   const p = $('trickWinPopup6p');
@@ -3603,7 +3662,7 @@ function flyTrickWinPopup6p(winnerAv) {
   const b = p.getBoundingClientRect(), w = winnerAv.getBoundingClientRect();
   const dx = (w.left + w.width / 2) - (b.left + b.width / 2), dy = (w.top + w.height / 2) - (b.top + b.height / 2);
   const tint = (p.style.borderColor || '#3ddc84');
-  crumpleFlyPopup(p, dx, dy, tint, () => { p.style.display = 'none'; });
+  crumpleFlyPopup(p, dx, dy, tint, () => { p.style.display = 'none'; }, +(p.dataset.fire || 0));
 }
 function animateCardsToWinner(winnerPos) {
   const winnerSlot = slotFor(winnerPos);
