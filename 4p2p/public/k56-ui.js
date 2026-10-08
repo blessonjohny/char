@@ -367,6 +367,7 @@
     if (pt) {
       var w = st.seats[pt.winnerSeat];
       once('trickBanner', pt.ts + ':' + pt.winnerSeat, function () {
+        if (tb._crumple) { try { tb._crumple.cancel(); } catch (e) {} tb._crumple = null; }
         tb.style.transition = ''; tb.style.transform = ''; tb.style.opacity = '';
         var mineW = ctx.relTeam(pt.winnerSeat) === 'Team';
         tb.style.borderColor = mineW ? '#3ddc84' : '#ef4444'; tb.style.color = mineW ? '#3ddc84' : '#ff6b6b'; tb.style.background = mineW ? 'rgba(10,29,20,.38)' : 'rgba(34,12,14,.38)';
@@ -387,9 +388,25 @@
           var tgt = $('seatWrap' + slotOf(pt.winnerSeat)).getBoundingClientRect();
           // the green "wins the trick" card flies from the middle to the winner
           var br = tb.getBoundingClientRect();
-          tb.style.transition = 'transform .5s cubic-bezier(.4,.1,.6,1),opacity .5s ease-in';
-          tb.style.transform = 'translate(calc(-50% + ' + ((tgt.left + tgt.width / 2) - (br.left + br.width / 2)) + 'px),calc(-50% + ' + ((tgt.top + tgt.height / 2) - (br.top + br.height / 2)) + 'px)) scale(.25)';
-          tb.style.opacity = '0';
+          var cdx = (tgt.left + tgt.width / 2) - (br.left + br.width / 2), cdy = (tgt.top + tgt.height / 2) - (br.top + br.height / 2);
+          // it crumples into a ball and the ball spins off to the winner
+          if (tb.animate) {
+            var base = 'translate(-50%,-50%)', ballC = tb.style.borderColor || '#3ddc84';
+            var W0 = br.width, H0 = br.height; tb.style.overflow = 'hidden';
+            var kf = [
+              { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: 1, offset: 0, easing: 'ease-in' },
+              { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: 1, offset: .22, easing: 'ease-in' },
+              { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: 1, offset: .4, easing: 'ease-in-out' },
+              { transform: base + ' rotate(-14deg)', width: '46px', height: '46px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .6, easing: 'cubic-bezier(.45,.05,.55,.95)' },
+              { transform: 'translate(calc(-50% + ' + (cdx * .55) + 'px),calc(-50% + ' + (cdy * .55 - 40) + 'px)) rotate(280deg)', width: '42px', height: '42px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .82, easing: 'ease-in' },
+              { transform: 'translate(calc(-50% + ' + cdx + 'px),calc(-50% + ' + cdy + 'px)) rotate(560deg)', width: '26px', height: '26px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', opacity: 0, offset: 1 }
+            ];
+            tb._crumple = tb.animate(kf, { duration: 1000, fill: 'forwards' });
+          } else {
+            tb.style.transition = 'transform .5s cubic-bezier(.4,.1,.6,1),opacity .5s ease-in';
+            tb.style.transform = 'translate(calc(-50% + ' + cdx + 'px),calc(-50% + ' + cdy + 'px)) scale(.25)';
+            tb.style.opacity = '0';
+          }
           for (var i = 0; i < 6; i++) {
             var e = $('trickSlot' + i), r = e.getBoundingClientRect();
             if (!e.firstChild) continue;

@@ -3561,6 +3561,7 @@ function showTrickWinPopup6p(lastTrick) {
   p.style.borderColor = mine ? '#3ddc84' : '#ef4444';
   p.style.color = mine ? '#3ddc84' : '#ff6b6b';
   p.style.background = mine ? 'rgba(10,29,20,.38)' : 'rgba(34,12,14,.38)';
+  if (p._crumple) { try { p._crumple.cancel(); } catch (e) {} p._crumple = null; }
   p.style.transition = ''; p.style.opacity = '1'; p.style.transform = 'translate(-50%,-50%)';
   p.style.display = 'block';
   /* sits in the empty space above the top player's head (clear of the header and of the avatar), see-through */
@@ -3570,14 +3571,33 @@ function showTrickWinPopup6p(lastTrick) {
     p.style.top = Math.max(avTop - 12 - h / 2, window.innerHeight * 0.23 + h / 2) + 'px';
   } else p.style.top = '28%';
 }
+
+/* The "wins the trick" popup crumples up like a sheet of paper, rolls into a ball, then the ball spins off to the winner. */
+function crumpleFlyPopup(el, dx, dy, tint, done) {
+  if (el._crumple) { try { el._crumple.cancel(); } catch (e) {} }
+  const base = 'translate(-50%,-50%)';
+  const ball = tint || '#3ddc84';
+  const r0 = el.getBoundingClientRect(), W0 = r0.width, H0 = r0.height;
+  el.style.overflow = 'hidden';
+  const kf = [
+    { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: 1, offset: 0, easing: 'ease-in' },
+    { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: 1, offset: .22, easing: 'ease-in' },
+    { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: 1, offset: .4, easing: 'ease-in-out' },
+    { transform: base + ' rotate(-14deg)', width: '46px', height: '46px', padding: '0px', borderRadius: '50%', backgroundColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .6, easing: 'cubic-bezier(.45,.05,.55,.95)' },
+    { transform: 'translate(calc(-50% + ' + (dx * .55) + 'px),calc(-50% + ' + (dy * .55 - 40) + 'px)) rotate(280deg)', width: '42px', height: '42px', padding: '0px', borderRadius: '50%', backgroundColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .82, easing: 'ease-in' },
+    { transform: 'translate(calc(-50% + ' + dx + 'px),calc(-50% + ' + dy + 'px)) rotate(560deg)', width: '26px', height: '26px', padding: '0px', borderRadius: '50%', backgroundColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: '4px', opacity: 0, offset: 1 }
+  ];
+  const a = el.animate(kf, { duration: 1000, fill: 'forwards' });
+  el._crumple = a;
+  a.onfinish = () => { try { a.cancel(); } catch (e) {} el._crumple = null; if (done) done(); };
+}
 function flyTrickWinPopup6p(winnerAv) {
   const p = $('trickWinPopup6p');
   if (!p || p.style.display === 'none') return;
   const b = p.getBoundingClientRect(), w = winnerAv.getBoundingClientRect();
-  p.style.transition = 'transform .55s cubic-bezier(.4,.1,.6,1),opacity .55s ease-in';
-  p.style.transform = 'translate(calc(-50% + ' + ((w.left + w.width / 2) - (b.left + b.width / 2)) + 'px),calc(-50% + ' + ((w.top + w.height / 2) - (b.top + b.height / 2)) + 'px)) scale(.25)';
-  p.style.opacity = '0';
-  setTimeout(() => { p.style.display = 'none'; }, 600);
+  const dx = (w.left + w.width / 2) - (b.left + b.width / 2), dy = (w.top + w.height / 2) - (b.top + b.height / 2);
+  const tint = (p.style.borderColor || '#3ddc84');
+  crumpleFlyPopup(p, dx, dy, tint, () => { p.style.display = 'none'; });
 }
 function animateCardsToWinner(winnerPos) {
   const winnerSlot = slotFor(winnerPos);
