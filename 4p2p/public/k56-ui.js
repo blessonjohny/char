@@ -14,7 +14,7 @@
   /* Table photo (images/table-bg-56.jpg): 6 stools. STOOL = top-surface centre of each stool as % of the ORIGINAL
      1152x2048 photo; the file has IMG.add px of dark wall added on top so it fits a tall phone screen. */
   var IMG = { w: 1152, h: 2495, add: 447, oh: 2048 };
-  var STOOL = [[50, 69.8], [88.5, 57.6], [86, 37.6], [50, 27.8], [15, 35], [10.8, 57.6]];
+  var STOOL = [[50, 70.3], [88.5, 58.1], [85, 37.9], [50, 30.3], [15.6, 37.6], [10.8, 57.6]];
   var CENTRE = [50, 45.4];
   var LIFT = [0.30, 0.28, 0.28, 0.30, 0.28, 0.28]; /* seat sits this fraction of its avatar height above the stool top */
   var DESK = { 0: [321, 321, 8.25], 3: [180, 180, 4.7], 2: [225, 225, 5.8], 4: [195, 195, 5], 1: [225, 225, 5.8], 5: [250, 250, 6.4] };
@@ -114,7 +114,7 @@
   function placeStage() {
     var gs = $('gameScreen'); if (!gs) return;
     var W = window.innerWidth, H = window.innerHeight, asp = IMG.w / IMG.h;
-    var Ws = Math.min(W, H * asp);
+    var Ws = W < 521 ? W : Math.min(W, H * asp);
     var S = Math.max(Ws / IMG.w, H / IMG.h);
     var ox = (Ws - IMG.w * S) / 2, oy = H - IMG.h * S;
     var imp = function (el, k, v) { el.style.setProperty(k, v, 'important'); };
@@ -136,7 +136,7 @@
     cache.stageM = m;
   }
   function applySizes() {
-    var Ws = Math.min(window.innerWidth, window.innerHeight * IMG.w / IMG.h);
+    var Ws = window.innerWidth < 521 ? window.innerWidth : Math.min(window.innerWidth, window.innerHeight * IMG.w / IMG.h);
     var m = Math.max(0.85, Math.min(1.4, Ws / 390));
     for (var s = 0; s < 6; s++) {
       var av = $('av' + s), v = PHONE[s], k = m.toFixed(3) + ':' + s;
@@ -155,7 +155,7 @@
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=9">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=10">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
