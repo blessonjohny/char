@@ -1817,6 +1817,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #bidWinnerBubble6p{background:radial-gradient(ellipse at center,rgba(120,90,15,.45),rgba(40,28,4,.5)) !important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);text-shadow:0 1px 3px rgba(0,0,0,.9)}
 .modal-box{background:rgba(15,23,42,.58) !important;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .modal-overlay{background:rgba(0,0,0,.2) !important}
+.trump-chip,.trump-chip.trump-active{background:#000 !important}
 
 /* ===== 56 additions (appended after the converted 6-player stylesheet) ===== */
 :host{display:block;position:static;height:0;margin:0;background:none!important;color:#fff;
@@ -1930,3 +1931,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .r56-box.r56-win{background:rgba(10,29,20,.4) !important}
 .r56-box.r56-lose{background:rgba(34,12,14,.4) !important}
 .r56-ov{background:rgba(0,0,0,.12) !important}
+
+/* trump chip: solid black behind, so the lamp light never washes it out */
+.trump-chip,.trump-chip.trump-active{background:#000 !important}
