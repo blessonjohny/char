@@ -75,6 +75,8 @@ window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adm
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="https://28gulan.com/">
 <meta name="theme-color" content="#0a1628">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -18037,6 +18039,21 @@ function requestFullscreen28(){
 // dismissible, one-time tip pointing at the actual fix. Only shown to
 // genuine iPhone/iPad Safari visitors who haven't already installed it
 // (standalone mode is detectable) and haven't seen the tip before.
+// Hide the browser address bar: on the first real tap anywhere on the main page, go fullscreen once
+// (browsers only allow this from a user gesture). Installed-app mode (manifest) is already chrome-free.
+(function(){
+  try {
+    const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+    if (standalone) return;
+    const go = function(e){
+      if (e && e.isTrusted === false) return;
+      document.removeEventListener('pointerup', go, true);
+      if (!document.fullscreenElement) requestFullscreen28();
+    };
+    document.addEventListener('pointerup', go, true);
+  } catch (e) {}
+})();
+
 function maybeShowIosInstallHint(){
   try {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -20167,14 +20184,22 @@ function serverBotPlayForMe() {
 // #welcomeScreen, only runs while that screen is actually the visible one, and never runs
 // during an actual game, so it can't interfere with anything else on the page.
 (function() {
-  const K28_IDLE_MS = 2 * 60 * 1000;
+  const K28_IDLE_MS = 60 * 1000;
   let idleTimer = null;
   let bouncers = null; // null when inactive
   let rafId = null;
   let viewportW = 0, viewportH = 0;
 
+  // the entry screens: sign-in/guest screen first, then the welcome screen - whichever is showing
+  function activeRoot() {
+    for (const id of ['authScreen', 'welcomeScreen']) {
+      const e = document.getElementById(id);
+      if (e && e.style.display !== 'none' && getComputedStyle(e).display !== 'none') return e;
+    }
+    return null;
+  }
   function isWelcomeScreenVisible() {
-    const el = document.getElementById('welcomeScreen');
+    const el = activeRoot();
     // Not using offsetParent here on purpose: it's null for position:fixed elements even
     // when they're fully visible (a real browser quirk, not a bug) - #welcomeScreen is fixed,
     // so that check was silently failing every time and the screensaver never activated at
@@ -20214,7 +20239,7 @@ function serverBotPlayForMe() {
   }
 
   function collectTargets() {
-    const root = document.getElementById('welcomeScreen');
+    const root = activeRoot();
     if (!root) return [];
     const targets = [];
     // Real, confirmed root-cause fix per explicit live report ("my
@@ -20268,7 +20293,7 @@ function serverBotPlayForMe() {
     // still gets up to 50 -- less crowding everywhere, worst case on
     // the smallest real screens.
     const viewportArea = window.innerWidth * window.innerHeight;
-    const MAX_BOUNCERS = Math.max(20, Math.min(50, Math.round(viewportArea / 9000)));
+    const MAX_BOUNCERS = Math.max(24, Math.min(70, Math.round(viewportArea / 7000)));
     if (targets.length > MAX_BOUNCERS) {
       const step = targets.length / MAX_BOUNCERS;
       const sampled = [];
@@ -20284,52 +20309,90 @@ function serverBotPlayForMe() {
     if (!targets.length) return;
     viewportW = window.innerWidth;
     viewportH = window.innerHeight;
+    // ---- "floating in space" physics ----------------------------------------------------
+    // Every object is a rigid box with mass (~ its area), a velocity and a spin on all three
+    // axes. Objects bounce off the screen edges AND off each other: a collision swaps momentum
+    // along the contact normal (heavier objects shove lighter ones), and the sideways part of
+    // the hit "slips" into spin, so things glance off and tumble in the direction they were hit.
+    // Nothing is ever allowed to stall: speed is kept inside a floor/ceiling every frame.
+    const MIN_SPEED = 26, MAX_SPEED = 170, REST = 0.96, SPIN_MAX = 260;
     bouncers = targets.map(el => {
       const rect = el.getBoundingClientRect();
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 22 + Math.random() * 35; // px/sec, individual per element - slowed way down from the original 70-180 range, which felt frantic rather than ambient
+      const ang = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 50;
       el.style.willChange = 'transform';
       el.style.position = el.style.position || 'relative';
+      el.style.zIndex = '5';
+      const rnd = () => (Math.random() < .5 ? -1 : 1) * (25 + Math.random() * 70);
       return {
         el, homeLeft: rect.left, homeTop: rect.top, w: rect.width, h: rect.height,
         x: rect.left, y: rect.top,
-        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed
+        vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        m: Math.max(200, rect.width * rect.height),
+        rx: 0, ry: 0, rz: 0,                       // rotation angles (deg) around X, Y, Z
+        wx: rnd(), wy: rnd(), wz: rnd()            // spin speeds (deg/sec)
       };
     });
     let lastT = performance.now();
-    // Real, confirmed simplification per repeated explicit live
-    // reports of objects getting stuck/frozen: the inter-object
-    // collision system added a few turns back (so two bouncing
-    // objects would visibly push apart instead of overlapping) is
-    // removed entirely here. That collision math is almost certainly
-    // the actual root cause of the "stuck" reports -- equal-mass
-    // elastic collisions resolved one pair at a time, with up to 50
-    // objects sharing the same small screen, can genuinely cancel a
-    // shared object's velocity down toward zero when several
-    // neighbors push on it from different directions at once, and
-    // nothing was reliably forcing it back into motion afterward. A
-    // small amount of occasional visual overlap between two objects is
-    // a minor cosmetic thing; objects that stop moving entirely is a
-    // real, functional bug -- removing the more complex, failure-prone
-    // system entirely is the actual fix here, not another patch on
-    // top of it. Every object now ONLY ever bounces off the screen's
-    // own edges, completely independent of every other object, which
-    // makes it structurally impossible for one object's motion to
-    // affect another's at all.
+    const clampSpin = (v) => Math.max(-SPIN_MAX, Math.min(SPIN_MAX, v));
+
+    function collide(a, b) {
+      const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+      const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      if (ox <= 0 || oy <= 0) return;
+      // contact normal = the axis with the shallower overlap, pointing a -> b
+      let nx = 0, ny = 0, pen;
+      const acx = a.x + a.w / 2, acy = a.y + a.h / 2, bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
+      if (ox < oy) { nx = bcx > acx ? 1 : -1; pen = ox; } else { ny = bcy > acy ? 1 : -1; pen = oy; }
+      const inv = 1 / a.m + 1 / b.m;
+      // push apart in proportion to mass (light one moves more)
+      const ca = (1 / a.m) / inv, cb = (1 / b.m) / inv;
+      a.x -= nx * pen * ca; a.y -= ny * pen * ca;
+      b.x += nx * pen * cb; b.y += ny * pen * cb;
+      const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+      const vn = rvx * nx + rvy * ny;
+      if (vn > 0) return;                          // already separating
+      const j = -(1 + REST) * vn / inv;            // impulse along the normal
+      a.vx -= j * nx / a.m; a.vy -= j * ny / a.m;
+      b.vx += j * nx / b.m; b.vy += j * ny / b.m;
+      // the sliding part of the hit becomes spin (and a little 3D wobble) on both objects
+      const tx = -ny, ty = nx;
+      const vt = rvx * tx + rvy * ty;
+      a.wz = clampSpin(a.wz - vt * 0.9); b.wz = clampSpin(b.wz - vt * 0.9);
+      const kick = Math.min(120, Math.abs(vn) * 0.8 + 20);
+      a.wx = clampSpin(a.wx + (ny !== 0 ? -ny * kick : (Math.random() - .5) * kick));
+      a.wy = clampSpin(a.wy + (nx !== 0 ?  nx * kick : (Math.random() - .5) * kick));
+      b.wx = clampSpin(b.wx + (ny !== 0 ?  ny * kick : (Math.random() - .5) * kick));
+      b.wy = clampSpin(b.wy + (nx !== 0 ? -nx * kick : (Math.random() - .5) * kick));
+    }
+
+    function step(dt) {
+      for (const b of bouncers) {
+        b.x += b.vx * dt; b.y += b.vy * dt;
+        b.rx = (b.rx + b.wx * dt) % 360; b.ry = (b.ry + b.wy * dt) % 360; b.rz = (b.rz + b.wz * dt) % 360;
+        // screen edges: bounce, and the wall scuffs a bit of spin in
+        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx) * REST; b.wz = clampSpin(b.wz + b.vy * 0.3); b.wy = clampSpin(b.wy + 40); }
+        else if (b.x + b.w > viewportW) { b.x = viewportW - b.w; b.vx = -Math.abs(b.vx) * REST; b.wz = clampSpin(b.wz - b.vy * 0.3); b.wy = clampSpin(b.wy - 40); }
+        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy) * REST; b.wz = clampSpin(b.wz - b.vx * 0.3); b.wx = clampSpin(b.wx + 40); }
+        else if (b.y + b.h > viewportH) { b.y = viewportH - b.h; b.vy = -Math.abs(b.vy) * REST; b.wz = clampSpin(b.wz + b.vx * 0.3); b.wx = clampSpin(b.wx - 40); }
+      }
+      for (let i = 0; i < bouncers.length; i++) for (let k = i + 1; k < bouncers.length; k++) collide(bouncers[i], bouncers[k]);
+      for (const b of bouncers) {
+        // never stall, never run away
+        let sp = Math.hypot(b.vx, b.vy);
+        if (sp < MIN_SPEED) { if (sp < 1) { const an = Math.random() * 6.283; b.vx = Math.cos(an); b.vy = Math.sin(an); sp = 1; } const f = MIN_SPEED / sp; b.vx *= f; b.vy *= f; }
+        else if (sp > MAX_SPEED) { const f = MAX_SPEED / sp; b.vx *= f; b.vy *= f; }
+        // spin eases toward a gentle drift but never to zero
+        for (const k of ['wx', 'wy', 'wz']) { b[k] *= 0.9985; if (Math.abs(b[k]) < 18) b[k] = (b[k] < 0 ? -1 : 1) * 18; }
+      }
+    }
+
     function frame(t) {
       if (!bouncers) return;
       const dt = Math.min(0.05, (t - lastT) / 1000);
       lastT = t;
+      step(dt / 2); step(dt / 2);
       for (const b of bouncers) {
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
-        if (b.x < 0) { b.x = 0; b.vx = Math.abs(b.vx); }
-        else if (b.x + b.w > viewportW) { b.x = viewportW - b.w; b.vx = -Math.abs(b.vx); }
-        if (b.y < 0) { b.y = 0; b.vy = Math.abs(b.vy); }
-        else if (b.y + b.h > viewportH) { b.y = viewportH - b.h; b.vy = -Math.abs(b.vy); }
-      }
-      for (const b of bouncers) {
-        b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px)`;
+        b.el.style.transform = `translate(${(b.x - b.homeLeft).toFixed(1)}px,${(b.y - b.homeTop).toFixed(1)}px) perspective(700px) rotateX(${b.rx.toFixed(1)}deg) rotateY(${b.ry.toFixed(1)}deg) rotateZ(${b.rz.toFixed(1)}deg)`;
       }
       rafId = requestAnimationFrame(frame);
     }
@@ -20343,6 +20406,7 @@ function serverBotPlayForMe() {
     for (const b of bouncers) {
       b.el.style.transform = '';
       b.el.style.willChange = '';
+      b.el.style.zIndex = '';
     }
     bouncers = null;
   }
