@@ -2607,6 +2607,9 @@ function applyState(state) {
     // once per round-end, right alongside the existing lastRoundSeen
     // guard above so it can't double-fire on a later re-render.
     const rw = state.roundWinnerAnnounced;
+    // The "Bid Made / Bid Failed" event and its win/lose sound are held back until the last trick's
+    // "wins the trick" popup has finished, so nobody misses what happened in the final hand.
+    const fireRoundEndEvent = () => {
     if (rw) {
       const bidderName = (state.seats && state.seats[rw.bidder]) ? state.seats[rw.bidder].name : 'The bidder';
       if (rw.bidderWon) showGameEvent('🏆', 'Bid Made', bidderName + ' — ' + rw.highestBid, '#2ecc71');
@@ -2622,6 +2625,7 @@ function applyState(state) {
         playSound(myTeamWonThisRound ? 'happy' : 'sad');
       }
     }
+    };
     // The round can end right on the last trick, whose own 2s-hold +
     // fly-to-winner animation (~3.2s total) may still be playing. Wait for
     // it to actually finish instead of popping the round summary over it.
@@ -2636,14 +2640,19 @@ function applyState(state) {
           console.warn('[waitThenShowRoundEnd] gave up waiting after 8s — forcing forward');
           trickHoldBusy = false;
           sixpTrickRevealQueue = [];
-          safelyShowRoundEnd(state);
+          fireRoundEndEvent();
+          setTimeout(() => safelyShowRoundEnd(state), 3700);
           return;
         }
         setTimeout(waitThenShowRoundEnd, 150);
         return;
       }
-      // short breath after the last "wins the trick" popup has flown away, then the green/red summary
-      setTimeout(() => safelyShowRoundEnd(state), 500);
+      // half a second after the last "wins the trick" popup has flown away: Bid Made / Failed (readable ~2.8s),
+      // then a short breath, then the green/red summary
+      setTimeout(() => {
+        fireRoundEndEvent();
+        setTimeout(() => safelyShowRoundEnd(state), 3700);
+      }, 700);
     })();
   }
 

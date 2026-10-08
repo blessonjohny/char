@@ -1816,11 +1816,16 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
 /* Names: crisp outline only - the old blurred team-colour glow made them look smeared */
 .seat .nm.name-teammate,.seat .nm.name-opponent{filter:none !important}
 
+
+/* Invite: top centre, in the gap between the Trump chip and Last Trick. Bot toggle: right beside the turn ring, centred as one group. */
+body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !important;left:55% !important;right:auto !important;bottom:auto !important;transform:translateX(-50%);z-index:150;height:30px;box-sizing:border-box;padding:0 10px !important;display:flex;align-items:center;gap:4px;border-radius:9px;font-size:.7rem;font-weight:800;white-space:nowrap}
+.turn-row6p{display:flex;align-items:center;justify-content:center;gap:6px;max-width:100%}
+@media (min-width:521px){body.k28-in-game #btnInvite{top:156px !important;left:210px !important;transform:none}.cot-dock6p{bottom:190px !important}}
+#sixpBotToggle{position:static !important;display:inline-flex !important;align-items:center;gap:4px;height:clamp(22px,6vw,27px);box-sizing:border-box;padding:0 clamp(8px,2.6vw,11px) !important;border-radius:999px !important;font-size:clamp(.58rem,2.8vw,.7rem) !important;font-weight:800;white-space:nowrap;cursor:pointer;border:2px solid rgba(255,255,255,.3);background:rgba(6,10,18,.88);color:#fff;flex:0 0 auto;bottom:auto !important;right:auto !important}
+#sixpBotToggle.on{background:#f4c430;color:#1a1305;border-color:#f4c430}
 /* COT / MaruCOT pair: one centred dock in the open band above the turn label; Bot toggle sits right, Invite left */
 .cot-dock6p{position:fixed;left:50%;bottom:128px;transform:translateX(-50%);z-index:150;display:flex;gap:8px;align-items:center;justify-content:center;pointer-events:none}
 .cot-dock6p .btn-outline{pointer-events:auto;padding:5px 12px;border-radius:9px;font-size:.72rem;white-space:nowrap;font-weight:800;background:rgba(8,12,20,.9);height:30px;box-sizing:border-box}
-#sixpBotToggle{height:30px;box-sizing:border-box;padding:0 12px !important}
-#btnInvite{height:30px;box-sizing:border-box;padding:0 12px !important;left:12px !important}
 /* call badges / status chips sit ON the avatars - they must never swallow the tap that sends a cheers */
 .seat .call-badge,.seat .call-badge *{pointer-events:none !important}
 /* Bidding status popup: centred, solid, readable */
@@ -1839,7 +1844,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
 @keyframes k56BlinkBorderGreen{0%{border-color:#3ddc84}50%{border-color:#14532d}}
 /* "Jin's turn" label above my avatar: bordered pill - red opponent, green partner, blinking green me */
 .turnlabel{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:clamp(22px,6vw,27px);width:fit-content;min-width:0;max-width:92vw;align-self:center;padding:0 clamp(10px,3.4vw,14px);border-radius:999px;border:2px solid transparent;background:rgba(6,10,18,.88);color:#fff;font-weight:800;font-size:clamp(.6rem,2.9vw,.72rem);line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#btnInvite,#sixpBotToggle{bottom:112px !important}
+
 @media(max-width:380px){.cot-dock6p{gap:5px}.cot-dock6p .btn-outline{padding:4px 7px !important;font-size:.64rem !important}}
 .turnlabel:empty{visibility:hidden}
 /* no moving parts: the status popups keep a fixed size and never scale/pulse */
@@ -2063,9 +2068,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
        opposite the COT button above: same bottom offset, mirrored to
        the left side instead of the right, so it sits near the bottom
        seat without colliding with COT or any other fixed control. -->
-  <div class="sixp-bot-toggle" id="sixpBotToggle" onclick="sixpToggleBotMode()" style="position:fixed;right:12px;bottom:150px;z-index:150;display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,0.25);background:rgba(20,20,20,0.55);color:#fff;transition:all 0.25s">
-    <span>🤖</span><span id="sixpBotLabel">BOT</span>
-  </div>
+  
   <!-- Per explicit request: moved down from the top bar, where it read
        as an unlabeled heart-ish icon players couldn't identify at a
        glance, to directly beneath the BOT toggle -- same left edge,
@@ -2154,7 +2157,9 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
     <div class="trickslot" id="trickSlot4"></div>
     <div class="trickslot" id="trickSlot5"></div>
   <div class="hand-bar">
-    <div class="turnlabel" id="turnLabel"></div>
+    <div class="turn-row6p" id="turnRow6p"><div class="turnlabel" id="turnLabel"></div><div class="sixp-bot-toggle" id="sixpBotToggle" onclick="sixpToggleBotMode()" >
+    <span>🤖</span><span id="sixpBotLabel">BOT</span>
+  </div></div>
     <div class="hand-cards" id="handCards"></div>
   </div>
 </div>
@@ -2393,7 +2398,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
      under this exact URL indefinitely, even after the file on disk changed and the server
      redeployed. Bump this number on every future six.js delivery (same convention as the
      layout-editor-* files already use). -->
-<script src="/six.js?v=10"></script>
+<script src="/six.js?v=12"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
 // six.js above, which may have already attached listeners to specific elements) has fully
