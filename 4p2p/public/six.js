@@ -2642,7 +2642,8 @@ function applyState(state) {
         setTimeout(waitThenShowRoundEnd, 150);
         return;
       }
-      safelyShowRoundEnd(state);
+      // short breath after the last "wins the trick" popup has flown away, then the green/red summary
+      setTimeout(() => safelyShowRoundEnd(state), 500);
     })();
   }
 
@@ -3531,6 +3532,9 @@ function showTrickWinPopup6p(lastTrick) {
   const mine = sixpGetTeam(lastTrick.winner) === sixpGetTeam(MY_POS);
   p.innerHTML = '<b style="color:#fff"></b> wins the trick \u00b7 +' + (lastTrick.points || 0) + ' pts to ' + (mine ? 'your team' : 'Opp');
   p.firstChild.textContent = seat ? seat.name : 'Player';
+  p.style.borderColor = mine ? '#3ddc84' : '#ef4444';
+  p.style.color = mine ? '#3ddc84' : '#ff6b6b';
+  p.style.background = mine ? '#0a1d14' : '#220c0e';
   p.style.transition = ''; p.style.opacity = '1'; p.style.transform = 'translate(-50%,-50%)';
   p.style.display = 'block';
 }
@@ -4253,6 +4257,8 @@ function showTrumpCardSelect(suit) {
 // this report. The fallback here at minimum still shows the score change directly rather than
 // silently doing nothing, and still lets the round actually end.
 function safelyShowRoundEnd(state) {
+  // never show a stale summary once the table has already moved on to the next round
+  if (latestState && latestState.phase !== 'roundEnd') return;
   try {
     showRoundEnd(state);
   } catch (e) {
@@ -4309,7 +4315,7 @@ let roundEndAutoContinueSecondsLeft = 10;
 let roundEndAutoContinuePaused = false;
 function startRoundEndAutoContinue() {
   stopRoundEndAutoContinue();
-  roundEndAutoContinueSecondsLeft = 8;
+  roundEndAutoContinueSecondsLeft = 4;
   roundEndAutoContinuePaused = false;
   { const bar = $('reBar6p'); if (bar) { const i = bar.firstElementChild; i.style.animation = 'none'; void i.offsetWidth; i.style.animation = ''; bar.style.color = ($('roundEndOverlay').querySelector('.modal-box').classList.contains('re-lose')) ? '#ef4444' : '#3ddc84'; } }
   const row = $('roundEndAutoContinueRow');

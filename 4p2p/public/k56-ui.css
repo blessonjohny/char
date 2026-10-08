@@ -1200,7 +1200,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #roundEndOverlay .modal-box.re-win{background:#0a1d14;border-color:#3ddc84}
 #roundEndOverlay .modal-box.re-lose{background:#220c0e;border-color:#ef4444}
 #btnContinueRound,#btnAckRoundEnd,#btnPauseAutoContinue,#roundEndAutoContinueText{display:none !important}
-#roundEndAutoContinueRow{display:block !important;margin-top:12px}
+#roundEndAutoContinueRow,.re-bar{display:none !important}
 .re-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
 .re-bar i{display:block;height:100%;width:100%;transform-origin:left;background:currentColor;animation:reBar 8s linear forwards}
 @keyframes reBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}

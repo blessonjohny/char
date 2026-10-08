@@ -122,7 +122,7 @@
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=6">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=7">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -372,6 +372,8 @@
       var w = st.seats[pt.winnerSeat];
       once('trickBanner', pt.ts + ':' + pt.winnerSeat, function () {
         tb.style.transition = ''; tb.style.transform = ''; tb.style.opacity = '';
+        var mineW = ctx.relTeam(pt.winnerSeat) === 'Team';
+        tb.style.borderColor = mineW ? '#3ddc84' : '#ef4444'; tb.style.color = mineW ? '#3ddc84' : '#ff6b6b'; tb.style.background = mineW ? '#0a1d14' : '#220c0e';
         tb.innerHTML = '<b>' + esc(w ? w.name : '') + '</b> wins the trick · +' + pt.points + ' pts to ' + esc(ctx.relTeam(pt.winnerSeat));
       });
       tog(tb, 'on', true);
@@ -483,11 +485,11 @@
         '<div class="r56-pts"><div><span>' + esc(lab) + ' collected</span><b style="color:' + (made ? '#3ddc84' : '#ef6b6b') + '">' + st.teamPoints[bt] + '</b></div><div><span>' + esc(oppLab) + ' collected</span><b>' + st.teamPoints[dt] + '</b></div></div>' +
         '<div class="r56-sub" style="margin-bottom:6px">Tables remaining — Team <b style="color:#fff">' + st.matchScore[mt] + '</b> | Opp <b style="color:#fff">' + st.matchScore[ot] + '</b></div>' +
         (ms != null ? '<div class="r56-sig"><div class="t">💬 Signal your team for next hand</div><div class="bs"><button data-sig="same">🔁 Same</button><button data-sig="higher">⬆️ More</button><button data-sig="lower">⬇️ Less</button></div><div class="n" id="resSigNote"></div></div>' : '') +
-        '<div class="r56-bar"><i></i></div>';
+        '';
     }
     box.innerHTML = html;
     clearTimeout(nextTimer);
-    if (!st.matchOver) nextTimer = setTimeout(function () { ctx.send('l56_nextHand', {}); }, 8000);   // no button: moves on by itself
+    if (!st.matchOver) nextTimer = setTimeout(function () { ctx.send('l56_nextHand', {}); }, 4500);   // no button: moves on by itself
     var nm = box.querySelector('#resNew'); if (nm) nm.onclick = function () { ctx.send('l56_startNewMatch', {}); };
     box.querySelectorAll('[data-sig]').forEach(function (btn) {
       btn.onclick = function () {
