@@ -6091,6 +6091,17 @@ io.on('connection', (socket) => {
     if (r) l56Touch(r);
   });
 
+  // Purely social cheers - tap another player's avatar (same as the 6-player table).
+  socket.on('l56_buddyGreeting', ({ toPos }) => {
+    const info = socket.data.l56;
+    if (!info) return;
+    const r = l56Rooms[info.code];
+    if (!r || typeof toPos !== 'number' || toPos === info.pos) return;
+    const seats = (r.state && r.state.seats) || [];
+    if (!seats[toPos]) return;
+    io.to(l56SocketRoom(info.code)).emit('l56_buddyGreeting', { fromPos: info.pos, toPos, fromName: seats[info.pos] ? seats[info.pos].name : '', toName: seats[toPos].name });
+  });
+
   socket.on('l56_chat', ({ msg }) => {
     const info = socket.data.l56;
     if (!info) return;
