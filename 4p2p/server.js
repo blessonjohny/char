@@ -5295,6 +5295,7 @@ function l56RunBotBid(state, seat) {
     if (!state.currentBid) { state.openerSeat = seat; state.openerSuit = decision.trump; }
     if (decision.kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[seat] = state.currentBid ? state.currentBid.trump : true; }
     if (decision.kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[seat + '-' + decision.trump] = decision.order; }
+    if (decision.kind === 'suit') { state.teamSuitOpen = state.teamSuitOpen || {}; const k = l56Engine.TEAM_OF(seat) + '-' + decision.trump; if (state.teamSuitOpen[k] === undefined) state.teamSuitOpen[k] = decision.value; }
     if (decision.isReassert) state.openerReassertCount = (state.openerReassertCount || 0) + 1;
     if (decision.isProbe) state.openerProbeSuit = decision.trump;
     state.currentBid = newBid;
@@ -5892,6 +5893,7 @@ io.on('connection', (socket) => {
     if (!state.currentBid) { state.openerSeat = pos; state.openerSuit = newBid.trump; }
     if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = state.currentBid ? state.currentBid.trump : true; }
     if (kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[pos + '-' + trump] = order; }
+    if (kind === 'suit') { state.teamSuitOpen = state.teamSuitOpen || {}; const k = l56Engine.TEAM_OF(pos) + '-' + trump; if (state.teamSuitOpen[k] === undefined) state.teamSuitOpen[k] = value; }
     if (state.openerSeat === pos && state.openerSuit && trump === state.openerSuit && state.currentBid) {
       state.openerReassertCount = (state.openerReassertCount || 0) + 1;
     }

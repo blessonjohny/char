@@ -292,11 +292,18 @@ function botDecideBid(state, seat) {
     const s = cb.trump;
     const alreadySaidVoid = state.nsBySeat && state.nsBySeat[seat];
     const alreadyBidThisSuit = state.suitBidBySeat && state.suitBidBySeat[seat + '-' + s];
-    if (count[s] === 0 && !alreadySaidVoid) {
+    // NOS also when his only card of that suit is a low one with no value (no J, 9 or A) --
+    // the opener reads it as "nothing here", exactly like a void.
+    const hasNoValueInSuit = count[s] === 0 || (count[s] === 1 && jacks[s] + nines[s] === 0 && !hand.some(c => c.s === s && c.r === 'A'));
+    if (hasNoValueInSuit && !alreadySaidVoid) {
       if (minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'ns', order: null };
       return { action: 'pass' };
     }
-    if (count[s] > 0 && jacks[s] >= 1 && !alreadyBidThisSuit) {
+    // Ladder J, J, 9, 9, ...: a 28 opener shows one jack, so partner's +1 is the other jack; a 29+ opener
+    // already shows both jacks, so partner's +1 can only be a 9 (jacks[s] is necessarily 0 then).
+    const teamOpenVal = state.teamSuitOpen ? state.teamSuitOpen[TEAM_OF(seat) + '-' + s] : null;
+    const openerShowsBothJacks = teamOpenVal >= 29;
+    if (count[s] > 0 && (jacks[s] >= 1 || (openerShowsBothJacks && nines[s] >= 1)) && !alreadyBidThisSuit) {
       const supportBump = jacks[s] + nines[s];
       const value = Math.min(56, cb.value + supportBump);
       if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward' };
@@ -431,6 +438,7 @@ function newRoomState(roomCode) {
     lastActionBySeat: {},
     revealedVoidBySeat: {},
     suitBidBySeat: {},
+    teamSuitOpen: {},
     table: [],
     leadSuit: null,
     pendingTrick: null,
@@ -473,6 +481,7 @@ function dealFreshHand(state) {
   state.revealedVoidBySeat = {};
   state.reviewHold = false;
   state.suitBidBySeat = {};
+  state.teamSuitOpen = {};
   state.bidHistory = [];
   state.table = [];
   state.leadSuit = null;
