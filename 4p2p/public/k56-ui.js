@@ -397,11 +397,17 @@
               { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: 1, offset: 0, easing: 'ease-in' },
               { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: 1, offset: .22, easing: 'ease-in' },
               { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: 1, offset: .4, easing: 'ease-in-out' },
-              { transform: base + ' rotate(-14deg)', width: '46px', height: '46px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .6, easing: 'cubic-bezier(.45,.05,.55,.95)' },
-              { transform: 'translate(calc(-50% + ' + (cdx * .55) + 'px),calc(-50% + ' + (cdy * .55 - 40) + 'px)) rotate(280deg)', width: '42px', height: '42px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .82, easing: 'ease-in' },
-              { transform: 'translate(calc(-50% + ' + cdx + 'px),calc(-50% + ' + cdy + 'px)) rotate(560deg)', width: '26px', height: '26px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', opacity: 0, offset: 1 }
+              { transform: base + ' rotate(-14deg)', width: '54px', height: '54px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .6, easing: 'cubic-bezier(.45,.05,.55,.95)' },
+              { transform: 'translate(calc(-50% + ' + (cdx * .55) + 'px),calc(-50% + ' + (cdy * .55 - 40) + 'px)) rotate(280deg)', width: '50px', height: '50px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)', opacity: 1, offset: .82, easing: 'ease-in' },
+              { transform: 'translate(calc(-50% + ' + cdx + 'px),calc(-50% + ' + cdy + 'px)) rotate(560deg)', width: '40px', height: '40px', padding: '0px', borderRadius: '50%', backgroundColor: ballC, color: 'transparent', fontSize: '0rem', borderWidth: '4px', opacity: 0, offset: 1 }
             ];
+            var num = document.createElement('span');
+            num.textContent = '+' + pt.points;
+            num.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:900 1.15rem Inter,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);opacity:0;pointer-events:none';
+            tb.appendChild(num);
+            var na = num.animate([{ opacity: 0, offset: 0 }, { opacity: 0, offset: .45 }, { opacity: 1, offset: .6 }, { opacity: 1, offset: .9 }, { opacity: 0, offset: 1 }], { duration: 1000, fill: 'forwards' });
             tb._crumple = tb.animate(kf, { duration: 1000, fill: 'forwards' });
+            tb._crumple.onfinish = function () { try { na.cancel(); num.remove(); } catch (e) {} };
           } else {
             tb.style.transition = 'transform .5s cubic-bezier(.4,.1,.6,1),opacity .5s ease-in';
             tb.style.transform = 'translate(calc(-50% + ' + cdx + 'px),calc(-50% + ' + cdy + 'px)) scale(.25)';
