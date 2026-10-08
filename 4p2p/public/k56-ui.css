@@ -1742,6 +1742,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 /* ===== Clear, solid turn/status UI (no blurry glows) ===== */
 /* Names: crisp outline only - the old blurred team-colour glow made them look smeared */
 .seat .nm.name-teammate,.seat .nm.name-opponent{filter:none !important}
+
+/* COT / MaruCOT pair: one centred dock in the open band above the turn label; Bot toggle sits right, Invite left */
+.cot-dock6p{position:fixed;left:50%;bottom:128px;transform:translateX(-50%);z-index:150;display:flex;gap:8px;align-items:center;justify-content:center;pointer-events:none}
+.cot-dock6p .btn-outline{pointer-events:auto;padding:5px 12px;border-radius:9px;font-size:.72rem;white-space:nowrap;font-weight:800;background:rgba(8,12,20,.9);height:30px;box-sizing:border-box}
+#sixpBotToggle{height:30px;box-sizing:border-box;padding:0 12px !important}
+#btnInvite{height:30px;box-sizing:border-box;padding:0 12px !important;left:12px !important}
+/* call badges / status chips sit ON the avatars - they must never swallow the tap that sends a cheers */
+.seat .call-badge,.seat .call-badge *{pointer-events:none !important}
 /* Bidding status popup: centred, solid, readable */
 .bid-status-banner{
   top:50% !important;left:50% !important;right:auto !important;bottom:auto !important;margin:0 !important;
@@ -1763,7 +1771,8 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #bidWinnerBubble6p.settled{animation:none !important;transform:translate(-50%,-50%) scale(1) !important}
 #bidWinnerBubble6p{min-width:230px}
 #bidWinnerBubble6p .bwb-turn{min-height:1.3em}
-.bid-status-banner{min-height:116px;box-sizing:border-box;padding-top:18px !important}
+.bid-status-banner{min-height:116px;box-sizing:border-box;padding-top:18px !important;pointer-events:none !important}
+#bidWinnerBubble6p,#bidWinnerBubble6p *,.turnlabel{pointer-events:none !important}
 .turnlabel.tl-opp{border-color:#ef4444}
 .turnlabel.tl-partner{border-color:#3ddc84}
 .turnlabel.tl-mine{border-color:#3ddc84;color:#3ddc84;animation:k56TlBlink 1s step-start infinite}

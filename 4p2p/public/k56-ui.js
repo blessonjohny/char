@@ -130,6 +130,14 @@
       var ts = $('trickSlot' + i);
       ts.style.left = TRICK[i][0] + '%'; ts.style.top = TRICK[i][1] + '%';
     }
+    // tap another player's avatar = send them a cheers (same as the 6-player table)
+    [1, 2, 3, 4, 5].forEach(function (slot) {
+      var a = $('av' + slot); a.style.cursor = 'pointer';
+      a.addEventListener('click', function () {
+        var target = (slot + me()) % 6;
+        ctx.send('l56_buddyGreeting', { toPos: target });
+      });
+    });
     sizeClass(); applySizes();
     window.addEventListener('resize', function () { sizeClass(); applySizes(); fitHand(); });
     var lk = root.querySelector('link');
@@ -491,5 +499,33 @@
   }
   function hide() { if (host && !host.hidden) { host.hidden = true; cache = {}; winnerKey = null; resultKey = null; } }
 
-  window.K56UI = { mount: mount, render: render, hide: hide, shadow: function () { return root; }, host: function () { return host; } };
+
+  var DRINKS = [['🥂','a glass'],['🧋','bubble tea'],['🥤','red soda water'],['🥤','blue soda water'],['☕','coffee'],['🍵','tea'],['🧃','juice'],['🍋','lemonade'],['🍷','a toast'],['🍺','a cold one'],['🍾','a celebration'],['🥃','the good stuff']];
+  function cheers(fromPos, toPos, fromName, toName) {
+    if (!root) return;
+    var d = DRINKS[Math.floor(Math.random() * DRINKS.length)];
+    var iSend = fromPos === me();
+    var msg = iSend ? 'You sent ' + (toName || 'them') + ' ' + d[1] + '! Cheers!' : (fromName || 'Someone') + ' toasted you with ' + d[1] + ' — Cheers!';
+    var fe = $('av' + slotOf(fromPos)), te = $('av' + slotOf(toPos));
+    function land(x, y) {
+      var b = document.createElement('div');
+      b.innerHTML = '<div style="font-size:1.5rem;line-height:1;margin-bottom:4px">' + d[0] + '</div><div></div>';
+      b.lastChild.textContent = msg;
+      b.style.cssText = 'position:fixed;left:' + x + 'px;top:' + y + 'px;transform:translate(-50%,-50%);background:#0b1220;color:#f4c430;font-weight:700;font-size:.8rem;width:max-content;min-width:170px;padding:10px 16px;border-radius:12px;border:2px solid #f4c430;z-index:9500;text-align:center;max-width:70vw;pointer-events:none;opacity:0;transition:opacity .25s';
+      document.body.appendChild(b);
+      requestAnimationFrame(function () { b.style.opacity = '1'; });
+      setTimeout(function () { b.style.opacity = '0'; setTimeout(function () { b.remove(); }, 300); }, 2000);
+    }
+    if (fe && te) {
+      var a = fe.getBoundingClientRect(), z = te.getBoundingClientRect();
+      var fx = a.left + a.width / 2, fy = a.top + a.height / 2, tx = z.left + z.width / 2, ty = z.top + z.height / 2;
+      var f = document.createElement('div'); f.textContent = d[0];
+      f.style.cssText = 'position:fixed;left:' + fx + 'px;top:' + fy + 'px;font-size:1.4rem;transform:translate(-50%,-50%);z-index:9500;pointer-events:none;transition:left .55s ease,top .55s ease';
+      document.body.appendChild(f);
+      requestAnimationFrame(function () { f.style.left = tx + 'px'; f.style.top = (ty - 30) + 'px'; });
+      setTimeout(function () { f.remove(); land(tx, ty); }, 550);
+    } else land(window.innerWidth / 2, window.innerHeight * 0.42);
+  }
+
+  window.K56UI = { cheers: cheers, mount: mount, render: render, hide: hide, shadow: function () { return root; }, host: function () { return host; } };
 })();

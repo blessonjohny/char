@@ -1806,6 +1806,14 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
 /* ===== Clear, solid turn/status UI (no blurry glows) ===== */
 /* Names: crisp outline only - the old blurred team-colour glow made them look smeared */
 .seat .nm.name-teammate,.seat .nm.name-opponent{filter:none !important}
+
+/* COT / MaruCOT pair: one centred dock in the open band above the turn label; Bot toggle sits right, Invite left */
+.cot-dock6p{position:fixed;left:50%;bottom:128px;transform:translateX(-50%);z-index:150;display:flex;gap:8px;align-items:center;justify-content:center;pointer-events:none}
+.cot-dock6p .btn-outline{pointer-events:auto;padding:5px 12px;border-radius:9px;font-size:.72rem;white-space:nowrap;font-weight:800;background:rgba(8,12,20,.9);height:30px;box-sizing:border-box}
+#sixpBotToggle{height:30px;box-sizing:border-box;padding:0 12px !important}
+#btnInvite{height:30px;box-sizing:border-box;padding:0 12px !important;left:12px !important}
+/* call badges / status chips sit ON the avatars - they must never swallow the tap that sends a cheers */
+.seat .call-badge,.seat .call-badge *{pointer-events:none !important}
 /* Bidding status popup: centred, solid, readable */
 .bid-status-banner{
   top:50% !important;left:50% !important;right:auto !important;bottom:auto !important;margin:0 !important;
@@ -1827,7 +1835,8 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
 #bidWinnerBubble6p.settled{animation:none !important;transform:translate(-50%,-50%) scale(1) !important}
 #bidWinnerBubble6p{min-width:230px}
 #bidWinnerBubble6p .bwb-turn{min-height:1.3em}
-.bid-status-banner{min-height:116px;box-sizing:border-box;padding-top:18px !important}
+.bid-status-banner{min-height:116px;box-sizing:border-box;padding-top:18px !important;pointer-events:none !important}
+#bidWinnerBubble6p,#bidWinnerBubble6p *,.turnlabel{pointer-events:none !important}
 .turnlabel.tl-opp{border-color:#ef4444}
 .turnlabel.tl-partner{border-color:#3ddc84}
 .turnlabel.tl-mine{border-color:#3ddc84;color:#3ddc84;animation:k56TlBlink 1s step-start infinite}
@@ -2031,7 +2040,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
        Admin/Chat/Invite) to float near the bottom, to the right of the local player's own
        seat - matching exactly where the 4-player table puts this same button, instead of
        the two tables having two different conventions for it. -->
-  <button class="btn-outline" id="btnQuoteDeclare" title="Declare COT" style="display:none;position:fixed;right:48px;bottom:150px;z-index:150;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">🎯 COT</button>
+  <div id="cotDock6p" class="cot-dock6p"><button class="btn-outline" id="btnQuoteDeclare" title="Declare COT" style="display:none">🎯 COT</button><button class="btn-outline" id="btnAskMidTrickQuote" title="Ask them to declare" style="display:none">❓ Ask COT?</button></div>
 
   <!-- ===== BOT TOGGLE (6-player) ===== -->
   <!-- Per explicit request: same auto-play-your-own-hand feature the
@@ -2042,7 +2051,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
        opposite the COT button above: same bottom offset, mirrored to
        the left side instead of the right, so it sits near the bottom
        seat without colliding with COT or any other fixed control. -->
-  <div class="sixp-bot-toggle" id="sixpBotToggle" onclick="sixpToggleBotMode()" style="position:fixed;left:48px;bottom:150px;z-index:150;display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,0.25);background:rgba(20,20,20,0.55);color:#fff;transition:all 0.25s">
+  <div class="sixp-bot-toggle" id="sixpBotToggle" onclick="sixpToggleBotMode()" style="position:fixed;right:12px;bottom:150px;z-index:150;display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,0.25);background:rgba(20,20,20,0.55);color:#fff;transition:all 0.25s">
     <span>🤖</span><span id="sixpBotLabel">BOT</span>
   </div>
   <!-- Per explicit request: moved down from the top bar, where it read
@@ -2055,7 +2064,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
        position and the icon-only label changed. Spells out "Invite"
        directly instead of relying on an icon alone, so what it does is
        obvious without needing the title tooltip. -->
-  <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="position:fixed;left:48px;bottom:114px;z-index:150;display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap">💌 Invite</button>
+  <button class="btn-outline" id="btnInvite" title="Invite a Friend" style="position:fixed;left:12px;bottom:150px;z-index:150;display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;font-size:0.68rem;font-weight:800;white-space:nowrap">💌 Invite</button>
   <!-- Real, confirmed feature per explicit live report ("to join if I
        want, I should have a chair icon on it, so click on it, join
        window should appear"): only ever shown while genuinely
@@ -2069,7 +2078,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
        up mid-trick when someone else holds the lead) - stacked directly below it on the same
        right edge, since they're the two entry points into the same underlying mechanic and
        should read as a matched pair rather than two unrelated floating buttons. -->
-  <button class="btn-outline" id="btnAskMidTrickQuote" title="Ask them to declare" style="display:none;position:fixed;right:48px;bottom:114px;z-index:150;padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">❓ Ask COT?</button>
+  <!-- (Ask COT? button now lives in #cotDock6p next to the COT button) -->
   <div class="topbar" style="flex-direction:column;align-items:stretch;gap:2px;padding:6px 10px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:4px">
       <div class="score-box" id="roundNumBox" style="padding:2px 5px;min-width:0;flex-shrink:0"><span class="slabel">ROUND</span><span class="sval" id="roundNum">1</span></div>
@@ -2372,7 +2381,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
      under this exact URL indefinitely, even after the file on disk changed and the server
      redeployed. Bump this number on every future six.js delivery (same convention as the
      layout-editor-* files already use). -->
-<script src="/six.js?v=3"></script>
+<script src="/six.js?v=4"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
 // six.js above, which may have already attached listeners to specific elements) has fully

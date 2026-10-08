@@ -1493,6 +1493,10 @@ function ensureSyncSocket(){
     clearInterval(stillPlaying56Interval);
   });
 
+  syncSocket.on('l56_buddyGreeting', ({fromPos, toPos, fromName, toName}) => {
+    if(window.K56UI && K56UI.cheers) K56UI.cheers(fromPos, toPos, fromName, toName);
+  });
+
   syncSocket.on('l56_chat', ({from, msg, senderId}) => {
     addChatMessage56(from, msg, senderId === syncSocket.id);
   });
@@ -1968,7 +1972,7 @@ maybeAutoReconnect56();
 function createTable(){
   const name = requireName();
   if(!name) return;
-  requestFullscreen56();
+  
   myName = name;
   ensureSyncSocket();
   // Opened inside a Layout Editor's preview frame: ask the server for a private editor table (hidden from players, visible in the admin).
@@ -1978,7 +1982,7 @@ function createTable(){
 function requestJoinRoom(code){
   const name = requireName();
   if(!name) return;
-  requestFullscreen56();
+  
   myName = name;
   ensureSyncSocket();
   syncSocket.emit('l56_requestJoin', {code, name});

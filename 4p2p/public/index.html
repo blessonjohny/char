@@ -15747,7 +15747,7 @@ document.getElementById('btnConfirmStartPos').addEventListener('click', () => {
       selectedPlayerIdx = 0; // Default to first player
     }
   }
-  requestFullscreen28();
+  
   startLocalGameWithPosition(selectedStartPos);
 });
 
@@ -16171,12 +16171,12 @@ document.getElementById('playerNameInput').addEventListener('keydown', (e) => {
 // Create Room button
 
 document.getElementById('btnCreateRoom').addEventListener('click', () => {
-  requestFullscreen28();
+  
   createTableOnServer(MY_NAME);
 });
 document.querySelectorAll('.challenge-diff-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    requestFullscreen28();
+    
     createTableOnServer(MY_NAME, Number(btn.dataset.handicap));
   });
 });
@@ -16195,7 +16195,7 @@ document.querySelectorAll('.challenge-diff-btn').forEach(btn => {
 document.getElementById('btnJoinRoom').addEventListener('click', () => {
   const roomIdOrPeer = document.getElementById('joinRoomId').value.trim();
   if (!roomIdOrPeer) { showToast('Enter a table code', 'lose', 1500); return; }
-  requestFullscreen28();
+  
   joinTableOnServer(roomIdOrPeer, MY_NAME);
 });
 

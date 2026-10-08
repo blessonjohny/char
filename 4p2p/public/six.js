@@ -1858,7 +1858,7 @@ async function submitPlayerName6p() {
   MY_NAME = name;
   const inviteBanner6pDone = $('inviteBanner6p');
   if (inviteBanner6pDone) inviteBanner6pDone.classList.add('hidden');
-  requestFullscreen6p();
+  /* no auto-fullscreen: it triggers the browser "exit full screen" notice; use the fullscreen button */
   connectSocket();
   if (pendingAction === 'create') {
     const payload = { name, avatar: MY_AVATAR_KEY };
