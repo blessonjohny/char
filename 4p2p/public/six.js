@@ -3588,8 +3588,17 @@ function animateCardsToWinner(winnerPos) {
   }, 1200);
 }
 
+// shrink the text until it fits inside the fixed-size pill, so long names / messages never look cramped or cut off
+function fitTurnLabel(l) {
+  if (!l || !l.textContent) return;
+  l.style.fontSize = '';
+  let fs = parseFloat(getComputedStyle(l).fontSize) || 12;
+  while (l.scrollWidth > l.clientWidth + 1 && fs > 8) { fs -= 0.5; l.style.fontSize = fs + 'px'; }
+}
+window.addEventListener('resize', () => fitTurnLabel($('turnLabel')));
 function updateTurnLabel(state) {
   updateTurnLabelInner(state);
+  fitTurnLabel($('turnLabel'));
   const l = $('turnLabel'), cp = state.currentPlayer;
   const mine = cp === MY_POS, partner = !mine && cp >= 0 && sixpGetTeam(cp) === sixpGetTeam(MY_POS);
   const has = !!l.textContent;

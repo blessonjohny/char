@@ -1838,7 +1838,9 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
 .bid-status-banner.bsb-mine{border-color:#3ddc84 !important;animation:k56BlinkBorderGreen 1s step-start infinite}
 @keyframes k56BlinkBorderGreen{0%{border-color:#3ddc84}50%{border-color:#14532d}}
 /* "Jin's turn" label above my avatar: bordered pill - red opponent, green partner, blinking green me */
-.turnlabel{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:32px;width:210px;max-width:92vw;padding:0 12px;border-radius:999px;border:2.5px solid transparent;background:rgba(6,10,18,.88);color:#fff;font-weight:800;font-size:.8rem;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.turnlabel{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:clamp(26px,7.4vw,32px);width:clamp(150px,54vw,210px);max-width:92vw;padding:0 10px;border-radius:999px;border:2.5px solid transparent;background:rgba(6,10,18,.88);color:#fff;font-weight:800;font-size:clamp(.6rem,3.3vw,.8rem);line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#btnInvite,#sixpBotToggle{bottom:112px !important}
+@media(max-width:380px){.cot-dock6p{gap:5px}.cot-dock6p .btn-outline{padding:4px 7px !important;font-size:.64rem !important}}
 .turnlabel:empty{visibility:hidden}
 /* no moving parts: the status popups keep a fixed size and never scale/pulse */
 #bidWinnerBubble6p.settled{animation:none !important;transform:translate(-50%,-50%) scale(1) !important}
@@ -2391,7 +2393,7 @@ body.k28-in-game .seat .call-badge .call-badge-header{font-size:1.6rem !importan
      under this exact URL indefinitely, even after the file on disk changed and the server
      redeployed. Bump this number on every future six.js delivery (same convention as the
      layout-editor-* files already use). -->
-<script src="/six.js?v=6"></script>
+<script src="/six.js?v=7"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
 // six.js above, which may have already attached listeners to specific elements) has fully
