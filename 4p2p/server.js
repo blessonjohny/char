@@ -270,6 +270,27 @@ app.post('/api/admin/avatars', express.json({ limit: '1mb' }), (req, res) => {
 // ---- Scenery: admin-managed backgrounds (per table and screen type) and replaceable Kunukku pictures (see scenery.js) ------
 const { createScenery } = require('./scenery');
 const scenery = createScenery({ dataDir: DATA_DIR });
+// ---- Table themes: which of the 20 table pictures the 6-player and 56 tables use (picked in the admin) ------------------
+const TABLE_THEMES_FILE = path.join(DATA_DIR, 'table-themes.json');
+let tableThemes = { six: 1, k56: 17 };
+try {
+  const p = JSON.parse(fs.readFileSync(TABLE_THEMES_FILE, 'utf8'));
+  const okN = (n) => Number.isInteger(n) && n >= 1 && n <= 20;
+  if (okN(p.six)) tableThemes.six = p.six;
+  if (okN(p.k56)) tableThemes.k56 = p.k56;
+} catch (_) {}
+app.get('/api/table-themes', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, six: tableThemes.six, k56: tableThemes.k56 });
+});
+app.post('/api/admin/table-themes', express.json({ limit: '2kb' }), (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const { game, id } = req.body || {};
+  if (!['six', 'k56'].includes(game) || !Number.isInteger(id) || id < 1 || id > 20) return res.status(400).json({ ok: false, error: 'Unknown table or picture.' });
+  tableThemes[game] = id;
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.writeFileSync(TABLE_THEMES_FILE, JSON.stringify(tableThemes)); } catch (e) { console.error('[table-themes] could not save:', e.message); }
+  res.json({ ok: true, six: tableThemes.six, k56: tableThemes.k56 });
+});
 app.get('/scenery.css', (req, res) => {
   res.setHeader('Content-Type', 'text/css; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache');                 // tiny; always asks, answers 304-style when unchanged
