@@ -62,18 +62,29 @@
     imp(gs, 'background-color', '#120a08');
     var px = function (fx, fy) { return [ox + fx / 100 * IMG.w * S, oy + (IMG.add + fy / 100 * IMG.oh) * S]; };
     var m = Math.max(0.85, Math.min(1.4, W / 390));
+    var rules = [];
     for (var i = 0; i < 6; i++) {
       var sz = SIZE[i], h = Math.round(sz[1] * m), sp = px(STOOL[i][0], STOOL[i][1]);
       var av = o.avs && o.avs[i];
       if (av) { imp(av, 'width', Math.round(sz[0] * m) + 'px'); imp(av, 'height', h + 'px'); imp(av, 'font-size', (sz[2] * m) + 'rem'); }
       var sw = o.seats[i];
-      if (sw) { imp(sw, 'left', sp[0] + 'px'); imp(sw, 'top', (sp[1] - h * LIFT[i]) + 'px'); }
+      if (sw && sw.id) rules.push('#' + sw.id + '{left:' + sp[0] + 'px !important;top:' + (sp[1] - h * LIFT[i]) + 'px !important}');
       var ts = o.tricks && o.tricks[i];
-      if (ts) {
+      if (ts && ts.id) {
         var tp = px(TRICK[i][0], TRICK[i][1]);
-        imp(ts, 'left', tp[0] + 'px'); imp(ts, 'top', tp[1] + 'px');
+        rules.push('#' + ts.id + '{left:' + tp[0] + 'px !important;top:' + tp[1] + 'px !important}');
       }
     }
+    /* seats and played-card slots go in a stylesheet (not inline) and sit BEFORE the layout editor's own override sheet,
+       so positions saved from the Visual Layout Editor still win over these defaults, and the editor can keep editing them */
+    var root = gs.getRootNode ? gs.getRootNode() : document, host = root === document ? document.head : root;
+    var tag = host.querySelector('#k28-stage-css');
+    if (!tag) { tag = document.createElement('style'); tag.id = 'k28-stage-css'; }
+    var ov = host.querySelector('style[id^="layout-overrides"]');
+    if (ov) { if (tag.nextSibling !== ov || tag.parentNode !== ov.parentNode) ov.parentNode.insertBefore(tag, ov); }
+    else if (!tag.parentNode) host.appendChild(tag);
+    var css = rules.join('\n');
+    if (tag.textContent !== css) tag.textContent = css;
     if (o.glows) {
       Object.keys(LAMPS).forEach(function (k) {
         var g = o.glows[k]; if (!g) return;
