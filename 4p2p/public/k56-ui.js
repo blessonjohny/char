@@ -20,72 +20,80 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   if (el._crumple) { try { el._crumple.cancel(); } catch (e) {} }
   fire = fire || 0;
   const base = 'translate(-50%,-50%)';
-  const ball = fire ? (fire > 1 ? '#ffb000' : '#ff5a00') : (tint || '#3ddc84');
-  const glow = fire ? ', 0 0 14px 5px rgba(255,140,0,.9), 0 0 30px 12px rgba(255,60,0,.55)' : '';
-  const ins = 'inset -6px -6px 10px rgba(0,0,0,.5), inset 4px 4px 8px rgba(255,255,255,.28)' + glow;
+  const ball = fire ? (fire > 1 ? '#ffb300' : '#ff6a00') : (tint || '#3ddc84');
+  const glow = fire ? ', 0 0 12px 4px rgba(255,150,0,.85), 0 0 26px 10px rgba(255,70,0,.45)' : '';
+  const ins = 'inset -5px -5px 9px rgba(0,0,0,.35), inset 3px 3px 7px rgba(255,255,255,.25)' + glow;
   const r0 = el.getBoundingClientRect(), W0 = r0.width, H0 = r0.height;
+  const D = fire ? 1400 : 1000, BS = fire > 1 ? 64 : 54;
   el.style.overflow = fire ? 'visible' : 'hidden';
-  const mk = (hide, sx) => {
-    sx = sx || 0;
-    const o = hide ? 0 : 1, bc = fire ? '#ffd27a' : ball;
-    return [
-      { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: o, offset: 0, easing: 'ease-in' },
-      { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: o, offset: .22, easing: 'ease-in' },
-      { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: o, offset: .4, easing: 'ease-in-out' },
-      { transform: 'translate(calc(-50% + ' + sx + 'px),-50%) rotate(-14deg)', width: '54px', height: '54px', padding: '0px', borderRadius: '50%', backgroundColor: ball, borderColor: bc, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: ins, opacity: 1, offset: .6, easing: 'cubic-bezier(.45,.05,.55,.95)' },
-      { transform: 'translate(calc(-50% + ' + (dx * .55 + sx) + 'px),calc(-50% + ' + (dy * .55 - 40) + 'px)) rotate(280deg)', width: '50px', height: '50px', padding: '0px', borderRadius: '50%', backgroundColor: ball, borderColor: bc, color: 'transparent', fontSize: '0rem', borderWidth: '4px', boxShadow: ins, opacity: 1, offset: .82, easing: 'ease-in' },
-      { transform: 'translate(calc(-50% + ' + dx + 'px),calc(-50% + ' + dy + 'px)) rotate(560deg)', width: '40px', height: '40px', padding: '0px', borderRadius: '50%', backgroundColor: ball, borderColor: bc, color: 'transparent', fontSize: '0rem', borderWidth: '4px', opacity: 0, offset: 1 }
+  const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, px = -uy, py = ux;
+  const T = (x, y, r) => 'translate(calc(-50% + ' + x + 'px),calc(-50% + ' + y + 'px)) rotate(' + r + 'deg)';
+  const ballF = (x, y, r, sz, off, ease, op) => ({ transform: T(x, y, r), width: sz + 'px', height: sz + 'px', padding: '0px', borderRadius: '50%', backgroundColor: ball, borderColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: '3px', boxShadow: ins, opacity: op == null ? 1 : op, offset: off, easing: ease || 'ease-in-out' });
+  let kf;
+  if (!fire) {
+    kf = [
+      { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: 1, offset: 0, easing: 'ease-in' },
+      { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: 1, offset: .22, easing: 'ease-in' },
+      { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: 1, offset: .4, easing: 'ease-in-out' },
+      ballF(0, 0, -14, 54, .6, 'cubic-bezier(.45,.05,.55,.95)'),
+      ballF(dx * .55, dy * .55 - 40, 280, 50, .82, 'ease-in'),
+      ballF(dx, dy, 560, 40, 1, null, 0)
     ];
-  };
-  const mkNum = (txt) => {
-    const num = document.createElement('span');
-    num.textContent = txt;
-    num.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:900 1.15rem Inter,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);opacity:0;pointer-events:none';
-    return num;
-  };
-  const numFrames = [{ opacity: 0, offset: 0 }, { opacity: 0, offset: .45 }, { opacity: 1, offset: .6 }, { opacity: 1, offset: .9 }, { opacity: 0, offset: 1 }];
-  const pts = '+' + (el.dataset.pts || '0');
-  const num = mkNum(pts); el.appendChild(num);
-  const na = num.animate(numFrames, { duration: 1000, fill: 'forwards' });
-  const extras = [];
-  /* double fireball: a second ball (the over-cut) travels right behind the first */
-  if (fire > 1) {
-    const c = document.createElement('div');
-    const cs = getComputedStyle(el);
-    c.style.cssText = 'position:fixed;box-sizing:border-box;margin:0;border:4px solid transparent;border-radius:50%;pointer-events:none;overflow:visible;z-index:124;opacity:0;left:' + cs.left + ';top:' + cs.top + ';width:' + cs.width + ';height:' + cs.height;
-    const cn = mkNum('+' + (el.dataset.pts || '0')); c.appendChild(cn);
-    el.parentNode.appendChild(c);
-    const ca = c.animate(mk(true, 36).map(f => { const g = Object.assign({}, f); if (g.offset < .55) g.opacity = 0; return g; }), { duration: 1000, delay: 130, fill: 'both' });
-    const cna = cn.animate(numFrames, { duration: 1000, delay: 130, fill: 'both' });
-    extras.push(c, ca, cna);
+  } else {
+    /* crumple -> ball -> pull back -> loop -> shoot at the winner */
+    kf = [
+      { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: 1, offset: 0, easing: 'ease-in' },
+      { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: 1, offset: .16, easing: 'ease-in' },
+      { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: 1, offset: .29, easing: 'ease-in-out' },
+      ballF(0, 0, -14, BS, .42, 'ease-out'),
+      ballF(-ux * 34, -uy * 34, -200, BS - 8, .56, 'ease-in-out'),
+      ballF(-ux * 18 + px * 26, -uy * 18 + py * 26, -420, BS - 6, .66, 'ease-in-out'),
+      ballF(-ux * 18 - px * 26, -uy * 18 - py * 26, -640, BS - 6, .75, 'ease-in'),
+      ballF(dx, dy, -1100, BS - 14, .97, 'linear', 1),
+      ballF(dx, dy, -1160, BS - 20, 1, null, 0)
+    ];
   }
-  /* flame trail: embers are dropped along the ball's path */
-  let tick = null;
+  const num = document.createElement('span');
+  num.textContent = '+' + (el.dataset.pts || '0');
+  num.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:900 1.15rem Inter,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);opacity:0;pointer-events:none';
+  el.appendChild(num);
+  const nOn = fire ? .42 : .6, nOff = fire ? .94 : .9;
+  const na = num.animate([{ opacity: 0, offset: 0 }, { opacity: 0, offset: nOn - .1 }, { opacity: 1, offset: nOn }, { opacity: 1, offset: nOff }, { opacity: 0, offset: 1 }], { duration: D, fill: 'forwards' });
+  /* thin flame tail: tiny embers laid along the ball's path, shrinking to nothing */
+  let raf = 0;
   if (fire) {
-    const t0 = performance.now();
-    tick = setInterval(() => {
-      const t = (performance.now() - t0) / 1000;
-      if (t < .5 || t > 1) return;
-      [el].concat(fire > 1 && extras[0] ? [extras[0]] : []).forEach(n => {
-        const r = n.getBoundingClientRect(); if (r.width < 4) return;
-        const e = document.createElement('div'), sz = 10 + Math.random() * 14;
-        e.style.cssText = 'position:fixed;z-index:123;pointer-events:none;border-radius:50%;width:' + sz + 'px;height:' + sz + 'px;left:' + (r.left + r.width / 2 - sz / 2 + (Math.random() - .5) * 10) + 'px;top:' + (r.top + r.height / 2 - sz / 2 + (Math.random() - .5) * 10) + 'px;background:radial-gradient(circle,#fff6b0 0%,#ffb000 38%,#ff4d00 70%,rgba(255,40,0,0) 100%);mix-blend-mode:screen';
-        (el.parentNode||document.body).appendChild(e);
-        const an = e.animate([{ transform: 'translateY(0) scale(1)', opacity: .95 }, { transform: 'translateY(-' + (14 + Math.random() * 14) + 'px) scale(.1)', opacity: 0 }], { duration: 420, easing: 'ease-out' });
-        an.onfinish = () => e.remove();
-      });
-    }, 35);
+    const t0 = performance.now(), host = el.parentNode || document.body;
+    let last = null;
+    const ember = (x, y, s) => {
+      const e = document.createElement('div');
+      e.style.cssText = 'position:fixed;z-index:123;pointer-events:none;border-radius:50%;width:' + s + 'px;height:' + s + 'px;left:' + (x - s / 2) + 'px;top:' + (y - s / 2) + 'px;background:radial-gradient(circle,#fffbe0 0%,#ffd24a 35%,#ff6a00 70%,rgba(255,50,0,0) 100%);mix-blend-mode:screen';
+      host.appendChild(e);
+      const an = e.animate([{ transform: 'scale(1)', opacity: .95 }, { transform: 'scale(.08)', opacity: 0 }], { duration: fire > 1 ? 560 : 420, easing: 'ease-out' });
+      an.onfinish = () => e.remove();
+    };
+    const loop = () => {
+      const t = (performance.now() - t0) / D;
+      if (t >= 1) return;
+      if (t > .44) {
+        const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        if (last) {
+          const d = Math.hypot(cx - last[0], cy - last[1]), n = Math.max(1, Math.round(d / 5));
+          for (let i = 1; i <= n; i++) ember(last[0] + (cx - last[0]) * i / n, last[1] + (cy - last[1]) * i / n, fire > 1 ? 15 : 11);
+        }
+        last = [cx, cy];
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
   }
-  const a = el.animate(mk(false), { duration: 1000, fill: 'forwards' });
+  const a = el.animate(kf, { duration: D, fill: 'forwards' });
   el._crumple = a;
   a.onfinish = () => {
     try { a.cancel(); na.cancel(); num.remove(); } catch (e) {}
-    if (tick) clearInterval(tick);
-    if (extras[0]) { try { extras[0].remove(); } catch (e) {} }
+    if (raf) cancelAnimationFrame(raf);
     el._crumple = null; if (done) done();
   };
 }
-
   function fireLevel(pt, st) {
     var log = (st.table && st.table.length ? { cards: st.table } : (st.tricksLog && st.tricksLog[st.tricksLog.length - 1])), cb = st.currentBid, tr = cb && cb.trump;
     if (!log || !log.cards || !log.cards.length || !tr) return 0;
@@ -471,7 +479,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
           // it crumples into a ball and the ball spins off to the winner
           if (tb.animate) {
             tb.dataset.pts = pt.points; tb.dataset.fire = fireLevel(pt, st);
-            crumpleFlyPopup(tb, cdx, cdy, tb.style.borderColor || '#3ddc84', function () { tb.style.opacity = '0'; }, +tb.dataset.fire);
+            crumpleFlyPopup(tb, cdx, cdy, tb.style.borderColor || '#3ddc84', function () { tb.style.opacity = '0'; if (!lastState || !lastState.pendingTrick) tog(tb, 'on', false); }, +tb.dataset.fire);
           } else {
             tb.style.transition = 'transform .5s cubic-bezier(.4,.1,.6,1),opacity .5s ease-in';
             tb.style.transform = 'translate(calc(-50% + ' + cdx + 'px),calc(-50% + ' + cdy + 'px)) scale(.25)';
@@ -486,7 +494,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
           }
         }, fire);
       }
-    } else { tog(tb, 'on', false); collectKey = null; }
+    } else { if (!tb._crumple) tog(tb, 'on', false); collectKey = null; }
   }
 
   /* ---------------- header / banners / popups ---------------- */
