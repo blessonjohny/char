@@ -1814,7 +1814,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #roundEndOverlay .modal-box.re-lose{background:rgba(34,12,14,.4) !important}
 #roundEndOverlay.modal-overlay,#roundEndOverlay{background:rgba(0,0,0,.12) !important}
 .game-event-box{background:linear-gradient(155deg,rgba(18,14,10,.3),rgba(8,6,4,.34)) !important;text-shadow:0 1px 3px rgba(0,0,0,.9)}
-#bidWinnerBubble6p{background:radial-gradient(ellipse at center,rgba(120,90,15,.45),rgba(40,28,4,.5)) !important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);text-shadow:0 1px 3px rgba(0,0,0,.9)}
+#bidWinnerBubble6p{background:radial-gradient(ellipse at center,#5a4410,#241904) !important;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:none}
 .modal-box{background:rgba(15,23,42,.58) !important;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .modal-overlay{background:rgba(0,0,0,.2) !important}
 .trump-chip,.trump-chip.trump-active{background:#000 !important}
