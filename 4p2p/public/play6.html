@@ -1878,6 +1878,9 @@ body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !im
 .modal-box{background:rgba(15,23,42,.58) !important;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .modal-overlay{background:rgba(0,0,0,.2) !important}
 .trump-chip,.trump-chip.trump-active{background:#000 !important}
+
+/* scoreboard look for the bid popups: solid, LED-line texture, double border */
+.bid-status-banner{background:repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 3px),linear-gradient(180deg,#16264a,#0a1226 58%,#060b19) !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;border:3px solid #f4c430 !important;box-shadow:inset 0 0 0 2px #060b19,inset 0 0 0 3px rgba(244,196,48,.55),0 10px 26px rgba(0,0,0,.65) !important}
 </style>
 <script src="name-filter.js?v=1"></script>
 <script src="/avatar-catalog.js"></script>
@@ -2410,7 +2413,7 @@ body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !im
      redeployed. Bump this number on every future six.js delivery (same convention as the
      layout-editor-* files already use). -->
 <script src="/table-stage.js?v=4"></script>
-<script src="/six.js?v=29"></script>
+<script src="/six.js?v=30"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
 // six.js above, which may have already attached listeners to specific elements) has fully

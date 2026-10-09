@@ -22,10 +22,12 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   const base = 'translate(-50%,-50%)';
   const ball = fire ? (fire > 2 ? '#ffd23a' : fire > 1 ? '#ffa000' : '#ff6a00') : (tint || '#3ddc84');
   const glow = fire ? (fire > 2 ? '0 0 22px 9px rgba(255,200,60,.95), 0 0 50px 22px rgba(255,80,0,.6)' : '0 0 12px 4px rgba(255,150,0,.85), 0 0 26px 10px rgba(255,70,0,.45)') : '';
-  const ins = fire ? glow : 'inset -5px -5px 9px rgba(0,0,0,.35), inset 3px 3px 7px rgba(255,255,255,.25)';
+  const me = el.dataset.me === '1';
+  const ring = me ? ', 0 0 0 4px rgba(255,255,255,.9), 0 0 0 8px ' + ball + ', 0 0 18px 8px rgba(255,255,255,.35)' : '';
+  const ins = (fire ? glow : 'inset -5px -5px 9px rgba(0,0,0,.35), inset 3px 3px 7px rgba(255,255,255,.25)') + ring;
   const grad = fire ? 'radial-gradient(circle at 50% 50%, #fffbe6 0%, ' + ball + ' 45%, #ff3d00 100%)' : 'none';
   const r0 = el.getBoundingClientRect(), W0 = r0.width, H0 = r0.height;
-  const D = fire > 2 ? 1800 : fire ? 1400 : 1000, BS = fire > 2 ? 92 : fire > 1 ? 64 : 54;
+  const D = fire > 2 ? 1800 : fire ? 1400 : 1000, BS = (fire > 2 ? 92 : fire > 1 ? 64 : 54) + (el.dataset.me === '1' ? 22 : 0);
   el.style.overflow = fire ? 'visible' : 'hidden';
   const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, px = -uy, py = ux;
   const T = (x, y, r) => 'translate(calc(-50% + ' + x + 'px),calc(-50% + ' + y + 'px)) rotate(' + r + 'deg)';
@@ -36,7 +38,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       { transform: base + ' rotate(0deg)', width: W0 + 'px', height: H0 + 'px', borderRadius: '14px', opacity: 1, offset: 0, easing: 'ease-in' },
       { transform: base + ' rotate(-5deg)', width: (W0 * .72) + 'px', height: (H0 * .6) + 'px', borderRadius: '22px', opacity: 1, offset: .22, easing: 'ease-in' },
       { transform: base + ' rotate(9deg)', width: '90px', height: '58px', paddingLeft: '4px', paddingRight: '4px', borderRadius: '30px', fontSize: '.3rem', opacity: 1, offset: .4, easing: 'ease-in-out' },
-      ballF(0, 0, -14, 54, .6, 'cubic-bezier(.45,.05,.55,.95)'),
+      ballF(0, 0, -14, BS, .6, 'cubic-bezier(.45,.05,.55,.95)'),
       ballF(dx * .55, dy * .55 - 40, 280, 50, .82, 'ease-in'),
       ballF(dx, dy, 560, 40, 1, null, 0)
     ];
@@ -55,7 +57,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     ];
   }
   const num = document.createElement('span');
-  num.textContent = '+' + (el.dataset.pts || '0');
+  num.innerHTML = el.dataset.me === '1' ? '<span style="display:block;text-align:center;line-height:1"><span style="display:block;font-size:.5rem;letter-spacing:.06em">YOU WIN</span>+' + (el.dataset.pts || '0') + '</span>' : '+' + (el.dataset.pts || '0');
   num.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:900 ' + (fire > 2 ? '1.6rem' : '1.15rem') + ' Inter,sans-serif;color:' + (fire ? '#4a1200' : '#fff') + ';text-shadow:' + (fire ? '0 0 4px rgba(255,255,255,.9)' : '0 1px 3px rgba(0,0,0,.9)') + ';opacity:0;pointer-events:none';
   el.appendChild(num);
   const nOn = fire ? .42 : .6, nOff = fire ? .94 : .9;
@@ -459,8 +461,9 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
         if (tb._crumple) { try { tb._crumple.cancel(); } catch (e) {} tb._crumple = null; }
         tb.style.transition = ''; tb.style.transform = ''; tb.style.opacity = '';
         var mineW = ctx.relTeam(pt.winnerSeat) === 'Team';
-        tb.style.borderColor = mineW ? '#3ddc84' : '#ef4444'; tb.style.color = mineW ? '#3ddc84' : '#ff6b6b'; tb.style.background = mineW ? 'rgba(10,29,20,.38)' : 'rgba(34,12,14,.38)';
-        tb.innerHTML = '<b>' + esc(w ? w.name : '') + '</b> wins the trick · +' + pt.points + ' pts to ' + esc(ctx.relTeam(pt.winnerSeat));
+        tb.style.borderColor = mineW ? '#3ddc84' : '#ef4444'; tb.style.color = mineW ? '#3ddc84' : '#ff6b6b'; tb.style.background = mineW ? 'repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 3px),linear-gradient(180deg,#12512f,#0a301d 55%,#061c11)' : 'repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 3px),linear-gradient(180deg,#5a1a1f,#36100f 55%,#210909)'; tb.style.boxShadow = 'inset 0 0 0 2px rgba(0,0,0,.55),inset 0 0 0 3px rgba(255,255,255,.18),0 10px 26px rgba(0,0,0,.65)'; tb.style.backdropFilter = 'none'; tb.style.webkitBackdropFilter = 'none';
+        var iWon = pt.winnerSeat === ctx.mySeat(); tb.dataset.me = iWon ? '1' : '0';
+        tb.innerHTML = '<b>' + (iWon ? 'YOU' : esc(w ? w.name : '')) + '</b> ' + (iWon ? 'win' : 'wins') + ' the trick · +' + pt.points + ' pts to ' + esc(ctx.relTeam(pt.winnerSeat));
       });
       tog(tb, 'on', true);
       /* sits in the empty space above the top player's head, clear of the header and the avatar */
