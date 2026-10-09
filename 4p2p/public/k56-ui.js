@@ -20,15 +20,16 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   if (el._crumple) { try { el._crumple.cancel(); } catch (e) {} }
   fire = fire || 0;
   const base = 'translate(-50%,-50%)';
-  const ball = fire ? (fire > 1 ? '#ffb300' : '#ff6a00') : (tint || '#3ddc84');
-  const glow = fire ? ', 0 0 12px 4px rgba(255,150,0,.85), 0 0 26px 10px rgba(255,70,0,.45)' : '';
-  const ins = 'inset -5px -5px 9px rgba(0,0,0,.35), inset 3px 3px 7px rgba(255,255,255,.25)' + glow;
+  const ball = fire ? (fire > 2 ? '#ffd23a' : fire > 1 ? '#ffa000' : '#ff6a00') : (tint || '#3ddc84');
+  const glow = fire ? (fire > 2 ? '0 0 22px 9px rgba(255,200,60,.95), 0 0 50px 22px rgba(255,80,0,.6)' : '0 0 12px 4px rgba(255,150,0,.85), 0 0 26px 10px rgba(255,70,0,.45)') : '';
+  const ins = fire ? glow : 'inset -5px -5px 9px rgba(0,0,0,.35), inset 3px 3px 7px rgba(255,255,255,.25)';
+  const grad = fire ? 'radial-gradient(circle at 50% 50%, #fffbe6 0%, ' + ball + ' 45%, #ff3d00 100%)' : 'none';
   const r0 = el.getBoundingClientRect(), W0 = r0.width, H0 = r0.height;
-  const D = fire ? 1400 : 1000, BS = fire > 1 ? 64 : 54;
+  const D = fire > 2 ? 1800 : fire ? 1400 : 1000, BS = fire > 2 ? 92 : fire > 1 ? 64 : 54;
   el.style.overflow = fire ? 'visible' : 'hidden';
   const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, px = -uy, py = ux;
   const T = (x, y, r) => 'translate(calc(-50% + ' + x + 'px),calc(-50% + ' + y + 'px)) rotate(' + r + 'deg)';
-  const ballF = (x, y, r, sz, off, ease, op) => ({ transform: T(x, y, r), width: sz + 'px', height: sz + 'px', padding: '0px', borderRadius: '50%', backgroundColor: ball, borderColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: '3px', boxShadow: ins, opacity: op == null ? 1 : op, offset: off, easing: ease || 'ease-in-out' });
+  const ballF = (x, y, r, sz, off, ease, op) => ({ transform: T(x, y, r), width: sz + 'px', height: sz + 'px', padding: '0px', borderRadius: '50%', backgroundColor: ball, backgroundImage: grad, borderColor: ball, color: 'transparent', fontSize: '0rem', borderWidth: fire ? '0px' : '3px', backdropFilter: 'none', boxShadow: ins, opacity: op == null ? 1 : op, offset: off, easing: ease || 'ease-in-out' });
   let kf;
   if (!fire) {
     kf = [
@@ -55,7 +56,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   }
   const num = document.createElement('span');
   num.textContent = '+' + (el.dataset.pts || '0');
-  num.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:900 1.15rem Inter,sans-serif;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);opacity:0;pointer-events:none';
+  num.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font:900 ' + (fire > 2 ? '1.6rem' : '1.15rem') + ' Inter,sans-serif;color:' + (fire ? '#4a1200' : '#fff') + ';text-shadow:' + (fire ? '0 0 4px rgba(255,255,255,.9)' : '0 1px 3px rgba(0,0,0,.9)') + ';opacity:0;pointer-events:none';
   el.appendChild(num);
   const nOn = fire ? .42 : .6, nOff = fire ? .94 : .9;
   const na = num.animate([{ opacity: 0, offset: 0 }, { opacity: 0, offset: nOn - .1 }, { opacity: 1, offset: nOn }, { opacity: 1, offset: nOff }, { opacity: 0, offset: 1 }], { duration: D, fill: 'forwards' });
@@ -68,7 +69,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       const e = document.createElement('div');
       e.style.cssText = 'position:fixed;z-index:123;pointer-events:none;border-radius:50%;width:' + s + 'px;height:' + s + 'px;left:' + (x - s / 2) + 'px;top:' + (y - s / 2) + 'px;background:radial-gradient(circle,#fffbe0 0%,#ffd24a 35%,#ff6a00 70%,rgba(255,50,0,0) 100%);mix-blend-mode:screen';
       host.appendChild(e);
-      const an = e.animate([{ transform: 'scale(1)', opacity: .95 }, { transform: 'scale(.08)', opacity: 0 }], { duration: fire > 1 ? 560 : 420, easing: 'ease-out' });
+      const an = e.animate([{ transform: 'scale(1)', opacity: .95 }, { transform: 'scale(.08)', opacity: 0 }], { duration: fire > 2 ? 800 : fire > 1 ? 560 : 420, easing: 'ease-out' });
       an.onfinish = () => e.remove();
     };
     const loop = () => {
@@ -78,7 +79,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
         const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
         if (last) {
           const d = Math.hypot(cx - last[0], cy - last[1]), n = Math.max(1, Math.round(d / 5));
-          for (let i = 1; i <= n; i++) ember(last[0] + (cx - last[0]) * i / n, last[1] + (cy - last[1]) * i / n, fire > 1 ? 15 : 11);
+          for (let i = 1; i <= n; i++) ember(last[0] + (cx - last[0]) * i / n, last[1] + (cy - last[1]) * i / n, fire > 2 ? 30 : fire > 1 ? 15 : 11);
         }
         last = [cx, cy];
       }
@@ -95,6 +96,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   };
 }
   function fireLevel(pt, st) {
+    if (st.tricksLog && st.tricksLog.length >= 8) return 3;
     var log = (st.table && st.table.length ? { cards: st.table } : (st.tricksLog && st.tricksLog[st.tricksLog.length - 1])), cb = st.currentBid, tr = cb && cb.trump;
     if (!log || !log.cards || !log.cards.length || !tr) return 0;
     var lead = log.cards[0].card.s; if (lead === tr) return 0;
