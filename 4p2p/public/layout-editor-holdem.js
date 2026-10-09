@@ -1699,9 +1699,11 @@
     // number box, so these give touch the same +/-1 control a mouse gets.
     // Tap = one step; hold = repeats (one undo step for the whole hold).
     inspectorEl.querySelectorAll('.ed-stepper').forEach((box) => {
-      const input = box.parentElement.querySelector('input[type=number]');
-      if (!input) return;
+      const input0 = box.parentElement.querySelector('input[type=number]');
+      if (!input0) return;
+      const fld = input0.dataset.field;
       const nudge = (dir) => {
+        const input = inspectorEl.querySelector('input[type=number][data-field="' + fld + '"]') || input0;
         const cur = parseFloat(input.value);
         const next = Math.round(((isNaN(cur) ? 0 : cur) + dir) * 1000) / 1000;
         input.value = next;
@@ -1714,6 +1716,7 @@
           clearTimeout(holdTimer); clearInterval(repeatTimer);
           holdTimer = repeatTimer = null; suppressUndoSnapshot = false;
         };
+        __stepStops.add(stop);
         btn.addEventListener('pointerdown', (ev) => {
           ev.preventDefault();            // keep the phone keyboard from popping up
           try { btn.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -1731,6 +1734,12 @@
   // ---------------------------------------------------------------------
   // Undo / Redo
   // ---------------------------------------------------------------------
+
+  /* Safety net for the hold-to-repeat arrows: whatever happens to the button (finger lifted somewhere else, the
+     inspector redrawn under the finger, the page losing focus), every running repeat is stopped. */
+  const __stepStops = new Set();
+  ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup', 'blur', 'contextmenu', 'dragstart'].forEach((t) => window.addEventListener(t, () => __stepStops.forEach((f) => f()), true));
+  document.addEventListener('visibilitychange', () => __stepStops.forEach((f) => f()));
   function pushUndoSnapshot() {
     undoStack.push(cloneConfig());
     if (undoStack.length > 100) undoStack.shift();

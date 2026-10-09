@@ -19,3 +19,8 @@
 #edInspector .pro-btn{background:#243040;color:var(--ed-text);border:1px solid var(--ed-border);border-radius:6px;padding:5px 9px;font-size:0.72rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
 #edInspector .pro-btn.on{background:var(--ed-gold);border-color:var(--ed-gold);color:#241a12}
 #edInspector .pro-btn.x{color:#ff9a9a;border-color:rgba(255,90,90,.45)}
+/* phone: the preview opens at full size (fits the screen width, page scrolls), the inspector stays pinned at the bottom */
+@media (max-width:860px){
+  #edStage{max-height:none !important;min-height:0 !important;padding:6px}
+  #edPropsBar{position:sticky;bottom:0;z-index:60;box-shadow:0 -6px 16px rgba(0,0,0,.45)}
+}

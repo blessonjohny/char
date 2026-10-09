@@ -188,7 +188,8 @@
   }
   function fit() {
     const availW = stage.clientWidth - 8, availH = stage.clientHeight - 8;
-    scale = manualZoom != null ? manualZoom : Math.min(1, availW / device.w, availH / device.h);
+    const narrow = window.innerWidth <= 860;   /* phone: fill the width, let the page scroll */
+    scale = manualZoom != null ? manualZoom : Math.min(1, availW / device.w, narrow ? Infinity : availH / device.h);
     frame.style.transformOrigin = 'top left'; frame.style.transform = scale === 1 ? 'none' : 'scale(' + scale + ')';
     frameWrap.style.width = Math.round(device.w * scale) + 'px'; frameWrap.style.height = Math.round(device.h * scale) + 'px';
     $('edZoomLabel').textContent = Math.round(scale * 100) + '%';
@@ -420,6 +421,12 @@
 
   // ---- inspector (bottom bar) ----------------------------------------------------------------------------
   const insp = $('edInspector');
+
+  /* Safety net for the hold-to-repeat arrows: whatever happens to the button (finger lifted somewhere else, the
+     inspector redrawn under the finger, the page losing focus), every running repeat is stopped. */
+  const __stepStops = new Set();
+  ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup', 'blur', 'contextmenu', 'dragstart'].forEach((t) => window.addEventListener(t, () => __stepStops.forEach((f) => f()), true));
+  document.addEventListener('visibilitychange', () => __stepStops.forEach((f) => f()));
   const stepperHtml = '<span class="ed-stepper"><button type="button" tabindex="-1" data-step="1">&#9650;</button><button type="button" tabindex="-1" data-step="-1">&#9660;</button></span>';
   function renderInspector() {
     if (!editMode || !S) { insp.innerHTML = '<div class="ed-inspector-empty">' + (editMode ? 'Tap anything on the table to select it. Tap empty space to let go.' : 'Turn on Edit, then tap anything on the table. Tap empty space to let go.') + '</div>'; return; }
@@ -440,10 +447,12 @@
     renderInspectorValues();
     insp.querySelectorAll('input[data-f]').forEach((inp) => inp.addEventListener('change', () => fieldChanged(inp.dataset.f, Number(inp.value))));
     insp.querySelectorAll('.ed-stepper').forEach((box) => {
-      const inp = box.parentElement.querySelector('input'); let hold = null, rep = null;
+      const fld = box.parentElement.querySelector('input').dataset.f; let hold = null, rep = null;
       let first = true;
-      const nudge = (dir) => { inp.value = (Number(inp.value) || 0) + dir; fieldChanged(inp.dataset.f, Number(inp.value), first ? false : 'cont'); first = false; };
+      /* the inspector is redrawn after every step, so always look the box up fresh instead of holding on to a stale one */
+      const nudge = (dir) => { const inp = insp.querySelector('input[data-f="' + fld + '"]'); if (!inp) { stop(); return; } inp.value = (Number(inp.value) || 0) + dir; fieldChanged(fld, Number(inp.value), first ? false : 'cont'); first = false; };
       const stop = () => { clearTimeout(hold); clearInterval(rep); hold = rep = null; stepHold = false; first = true; };
+      __stepStops.add(stop);
       box.querySelectorAll('button').forEach((b) => {
         const dir = Number(b.dataset.step);
         b.addEventListener('pointerdown', (ev) => { ev.preventDefault(); try { b.setPointerCapture(ev.pointerId); } catch (e) {} nudge(dir); stepHold = true; hold = setTimeout(() => { rep = setInterval(() => nudge(dir), 70); }, 400); });
@@ -722,7 +731,7 @@
     buildDeviceSelect(); await loadConfig();
     let v = null; try { v = localStorage.getItem('proEditorDevice'); } catch (e) {}
     const m = v && v.match(/^(\d+)x(\d+)$/);
-    const startW = m ? +m[1] : 390, startH = m ? +m[2] : 844;
+    const startW = m ? +m[1] : (window.innerWidth <= 860 ? window.innerWidth : 390), startH = m ? +m[2] : (window.innerWidth <= 860 ? window.innerHeight : 844);
     frame.src = T.src; setDevice(startW, startH, false);
     document.title = '28 Gulan — Pro Editor · ' + T.label;
     renderEdited(); syncUndo();

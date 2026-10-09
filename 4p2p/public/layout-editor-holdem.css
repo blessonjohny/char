@@ -122,7 +122,7 @@
    browser's own spinner arrows on hover, so these only show on touch devices
    (no hover / coarse pointer), where a number box has none. */
 .ed-stepper{display:none;flex-direction:column;gap:2px;flex:none}
-.ed-stepper button{width:34px;height:20px;padding:0;line-height:1;font-size:11px;border:1px solid var(--ed-border);border-radius:5px;background:#1a232e;color:var(--ed-text);cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.ed-stepper button{width:34px;height:20px;padding:0;line-height:1;font-size:11px;border:1px solid var(--ed-border);border-radius:5px;background:#1a232e;color:var(--ed-text);cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none}
 .ed-stepper button:active{background:#f4c430;color:#241a12;border-color:#f4c430}
 @media (hover:none), (pointer:coarse){
   .ed-stepper{display:flex}
