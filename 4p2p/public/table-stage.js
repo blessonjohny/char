@@ -66,7 +66,7 @@
     for (var i = 0; i < 6; i++) {
       var sz = SIZE[i], h = Math.round(sz[1] * m), sp = px(STOOL[i][0], STOOL[i][1]);
       var av = o.avs && o.avs[i];
-      if (av) { imp(av, 'width', Math.round(sz[0] * m) + 'px'); imp(av, 'height', h + 'px'); imp(av, 'font-size', (sz[2] * m) + 'rem'); }
+      if (av && av.id) rules.push('#' + av.id + '{width:' + Math.round(sz[0] * m) + 'px !important;height:' + h + 'px !important;font-size:' + (sz[2] * m) + 'rem !important}');
       var sw = o.seats[i];
       if (sw && sw.id) rules.push('#' + sw.id + '{left:' + sp[0] + 'px !important;top:' + (sp[1] - h * LIFT[i]) + 'px !important}');
       var ts = o.tricks && o.tricks[i];
@@ -80,7 +80,7 @@
     var root = gs.getRootNode ? gs.getRootNode() : document, host = root === document ? document.head : root;
     var tag = host.querySelector('#k28-stage-css');
     if (!tag) { tag = document.createElement('style'); tag.id = 'k28-stage-css'; }
-    var ov = host.querySelector('style[id^="layout-overrides"]');
+    var ov = host.querySelector('style[id^="layout-"]');
     if (ov) { if (tag.nextSibling !== ov || tag.parentNode !== ov.parentNode) ov.parentNode.insertBefore(tag, ov); }
     else if (!tag.parentNode) host.appendChild(tag);
     var css = rules.join('\n');

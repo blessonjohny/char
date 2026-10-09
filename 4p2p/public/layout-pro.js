@@ -73,9 +73,10 @@
         const d = [];
         if (it.hide) d.push('display:none !important');
         else {
+          if (it.ib) d.push('display:inline-block !important');
           const dx = num(it.dx), dy = num(it.dy), w = num(it.w), h = num(it.h);
           if ((dx != null && dx !== 0) || (dy != null && dy !== 0)) d.push(`translate:calc(${dx || 0}px * var(--lpu,1)) calc(${dy || 0}px * var(--lpu,1)) !important`);
-          if (w != null && w > 0) d.push(`width:calc(${w}px * var(--lpu,1)) !important;min-width:0 !important;max-width:none !important;box-sizing:border-box !important`);
+          if (w != null && w > 0) d.push(`width:calc(${w}px * var(--lpu,1)) !important;min-width:0 !important;max-width:none !important;box-sizing:border-box !important;flex-shrink:0 !important`);
           if (h != null && h > 0) d.push(`height:calc(${h}px * var(--lpu,1)) !important;min-height:0 !important;max-height:none !important`);
         }
         if (d.length) body += `${it.sel}{${d.join(';')}}\n`;

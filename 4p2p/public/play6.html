@@ -1560,7 +1560,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   /* Per explicit request: made bigger again (was intentionally shrunk smaller than this in an
      earlier pass) - "mine" is meant to be the single biggest avatar at the table, anchoring
      the depth hierarchy below it rather than nearly tying the lower-side seats. */
-  #seatWrap0 .av { width: 128px !important; height: 164px !important; font-size: 3.5rem !important; }
   /* Per explicit request: the bottom seat's avatar (whoever is sitting there -- this isn't tied
      to a specific player, it's the seat/position itself) always renders semi-transparent, not
      just when it happens to overlap the hand-cards bar below it. Applies regardless of who
@@ -1575,9 +1574,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
      smallest, upper-sides next, lower-sides "a little smaller than mine" just below the new,
      bigger "me" size) so the 3D effect actually reads clearly instead of the tiers nearly
      blending together. */
-  #seatWrap3 .av { width: 68px !important; height: 87px !important; font-size: 1.9rem !important; }
-  #seatWrap2 .av, #seatWrap4 .av { width: 82px !important; height: 105px !important; font-size: 2.3rem !important; }
-  #seatWrap1 .av, #seatWrap5 .av { width: 104px !important; height: 133px !important; font-size: 2.9rem !important; }
 
   /* Per explicit re-do: same inline-background-neutralizing fix as the
      4-player table -- see index.html's identical change for the fuller
@@ -2413,8 +2409,8 @@ body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !im
      under this exact URL indefinitely, even after the file on disk changed and the server
      redeployed. Bump this number on every future six.js delivery (same convention as the
      layout-editor-* files already use). -->
-<script src="/table-stage.js?v=3"></script>
-<script src="/six.js?v=27"></script>
+<script src="/table-stage.js?v=4"></script>
+<script src="/six.js?v=29"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
 // six.js above, which may have already attached listeners to specific elements) has fully
@@ -2439,7 +2435,7 @@ body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !im
      cache-busts these two files -- bump on every future delivery. -->
 <script src="layout-engine-6p.js?v=3"></script>
 <script src="layout-apply-6p.js?v=1"></script>
-<script src="layout-pro.js?v=1"></script>
+<script src="layout-pro.js?v=2"></script>
 <script src="layout-pro-apply.js?v=1" data-table="6p"></script>
 </body>
 </html>

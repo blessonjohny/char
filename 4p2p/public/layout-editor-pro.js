@@ -296,6 +296,7 @@
     if (!e) { e = { sel: S.sel, label: S.label, dx: 0, dy: 0 }; if (S.mode === 'like') e.like = true; items().push(e); }
     return e;
   }
+  function isInlineEl(el) { try { return el.ownerDocument.defaultView.getComputedStyle(el).display === 'inline'; } catch (x) { return false; } }
   function tidy(e) {
     const empty = !e.hide && !e.dx && !e.dy && !(e.w > 0) && !(e.h > 0);
     if (empty) { const i = items().indexOf(e); if (i >= 0) items().splice(i, 1); }
@@ -384,7 +385,7 @@
     if (drag.kind === 'move') { drag.entry.dx = round1(drag.dx0 + dxs / u); drag.entry.dy = round1(drag.dy0 + dys / u); LP.apply(doc(), win(), config); }
     else {
       drag.entry.dx = drag.dx0; drag.entry.dy = drag.dy0;
-      drag.entry.w = Math.max(8, round1(((drag.r0 ? drag.r0.width : 40) + dxs) / u)); drag.entry.h = Math.max(8, round1(((drag.r0 ? drag.r0.height : 40) + dys) / u));
+      drag.entry.ib = isInlineEl(S.el); drag.entry.w = Math.max(8, round1(((drag.r0 ? drag.r0.width : 40) + dxs) / u)); drag.entry.h = Math.max(8, round1(((drag.r0 ? drag.r0.height : 40) + dys) / u));
       LP.apply(doc(), win(), config); holdCorner(drag.entry, drag.r0);
     }
     renderInspectorValues();
@@ -471,6 +472,7 @@
     if (!S || !Number.isFinite(val)) return; const r = curRect(); if (!r) return;
     if (!(stepHold && keepUndo === 'cont')) pushUndo();
     const e = ensureEntry(), u = unit() * drawScale(S.el);
+    if (f === 'w' || f === 'h') e.ib = isInlineEl(S.el);
     if (f === 'x') e.dx = round1((e.dx || 0) + (val - r.left) / u);
     else if (f === 'y') e.dy = round1((e.dy || 0) + (val - r.top) / u);
     else if (f === 'w') { e.w = Math.max(4, round1(val / u)); LP.apply(doc(), win(), config); holdCorner(e, r); }

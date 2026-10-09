@@ -3094,6 +3094,7 @@ function enforceSeatAvatarSizing6p() {
     5: { w: 150, h: 193, fs: 4.13 },
   };
   for (const slot in sizes) {
+    if (window.K28Stage) break;   /* the table picture module sizes avatars through a stylesheet (so the layout editors can override it) */
     const av = document.getElementById('av' + slot);
     if (!av) continue;
     const s = sizes[slot];
