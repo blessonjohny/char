@@ -210,7 +210,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=16">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=22">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -519,7 +519,23 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       once('chip', t + cb.value + st.doubled, function () { chip.textContent = '🎯 ' + cb.value + ' · ' + t + (st.doubled ? (st.doubled === 2 ? ' · Redoubled' : ' · Doubled') : ''); });
       show(chip, true);
     } else show(chip, false);
-    (function () { var inv = $('btnInvite'); if (!inv) return; var cs = chip && chip.style.display !== 'none' && cb && st.phase !== 'bidding'; if (cs) inv.style.setProperty('display', 'none', 'important'); else inv.style.removeProperty('display'); })();
+    (function () {
+      var inv = $('btnInvite'); if (!inv) return;
+      var cs = chip && chip.style.display !== 'none' && cb && st.phase !== 'bidding';
+      var put = function () {
+        if (!cs) { ['left', 'top', 'transform'].forEach(function (k) { inv.style.removeProperty(k); }); return; }
+        var cr = chip.getBoundingClientRect(); if (!cr.width) return;
+        inv.style.setProperty('transform', 'none', 'important');
+        var wantX = cr.right + 8, wantY = cr.top + (cr.height - inv.offsetHeight) / 2;
+        for (var n = 0; n < 2; n++) {                       /* nudge from wherever it is now, whatever box it is positioned against */
+          var ir = inv.getBoundingClientRect(), cs2 = getComputedStyle(inv);
+          var curL = parseFloat(cs2.left) || 0, curT = parseFloat(cs2.top) || 0;
+          inv.style.setProperty('left', Math.round(curL + wantX - ir.left) + 'px', 'important');
+          inv.style.setProperty('top', Math.round(curT + wantY - ir.top) + 'px', 'important');
+        }
+      };
+      put(); setTimeout(put, 250); setTimeout(put, 900);
+    })();
   }
   /* the mic button sits on the top-left corner of the bid popup so it looks like part of it */
   function dockMic(b) {
