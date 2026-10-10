@@ -1939,3 +1939,5 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #bidStatusBanner6p.bid-status-banner{min-height:0 !important;padding:8px 14px !important;font-size:.82rem !important;line-height:1.3 !important;width:min(88vw,340px) !important}
 #bidStatusBanner6p .bsb-turn{margin-top:2px !important}
 .b56-ord .pre{display:block;font-size:.72rem;font-weight:700;color:#f7e09a;opacity:.9;margin-bottom:1px;letter-spacing:.02em}
+:host(.k28-in-game) .trump-chip{top:77px !important;left:55% !important;right:auto !important;transform:translateX(-50%) !important;z-index:150}
+@media (min-width:521px){:host(.k28-in-game) .trump-chip{top:156px !important;left:210px !important;transform:none !important}}

@@ -104,11 +104,13 @@
         z-index:150;box-shadow:0 4px 14px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.15s}
       #k28vBtn:active{transform:scale(0.92)}
       #k28vBtn.live{background:linear-gradient(135deg,#e74040,#c93030);animation:k28vPulse 1.8s ease-in-out infinite}
-      #k28vBtn.speaking{box-shadow:0 0 0 4px rgba(61,220,132,0.55),0 4px 14px rgba(0,0,0,0.4)}
+      #k28vBtn.k28v-docked{background:linear-gradient(180deg,#16264a,#0a1226);border:3px solid #f4c430;box-shadow:0 6px 16px rgba(0,0,0,.6);transition:none}
+      #k28vBtn.k28v-docked.live{background:linear-gradient(135deg,#e74040,#c93030)}
+      #k28vBtn.has-active-light{background:linear-gradient(135deg,#ff4a4a,#c42020);border-color:rgba(255,255,255,.35);animation:k28vRedBlink 1.1s ease-in-out infinite}
+      @keyframes k28vRedBlink{0%,100%{box-shadow:0 0 0 0 rgba(255,60,60,.0),0 4px 14px rgba(0,0,0,.4)}50%{box-shadow:0 0 0 7px rgba(255,60,60,.45),0 4px 18px rgba(255,40,40,.7)}}
+      #k28vBtn.speaking{background:linear-gradient(135deg,#ff5a5a,#d11f1f);box-shadow:0 0 0 6px rgba(255,60,60,0.6),0 4px 14px rgba(0,0,0,0.4)}
       @keyframes k28vPulse{0%,100%{box-shadow:0 4px 14px rgba(231,64,64,0.5)}50%{box-shadow:0 4px 22px rgba(231,64,64,0.9)}}
-      #k28vActiveLight{position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;
-        background:#3ddc84;border:2px solid #0a1628;display:none;animation:k28vBlink 1.3s ease-in-out infinite}
-      #k28vBtn.has-active-light #k28vActiveLight{display:block}
+      #k28vActiveLight{display:none !important}
       @keyframes k28vBlink{0%,100%{opacity:1;box-shadow:0 0 6px #3ddc84}50%{opacity:0.35;box-shadow:0 0 2px #3ddc84}}
       #k28vPanel{position:fixed;left:10px;bottom:92px;width:118px;max-height:150px;overflow-y:auto;
         background:rgba(15,25,40,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);

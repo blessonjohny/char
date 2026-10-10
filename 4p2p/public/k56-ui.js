@@ -519,6 +519,16 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       once('chip', t + cb.value + st.doubled, function () { chip.textContent = '🎯 ' + cb.value + ' · ' + t + (st.doubled ? (st.doubled === 2 ? ' · Redoubled' : ' · Doubled') : ''); });
       show(chip, true);
     } else show(chip, false);
+    (function () { var inv = $('btnInvite'); if (!inv) return; var cs = chip && chip.style.display !== 'none' && cb && st.phase !== 'bidding'; if (cs) inv.style.setProperty('display', 'none', 'important'); else inv.style.removeProperty('display'); })();
+  }
+  /* the mic button sits on the top-left corner of the bid popup so it looks like part of it */
+  function dockMic(b) {
+    var m = document.getElementById('k28vBtn'); if (!m) return;
+    if (!b || b.style.display === 'none') { m.classList.remove('k28v-docked'); m.style.removeProperty('left'); m.style.removeProperty('top'); return; }
+    var r = b.getBoundingClientRect();
+    m.classList.add('k28v-docked');
+    m.style.setProperty('left', Math.round(r.left - 16) + 'px', 'important');
+    m.style.setProperty('top', Math.round(r.top - 16) + 'px', 'important');
   }
   function renderBanners(st) {
     var ms = ctx.mySeat(), b = $('bidStatusBanner6p'), cb = st.currentBid;
@@ -535,12 +545,15 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       show(b, true);
       /* sits in the empty space above the top player's head (not over the table), like the trick popup */
       var placeBid = function () {
-        var tAv = $('av3'); if (!tAv || b.style.display === 'none') return;
-        var bh = b.offsetHeight, aTop = tAv.getBoundingClientRect().top;
-        b.style.setProperty('top', Math.max(aTop - 10 - bh / 2, window.innerHeight * 0.2 + bh / 2) + 'px', 'important');
+        if (b.style.display === 'none') return;
+        var inv = $('btnInvite'), bh = b.offsetHeight, topEdge;
+        var ir = inv && inv.getBoundingClientRect();
+        topEdge = ir && ir.height ? ir.bottom + 10 : window.innerHeight * 0.17;
+        b.style.setProperty('top', (topEdge + bh / 2) + 'px', 'important');
+        dockMic(b);
       };
       placeBid(); setTimeout(placeBid, 250); setTimeout(placeBid, 900);
-    } else show(b, false);
+    } else { show(b, false); dockMic(null); }
 
     // winner bubble: from auction close until the first card lands
     var bub = $('bidWinnerBubble6p');
