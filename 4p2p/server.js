@@ -5323,10 +5323,7 @@ function l56RunBotBid(state, seat) {
     state.lastActionBySeat[seat] = 'Pass';
     l56Engine.addLog(state, `${botName} passed.`, seat);
     if (!state.currentBid && state.passedSeats.length >= 6) {
-      state.forcedSeat = (state.dealer + 1) % 6;
-      state.passedSeats = [];
-      state.turn = state.forcedSeat;
-      l56Engine.addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+      l56Engine.autoNoTrump(state);
     } else if (state.currentBid && state.passedSeats.length >= 5) {
       l56Engine.closeBidding(state);
     } else {
@@ -5626,10 +5623,7 @@ function l56TryNudge(r) {
           state.lastActionBySeat[seat] = 'Pass';
           l56AddLog(state, `${state.seats[seat].name} passed.`, seat);
           if (!state.currentBid && state.passedSeats.length >= 6) {
-            state.forcedSeat = (state.dealer + 1) % 6;
-            state.passedSeats = [];
-            state.turn = state.forcedSeat;
-            l56AddLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+            l56Engine.autoNoTrump(state);
           } else if (state.currentBid && state.passedSeats.length >= 5) {
             l56CloseBidding(state);
           } else {
@@ -5990,10 +5984,7 @@ io.on('connection', (socket) => {
     if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
     l56Engine.addLog(state, `${state.seats[pos].name} passed.${noteText ? ' — "' + noteText + '"' : ''}`, pos);
     if (!state.currentBid && state.passedSeats.length >= 6) {
-      state.forcedSeat = (state.dealer + 1) % 6;
-      state.passedSeats = [];
-      state.turn = state.forcedSeat;
-      l56Engine.addLog(state, `Everyone passed. ${state.seats[state.forcedSeat].name} is forced to open the bidding.`);
+      l56Engine.autoNoTrump(state);
     } else if (state.currentBid && state.passedSeats.length >= 5) {
       l56Engine.closeBidding(state);
     } else {

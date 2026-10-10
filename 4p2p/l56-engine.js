@@ -202,6 +202,17 @@ function advanceBiddingTurn(state) {
   }
   state.turn = next;
 }
+// Everyone passed: the first bidder (left of dealer) is auto-assigned 28 No Trump, no choices, bidding closes.
+function autoNoTrump(state) {
+  const seat = (state.dealer + 1) % 6;
+  state.currentBid = { value: 28, trump: null, seat, kind: 'nt', order: null };
+  state.doubled = 0; state.doubledBySeat = null;
+  state.passedSeats = []; state.openerSeat = seat; state.openerSuit = null;
+  state.lastActionBySeat = state.lastActionBySeat || {};
+  state.lastActionBySeat[seat] = '28 No Trump';
+  addLog(state, `Everyone passed. ${state.seats[seat].name} gets 28 No Trump automatically.`, seat);
+  closeBidding(state);
+}
 function closeBidding(state) {
   const cb = state.currentBid;
   state.phase = 'auctionClosed';
@@ -546,7 +557,7 @@ module.exports = {
   bandFor, freshDeck, shuffle, dealHands, addLog,
   formatBidLabel, formatBidLogLabel, legalCardsForSeat, cardPower,
   resolveTrick, settlePendingTrick, finishHand,
-  advanceBiddingTurn, closeBidding,
+  advanceBiddingTurn, closeBidding, autoNoTrump,
   suitStats, suitOpenValue, botDecideBid,
   getPlayedCardsThisHand, suitLeadSafety, chooseDiscard, botChooseCard,
   newRoomState, dealFreshHand, startGame, nextHand, startNewMatch, restartRound,
