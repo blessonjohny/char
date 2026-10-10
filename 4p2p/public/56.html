@@ -779,7 +779,7 @@
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
 <script src="table-stage.js?v=4"></script>
-<script src="k56-ui.js?v=20"></script>
+<script src="k56-ui.js?v=25"></script>
 <link rel="stylesheet" href="/scenery.css">
 <script src="/fs-hide.js"></script>
 </head>
@@ -3621,7 +3621,7 @@ async function submitBid(){
   // tracking, NS/suit-claim bookkeeping, turn advancement) now happen
   // server-side (see server.js's l56_placeBid handler + l56-engine.js) --
   // this just sends what was chosen and renders whatever comes back.
-  syncSocket.emit('l56_placeBid', {code: roomCode, value, trump, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null, note});
+  syncSocket.emit('l56_placeBid', {code: roomCode, value, trump, kind: bidTrumpKind, order: bidTrumpKind==='suit' ? bidOrder : null, inc: bidMode==='inc', note});
 }
 
 async function passBid(){

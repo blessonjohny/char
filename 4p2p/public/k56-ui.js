@@ -294,7 +294,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var st = lastState, cb = st.currentBid, value = previewValue(cb), minAllowed = cb ? cb.value + 1 : 28;
     if (value < minAllowed) { msg('Your bid must be at least ' + minAllowed + '.'); return; }
     var note = bid.note.trim(); afterAct();
-    ctx.send('l56_placeBid', { value: value, trump: bid.kind === 'suit' ? bid.suit : null, kind: bid.kind, order: bid.kind === 'suit' ? bid.order : null, note: note });
+    ctx.send('l56_placeBid', { value: value, trump: bid.kind === 'suit' ? bid.suit : null, kind: bid.kind, order: bid.kind === 'suit' ? bid.order : null, inc: bid.mode === 'inc', note: note });
   }
   function doPass() {
     var st = lastState;
