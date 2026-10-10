@@ -335,9 +335,10 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       return '<button data-suit="' + s + '" class="' + (RED[s] ? 'red ' : '') + (bid.kind === 'suit' && bid.suit === s ? 'sel' : '') + '">' + SYM[s] + '</button>';
     }).join('') + '<button data-suit="NT" class="txt ' + (bid.kind === 'nt' ? 'sel' : '') + '">No Trump</button><button data-suit="NS" class="txt ' + (bid.kind === 'ns' ? 'sel' : '') + '">NOS</button>';
     var sym = SYM[bid.suit], red = RED[bid.suit] ? ' red' : '';
+    var incPre = (bid.mode === 'inc' && cb) ? '<span class="pre">' + esc((st.seats[cb.seat] || {}).name || '') + ' bid ' + esc(ctx.formatBid(cb)) + '</span>' : '';
     $('b56Order').innerHTML = bid.kind !== 'suit' ? '' :
-      '<button data-order="forward" class="' + (bid.order === 'forward' ? 'sel' : '') + '"><span class="pv' + red + '">' + (bid.mode === 'inc' ? '+' + bid.num + ' ' + sym : pv + ' ' + sym) + '</span><span class="lb">Have the Jack</span></button>' +
-      '<button data-order="reverse" class="' + (bid.order === 'reverse' ? 'sel' : '') + '"><span class="pv' + red + '">' + (bid.mode === 'inc' ? sym + ' +' + bid.num : sym + ' ' + pv) + '</span><span class="lb">No Jack, 4+ cards</span></button>';
+      '<button data-order="forward" class="' + (bid.order === 'forward' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? '+' + bid.num + ' ' + sym : pv + ' ' + sym) + '</span><span class="lb">Have the Jack</span></button>' +
+      '<button data-order="reverse" class="' + (bid.order === 'reverse' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? sym + ' +' + bid.num : sym + ' ' + pv) + '</span><span class="lb">No Jack, 4+ cards</span></button>';
     var ex = '';
     if (bid.kind === 'nt') ex = 'No Trump — signals 3+ Jacks spread across different suits. If it wins, the hand is played with no trump.';
     else if (bid.kind === 'ns') ex = 'NOS (No Suit) — signals you hold nothing in the suit just bid. If it wins it plays like No Trump.';
