@@ -933,6 +933,7 @@ class GameEngine6P {
   canPlayCard(pos, card) {
     if (this.phase !== 'play') return { ok: false, reason: 'not_playing' };
     if (pos !== this.currentPlayer) return { ok: false, reason: 'not_your_turn' };
+    if (this.trickCards.some(t => t.pos === pos)) return { ok: false, reason: 'already_played_this_trick' };
     const hand = this.seats[pos].hand;
     if (!hand.some(c => cardEq(c, card))) return { ok: false, reason: 'not_in_hand' };
     if (this.trickSuit === '') {
@@ -1095,8 +1096,9 @@ class GameEngine6P {
       const seat = this.seats[pos];
       const isBidderTeam = getTeam(pos) === getTeam(this.bidder);
       this.addLog(`${seat ? seat.name : 'Seat ' + pos} declared ${isBidderTeam ? 'COT' : 'MaruCOT'} mid-trick — betting on a full sweep of all remaining tricks!`);
-      this._notify();
-      this.currentPlayer = this._nextActivePos(this.currentPlayer);
+      // NOTE: the turn must NOT be advanced here. This offer is asked while a trick is in progress, and
+      // playCard() has already moved currentPlayer on to whoever plays next. Advancing again skipped that
+      // player, and later asked someone who had already played to play a second card -> the trick froze.
       this._notify();
       this.maybeAutoAct();
     } else {
@@ -1655,7 +1657,22 @@ class GameEngine6P {
 
   // ---------------- Bots ----------------
 
+  _healTurnPointer() {
+    if (this.phase !== 'play' || !this.trickCards.length) return;
+    if (!this.trickCards.some(t => t.pos === this.currentPlayer)) return;
+    let p = this.currentPlayer;
+    for (let i = 0; i < SEATS; i++) {
+      p = this._nextActivePos(p);
+      if (!this.trickCards.some(t => t.pos === p)) {
+        this.addLog(`Turn pointer repaired: it was on a seat that had already played this trick, moved to seat ${p}.`);
+        this.currentPlayer = p;
+        return;
+      }
+    }
+  }
+
   maybeAutoAct() {
+    this._healTurnPointer();
     // See game-engine.js for the full reasoning -- identical guard here.
     // If literally everyone on the winning team is now a bot or
     // disconnected (can change after the prompt was first shown),
