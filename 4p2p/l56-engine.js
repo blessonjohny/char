@@ -75,6 +75,7 @@ function formatBidLabel(cb) {
 }
 function formatBidLogLabel(cb) {
   if (!cb) return '';
+  if (cb.kind === 'ns' && cb.increment) return `+${cb.increment} NOS (${cb.value})`;
   if (cb.kind === 'nt' || cb.kind === 'ns') return formatBidLabel(cb);
   if (cb.increment) {
     const sym = SUIT_SYM[cb.trump];
@@ -141,14 +142,14 @@ function finishHand(state) {
   const oppTeam = biddingTeam === 'A' ? 'B' : 'A';
   const made = state.teamPoints[biddingTeam] >= cb.value;
   const band = bandFor(cb.value);
-  const mult = state.doubled === 2 ? 4 : state.doubled === 1 ? 2 : 1;
+  const extra = state.doubled === 2 ? 2 : state.doubled === 1 ? 1 : 0;   // double adds 1 table, redouble adds 1 more (not a multiplier)
   if (made) {
-    const amt = Math.min(band.win * mult, state.matchScore[oppTeam]);
+    const amt = Math.min(band.win + extra, state.matchScore[oppTeam]);
     state.matchScore[biddingTeam] += amt;
     state.matchScore[oppTeam] -= amt;
     addLog(state, `Team ${biddingTeam} made their bid of ${cb.value}. Receive ${amt} table${amt !== 1 ? 's' : ''} from Team ${oppTeam}.`);
   } else {
-    const amt = Math.min(band.lose * mult, state.matchScore[biddingTeam]);
+    const amt = Math.min(band.lose + extra, state.matchScore[biddingTeam]);
     state.matchScore[biddingTeam] -= amt;
     state.matchScore[oppTeam] += amt;
     addLog(state, `Team ${biddingTeam} fell short of ${cb.value}. Pay ${amt} table${amt !== 1 ? 's' : ''} to Team ${oppTeam}.`);
@@ -289,6 +290,12 @@ function botDecideBid(state, seat) {
   }
 
   const isPartnerBid = TEAM_OF(cb.seat) === TEAM_OF(seat);
+  // Partner has already shown "nothing in the suit" (NOS). If I have nothing in it either, I answer with a PLUS call: "+1 NOS".
+  if (isPartnerBid && cb.kind === 'ns' && state.nsBySeat && typeof state.nsBySeat[cb.seat] === 'string' && !(state.nsBySeat[seat])) {
+    const s = state.nsBySeat[cb.seat];
+    const nothing = count[s] === 0 || (count[s] === 1 && jacks[s] + nines[s] === 0 && !hand.some(c => c.s === s && c.r === 'A'));
+    if (nothing && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'ns', order: null, plus: true };
+  }
   if (isPartnerBid && cb.trump) {
     const s = cb.trump;
     const alreadySaidVoid = state.nsBySeat && state.nsBySeat[seat];

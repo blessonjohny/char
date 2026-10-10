@@ -5347,6 +5347,8 @@ function l56RunBotBid(state, seat) {
     const newBid = { value: decision.value, trump: decision.trump, seat, kind: decision.kind, order: decision.order };
     if (decision.kind === 'suit' && state.currentBid && state.currentBid.trump === decision.trump && decision.plus !== false) {
       newBid.increment = decision.value - state.currentBid.value;
+    } else if (decision.kind === 'ns' && decision.plus === true && state.currentBid) {
+      newBid.increment = decision.value - state.currentBid.value;   // "+1 NOS"
     }
     if (!state.currentBid) { state.openerSeat = seat; state.openerSuit = decision.trump; }
     if (decision.kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[seat] = state.currentBid ? state.currentBid.trump : true; }
@@ -5493,14 +5495,14 @@ function l56FinishHand(state) {
   const oppTeam = biddingTeam === 'A' ? 'B' : 'A';
   const made = state.teamPoints[biddingTeam] >= cb.value;
   const band = l56BandFor(cb.value);
-  const mult = state.doubled === 2 ? 4 : state.doubled === 1 ? 2 : 1;
+  const extra = state.doubled === 2 ? 2 : state.doubled === 1 ? 1 : 0;   // double adds 1 table, redouble adds 1 more (not a multiplier)
   if (made) {
-    const amt = Math.min(band.win * mult, state.matchScore[oppTeam]);
+    const amt = Math.min(band.win + extra, state.matchScore[oppTeam]);
     state.matchScore[biddingTeam] += amt;
     state.matchScore[oppTeam] -= amt;
     l56AddLog(state, `Team ${biddingTeam} made their bid of ${cb.value}. Receive ${amt} table${amt !== 1 ? 's' : ''} from Team ${oppTeam}.`);
   } else {
-    const amt = Math.min(band.lose * mult, state.matchScore[biddingTeam]);
+    const amt = Math.min(band.lose + extra, state.matchScore[biddingTeam]);
     state.matchScore[biddingTeam] -= amt;
     state.matchScore[oppTeam] += amt;
     l56AddLog(state, `Team ${biddingTeam} fell short of ${cb.value}. Pay ${amt} table${amt !== 1 ? 's' : ''} to Team ${oppTeam}.`);
@@ -5950,6 +5952,7 @@ io.on('connection', (socket) => {
         newBid.increment = value - 27;
       }
     }
+    if (kind === 'ns' && inc === true && state.currentBid) newBid.increment = value - state.currentBid.value;   // "+N NOS"
     if (!state.currentBid) { state.openerSeat = pos; state.openerSuit = newBid.trump; }
     if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = state.currentBid ? state.currentBid.trump : true; }
     if (kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[pos + '-' + trump] = order; }
