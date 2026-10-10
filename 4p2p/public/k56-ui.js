@@ -532,6 +532,13 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var bm = st.turn === ms, bp = !bm && st.turn != null && team(st.turn) === team(me());
       tog(b, 'bsb-mine', bm); tog(b, 'bsb-partner', bp); tog(b, 'bsb-opp', !bm && !bp);
       show(b, true);
+      /* sits in the empty space above the top player's head (not over the table), like the trick popup */
+      var placeBid = function () {
+        var tAv = $('av3'); if (!tAv || b.style.display === 'none') return;
+        var bh = b.offsetHeight, aTop = tAv.getBoundingClientRect().top;
+        b.style.setProperty('top', Math.max(aTop - 10 - bh / 2, window.innerHeight * 0.2 + bh / 2) + 'px', 'important');
+      };
+      placeBid(); setTimeout(placeBid, 250); setTimeout(placeBid, 900);
     } else show(b, false);
 
     // winner bubble: from auction close until the first card lands
