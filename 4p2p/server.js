@@ -5929,7 +5929,7 @@ io.on('connection', (socket) => {
     l56ScheduleNext(code);
   });
 
-  socket.on('l56_placeBid', ({ code, value, trump, kind, order, note }) => {
+  socket.on('l56_placeBid', ({ code, value, trump, kind, order, note, inc }) => {
     const seatInfo = l56SeatFor(socket, code);
     if (!seatInfo) return;
     const { r, pos } = seatInfo;
@@ -5941,10 +5941,14 @@ io.on('connection', (socket) => {
     if (kind === 'suit' && !l56Engine.SUITS.includes(trump)) return;
 
     const newBid = { value, trump: kind === 'suit' ? trump : null, seat: pos, kind, order: kind === 'suit' ? order : null };
-    if (kind === 'suit' && state.currentBid && state.currentBid.trump === trump) {
-      newBid.increment = value - state.currentBid.value;
-    } else if (kind === 'suit' && !state.currentBid) {
-      newBid.increment = value - 27;
+    // "+N" is shown only when the player really used "Increase by" (inc === true). "Set to" is a plain call: 28 ♠, never +1 ♠.
+    // (Old clients that don't send the flag keep the previous automatic behaviour.)
+    if (inc !== false) {
+      if (kind === 'suit' && state.currentBid && state.currentBid.trump === trump) {
+        newBid.increment = value - state.currentBid.value;
+      } else if (kind === 'suit' && !state.currentBid) {
+        newBid.increment = value - 27;
+      }
     }
     if (!state.currentBid) { state.openerSeat = pos; state.openerSuit = newBid.trump; }
     if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = state.currentBid ? state.currentBid.trump : true; }
