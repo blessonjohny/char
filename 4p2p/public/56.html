@@ -779,7 +779,7 @@
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
 <script src="table-stage.js?v=4"></script>
-<script src="k56-ui.js?v=26"></script>
+<script src="k56-ui.js?v=27"></script>
 <link rel="stylesheet" href="/scenery.css">
 <script src="/fs-hide.js"></script>
 </head>
@@ -3363,6 +3363,7 @@ function formatBidLabel(cb){
 // e.g. to know the actual target to beat.
 function formatBidLogLabel(cb){
   if(!cb) return '';
+  if(cb.kind === 'ns' && cb.increment) return `+${cb.increment} NOS (${cb.value})`;
   if(cb.kind === 'nt' || cb.kind === 'ns') return formatBidLabel(cb);
   if(cb.increment){
     const sym = SUIT_SYM[cb.trump];

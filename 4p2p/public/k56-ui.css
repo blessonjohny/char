@@ -1940,3 +1940,42 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 #bidStatusBanner6p .bsb-turn{margin-top:2px !important}
 .b56-ord .pre{display:block;font-size:.72rem;font-weight:700;color:#f7e09a;opacity:.9;margin-bottom:1px;letter-spacing:.02em}
 .trump-chip{top:77px !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;z-index:150}
+
+/* ===== bid sheet redesign: tall, compact, stylish ===== */
+.b56-panel{height:calc(100vh - 112px);height:calc(100dvh - 112px);max-height:none;max-width:520px;width:100%;border-radius:22px 22px 0 0;border:1.5px solid rgba(244,196,48,.55);border-bottom:none;
+  background:radial-gradient(120% 60% at 50% 0%,#22365a 0%,#13213a 45%,#0a1222 100%);box-shadow:0 -14px 50px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.12)}
+.b56-head{padding:16px 18px 10px;align-items:center;border-bottom:1px solid rgba(244,196,48,.18);background:linear-gradient(180deg,rgba(244,196,48,.10),transparent)}
+.b56-title{font-size:1.5rem;letter-spacing:2px;text-shadow:0 2px 10px rgba(244,196,48,.35)}
+.b56-status{font-size:.8rem;color:#cdd8e6;background:rgba(0,0,0,.35);border:1px solid rgba(244,196,48,.4);border-radius:999px;padding:6px 12px}
+.b56-status b{color:#ffe08a;font-size:.95rem}
+.b56-scroll{display:flex;flex-direction:column;justify-content:space-evenly;padding:0 16px 6px}
+.b56-sec{margin:10px 0 6px;font-size:.66rem;letter-spacing:1.6px;color:#f4c430;opacity:.85}
+.b56-chip{font-size:.8rem;padding:6px 12px;font-weight:600}
+.b56-hand{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.b56-mc{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 0 4px;border-radius:7px;line-height:1;background:linear-gradient(180deg,#fff,#e9edf3);box-shadow:0 2px 5px rgba(0,0,0,.35)}
+.b56-mc i{font-style:normal;font-weight:800;font-size:.95rem}
+.b56-mc b{font-size:1.15rem;margin-top:2px}
+.b56-row{margin-top:10px;gap:10px}
+.b56-seg{flex:1;padding:4px;border:1px solid rgba(255,255,255,.1)}
+.b56-seg button{flex:1;white-space:nowrap;padding:11px 6px;font-size:.92rem;border-radius:9px;letter-spacing:.3px}
+.b56-seg button.sel{background:linear-gradient(180deg,#ffd75e,#e5ad14);box-shadow:0 3px 10px rgba(244,196,48,.4)}
+.b56-step button{width:44px;height:44px;font-size:1.4rem;font-weight:800;background:rgba(255,255,255,.1)}
+.b56-step input{width:62px;height:44px;font-size:1.4rem}
+.b56-suits{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.55fr 1.15fr;gap:6px;margin-top:12px}
+.b56-suits button{min-width:0;height:56px;font-size:1.7rem;border-radius:12px;background:linear-gradient(180deg,#fff,#e6ebf2);box-shadow:0 3px 8px rgba(0,0,0,.35)}
+.b56-suits button.txt{font-size:.82rem;font-weight:800;line-height:1.1;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.28);box-shadow:none}
+.b56-suits button.sel{outline:3px solid #f4c430;box-shadow:0 0 18px rgba(244,196,48,.7)}
+.b56-ord{gap:10px;margin-top:12px}
+.b56-ord button{padding:10px 6px 9px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(0,0,0,.28));display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:84px}
+.b56-ord button.sel{background:linear-gradient(180deg,rgba(244,196,48,.22),rgba(244,196,48,.06));box-shadow:0 0 16px rgba(244,196,48,.3)}
+.b56-ord .pv{font-size:1.65rem;font-weight:900;line-height:1.1}
+.b56-ord .pre{font-size:.72rem;color:#ffe08a}
+.b56-ord .lb{font-size:.7rem;letter-spacing:.3px;margin-top:3px}
+.b56-explain,.b56-note{font-size:.76rem;line-height:1.4;color:#aebdce;margin-top:10px}
+.b56-note-in{height:42px;margin-top:10px;font-size:.9rem;background:rgba(0,0,0,.3)}
+.b56-actions{gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.55))}
+.b56-actions button{height:56px;border-radius:14px;font-size:1.05rem;letter-spacing:.4px;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.b56-go{font-family:'Cinzel','Playfair Display',serif;font-size:1.25rem !important;letter-spacing:1px;box-shadow:0 4px 18px rgba(244,196,48,.45) !important}
+.b56-pass{padding:0 22px !important}
+@media (max-height:700px){.b56-panel{height:calc(100vh - 70px);height:calc(100dvh - 70px)}.b56-head{padding:10px 16px 8px}.b56-title{font-size:1.2rem}.b56-suits button{height:48px}.b56-ord button{min-height:70px}.b56-ord .pv{font-size:1.4rem}.b56-actions button{height:50px}.b56-sec{margin:6px 0 4px}}
+.b56-scroll>*{flex-shrink:0}

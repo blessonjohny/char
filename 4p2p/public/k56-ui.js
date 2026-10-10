@@ -210,7 +210,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=22">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=23">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -328,7 +328,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       return '<span class="b56-chip' + cls + '">' + esc(l.text) + '</span>';
     }).join('') : '<span class="b56-chip none">No calls yet — you speak first</span>';
     var cs = $('b56Calls'); cs.scrollLeft = cs.scrollWidth;
-    $('b56Hand').innerHTML = sortHand(st.hands[ms] || []).map(function (c) { return '<span class="b56-mc' + (RED[c.s] ? ' red' : '') + '">' + c.r + SYM[c.s] + '</span>'; }).join('');
+    $('b56Hand').innerHTML = sortHand(st.hands[ms] || []).map(function (c) { return '<span class="b56-mc' + (RED[c.s] ? ' red' : '') + '"><i>' + c.r + '</i><b>' + SYM[c.s] + '</b></span>'; }).join('');
     $('b56Mode').innerHTML = '<button data-mode="set" class="' + (bid.mode === 'set' ? 'sel' : '') + '">Set to</button><button data-mode="inc" class="' + (bid.mode === 'inc' ? 'sel' : '') + '">Increase by</button>';
     var ni = $('b56Num'); if (root.activeElement !== ni) ni.value = bid.num;
     $('b56Suits').innerHTML = ['S', 'H', 'D', 'C'].map(function (s) {
@@ -336,12 +336,12 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     }).join('') + '<button data-suit="NT" class="txt ' + (bid.kind === 'nt' ? 'sel' : '') + '">No Trump</button><button data-suit="NS" class="txt ' + (bid.kind === 'ns' ? 'sel' : '') + '">NOS</button>';
     var sym = SYM[bid.suit], red = RED[bid.suit] ? ' red' : '';
     var incPre = (bid.mode === 'inc' && cb) ? '<span class="pre">' + esc((st.seats[cb.seat] || {}).name || '') + ' bid ' + esc(ctx.formatBid(cb)) + '</span>' : '';
-    $('b56Order').innerHTML = bid.kind !== 'suit' ? '' :
+    $('b56Order').innerHTML = bid.kind === 'ns' ? '<button data-order="nos" class="sel nos">' + incPre + '<span class="pv">' + (bid.mode === 'inc' ? '+' + bid.num + ' NOS' : 'NOS ' + pv) + '</span><span class="lb">' + (bid.mode === 'inc' ? 'Plus call: nothing in your suit either' : 'Nothing in your suit') + '</span></button>' : bid.kind !== 'suit' ? '' :
       '<button data-order="forward" class="' + (bid.order === 'forward' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? '+' + bid.num + ' ' + sym : pv + ' ' + sym) + '</span><span class="lb">Have the Jack</span></button>' +
       '<button data-order="reverse" class="' + (bid.order === 'reverse' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? sym + ' +' + bid.num : sym + ' ' + pv) + '</span><span class="lb">No Jack, 4+ cards</span></button>';
     var ex = '';
     if (bid.kind === 'nt') ex = 'No Trump — signals 3+ Jacks spread across different suits. If it wins, the hand is played with no trump.';
-    else if (bid.kind === 'ns') ex = 'NOS (No Suit) — signals you hold nothing in the suit just bid. If it wins it plays like No Trump.';
+    else if (bid.kind === 'ns') ex = bid.mode === 'inc' ? '+N NOS — a plus call: you hold nothing in the suit either (your partner already said NOS). If it wins it plays like No Trump.' : 'NOS (No Suit) — you hold nothing in the suit just bid. If it wins it plays like No Trump.';
     else ex = 'Number first = you hold the Jack of this suit. Suit first = no Jack, but 4 or more cards in it.' + (bid.mode === 'inc' ? ' This submits a bid of ' + pv + '.' : '');
     if (cb && bid.kind === 'suit' && bid.suit === cb.trump && team(cb.seat) === team(ms)) {
       ex += bid.mode === 'inc' ? ' Plus call to your partner: honors only (+1 = the Jack, +2 = Jack and 9), no extra length.' : ' Plain number to your partner: those honors AND support (3+ cards in the suit).';
@@ -561,7 +561,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       once('banner', html, function () { b.innerHTML = html; });
       var bm = st.turn === ms, bp = !bm && st.turn != null && team(st.turn) === team(me());
       tog(b, 'bsb-mine', bm); tog(b, 'bsb-partner', bp); tog(b, 'bsb-opp', !bm && !bp);
-      show(b, true);
+      show(b, !(st.turn === ms));   /* your own bid sheet already says all this */
       /* sits in the empty space above the top player's head (not over the table), like the trick popup */
       var placeBid = function () {
         if (b.style.display === 'none') return;
