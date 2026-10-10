@@ -69,13 +69,12 @@ function addLog(state, text, seat) {
 function formatBidLabel(cb) {
   if (!cb) return '';
   if (cb.kind === 'nt') return cb.value + ' No Trump';
-  if (cb.kind === 'ns') return cb.value + ' NOS';
+  if (cb.kind === 'ns') return cb.increment ? `+1 NOS ${cb.value}${cb.nosSuit ? ' ' + SUIT_SYM[cb.nosSuit] : ''}` : cb.value + ' NOS';
   const sym = SUIT_SYM[cb.trump];
   return cb.order === 'reverse' ? `${sym} ${cb.value}` : `${cb.value} ${sym}`;
 }
 function formatBidLogLabel(cb) {
   if (!cb) return '';
-  if (cb.kind === 'ns' && cb.increment) return `+${cb.increment} NOS (${cb.value})`;
   if (cb.kind === 'nt' || cb.kind === 'ns') return formatBidLabel(cb);
   if (cb.increment) {
     const sym = SUIT_SYM[cb.trump];

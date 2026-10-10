@@ -5347,6 +5347,7 @@ function l56RunBotBid(state, seat) {
     } else if (decision.kind === 'ns' && decision.plus === true && state.currentBid) {
       newBid.increment = decision.value - state.currentBid.value;   // "+1 NOS"
     }
+    if (decision.kind === 'ns') Object.assign(newBid, l56NosInfo(state, decision.plus === true && !!state.currentBid));
     if (!state.currentBid) { state.openerSeat = seat; state.openerSuit = decision.trump; }
     if (decision.kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[seat] = state.currentBid ? state.currentBid.trump : true; }
     if (decision.kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[seat + '-' + decision.trump] = decision.order; }
@@ -5428,6 +5429,11 @@ function l56BandFor(value) {
   if (value >= 48 && value <= 55) return { win: 3, lose: 4 };
   if (value === 56) return { win: 4, lose: 5 };
   return { win: 1, lose: 2 };
+}
+function l56NosInfo(state, plus) {
+  const prev = state.currentBid; let suit = null;
+  if (prev) { if (prev.trump) suit = prev.trump; else if (prev.kind === 'ns' && state.nsBySeat && typeof state.nsBySeat[prev.seat] === 'string') suit = state.nsBySeat[prev.seat]; }
+  return { nosSuit: suit, nosLevel: plus ? 2 : 1 };
 }
 function l56AddLog(state, text, seat) {
   state.log = state.log || [];
@@ -5947,6 +5953,7 @@ io.on('connection', (socket) => {
       }
     }
     if (kind === 'ns' && inc === true && state.currentBid) newBid.increment = value - state.currentBid.value;   // "+N NOS"
+    if (kind === 'ns') Object.assign(newBid, l56NosInfo(state, inc === true && !!state.currentBid));
     if (!state.currentBid) { state.openerSeat = pos; state.openerSuit = newBid.trump; }
     if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = state.currentBid ? state.currentBid.trump : true; }
     if (kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[pos + '-' + trump] = order; }
