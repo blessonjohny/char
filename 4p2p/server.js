@@ -273,23 +273,58 @@ const scenery = createScenery({ dataDir: DATA_DIR });
 // ---- Table themes: which of the 20 table pictures the 6-player and 56 tables use (picked in the admin) ------------------
 const TABLE_THEMES_FILE = path.join(DATA_DIR, 'table-themes.json');
 let tableThemes = { six: 1, k56: 17 };
+let tableRotate = { six: true, k56: true, key: '' };   // auto-rotate: every day at 5:00 each table moves on to the next of the 20 pictures
+const ROTATE_HOUR = Number(process.env.TABLE_ROTATE_HOUR) || 5;
+const ROTATE_TZ = process.env.TABLE_ROTATE_TZ || 'America/New_York';
 try {
   const p = JSON.parse(fs.readFileSync(TABLE_THEMES_FILE, 'utf8'));
   const okN = (n) => Number.isInteger(n) && n >= 1 && n <= 20;
   if (okN(p.six)) tableThemes.six = p.six;
   if (okN(p.k56)) tableThemes.k56 = p.k56;
+  if (p.rot && typeof p.rot === 'object') {
+    if (p.rot.six === false) tableRotate.six = false;
+    if (p.rot.k56 === false) tableRotate.k56 = false;
+    if (typeof p.rot.key === 'string') tableRotate.key = p.rot.key;
+  }
 } catch (_) {}
+function saveTableThemes() {
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.writeFileSync(TABLE_THEMES_FILE, JSON.stringify({ six: tableThemes.six, k56: tableThemes.k56, rot: tableRotate })); } catch (e) { console.error('[table-themes] could not save:', e.message); }
+}
+function tableThemesPayload() { return { ok: true, six: tableThemes.six, k56: tableThemes.k56, auto: { six: tableRotate.six, k56: tableRotate.k56 }, hour: ROTATE_HOUR, tz: ROTATE_TZ }; }
+// "Rotation day" changes at ROTATE_HOUR:00 local time (shift the clock back by that many hours and take the date).
+function rotationKey() {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: ROTATE_TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+  const g = (t) => Number(parts.find((x) => x.type === t).value);
+  const d = new Date(Date.UTC(g('year'), g('month') - 1, g('day'), g('hour') - ROTATE_HOUR));
+  return d.toISOString().slice(0, 10);
+}
+function rotateTablesIfDue() {
+  let key; try { key = rotationKey(); } catch (e) { return; }
+  if (key === tableRotate.key) return;
+  if (tableRotate.key) {                                    // the first run ever only records the day, nothing jumps
+    if (tableRotate.six) tableThemes.six = (tableThemes.six % 20) + 1;
+    if (tableRotate.k56) tableThemes.k56 = (tableThemes.k56 % 20) + 1;
+    console.log('[table-themes] rotated at', ROTATE_HOUR + ':00', ROTATE_TZ, '-> six', tableThemes.six, 'k56', tableThemes.k56);
+  }
+  tableRotate.key = key; saveTableThemes();
+}
+rotateTablesIfDue(); setInterval(rotateTablesIfDue, 60 * 1000).unref();   // also catches up after a restart
 app.get('/api/table-themes', (req, res) => {
+  rotateTablesIfDue();
   res.setHeader('Cache-Control', 'no-store');
-  res.json({ ok: true, six: tableThemes.six, k56: tableThemes.k56 });
+  res.json(tableThemesPayload());
 });
 app.post('/api/admin/table-themes', express.json({ limit: '2kb' }), (req, res) => {
   if (!checkAdminAuth(req, res)) return;
-  const { game, id } = req.body || {};
-  if (!['six', 'k56'].includes(game) || !Number.isInteger(id) || id < 1 || id > 20) return res.status(400).json({ ok: false, error: 'Unknown table or picture.' });
-  tableThemes[game] = id;
-  try { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.writeFileSync(TABLE_THEMES_FILE, JSON.stringify(tableThemes)); } catch (e) { console.error('[table-themes] could not save:', e.message); }
-  res.json({ ok: true, six: tableThemes.six, k56: tableThemes.k56 });
+  const { game, id, auto } = req.body || {};
+  if (!['six', 'k56'].includes(game)) return res.status(400).json({ ok: false, error: 'Unknown table or picture.' });
+  if (typeof auto === 'boolean') tableRotate[game] = auto;
+  else {
+    if (!Number.isInteger(id) || id < 1 || id > 20) return res.status(400).json({ ok: false, error: 'Unknown table or picture.' });
+    tableThemes[game] = id;
+  }
+  saveTableThemes();
+  res.json(tableThemesPayload());
 });
 app.get('/scenery.css', (req, res) => {
   res.setHeader('Content-Type', 'text/css; charset=utf-8');
