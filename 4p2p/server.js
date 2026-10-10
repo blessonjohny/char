@@ -5345,7 +5345,7 @@ function l56RunBotBid(state, seat) {
     l56Engine.advanceBiddingTurn(state);
   } else {
     const newBid = { value: decision.value, trump: decision.trump, seat, kind: decision.kind, order: decision.order };
-    if (decision.kind === 'suit' && state.currentBid && state.currentBid.trump === decision.trump) {
+    if (decision.kind === 'suit' && state.currentBid && state.currentBid.trump === decision.trump && decision.plus !== false) {
       newBid.increment = decision.value - state.currentBid.value;
     }
     if (!state.currentBid) { state.openerSeat = seat; state.openerSuit = decision.trump; }

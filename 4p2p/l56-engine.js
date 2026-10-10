@@ -228,6 +228,7 @@ function suitOpenValue(jacksN, ninesN) {
   if (jacksN >= 2) return 28 + 1 + ninesN;
   return 28;
 }
+const SUPPORT_LEN = 3;   // cards in partner's suit that count as "support"
 function botDecideBid(state, seat) {
   const hand = state.hands[seat] || [];
   const cb = state.currentBid;
@@ -306,7 +307,10 @@ function botDecideBid(state, seat) {
     if (count[s] > 0 && (jacks[s] >= 1 || (openerShowsBothJacks && nines[s] >= 1)) && !alreadyBidThisSuit) {
       const supportBump = jacks[s] + nines[s];
       const value = Math.min(56, cb.value + supportBump);
-      if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward' };
+      // Same number either way; the FORM carries the message. A "+N" call (Increase by) = these honors only, no length.
+      // A plain number (Set to) = the same honors AND support (SUPPORT_LEN+ cards in the suit).
+      const hasSupport = count[s] >= SUPPORT_LEN;
+      if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward', plus: !hasSupport };
     }
     const isProbeSuit = state.openerProbeSuit && s === state.openerProbeSuit;
     if (!isProbeSuit) {
@@ -319,10 +323,21 @@ function botDecideBid(state, seat) {
     return { action: 'pass' };
   }
 
+  // Defending his own team's suit: the other team has bid a suit MY team already opened. Holding a Jack of it, I may fight for it.
+  // With BOTH Jacks the caller cannot really hold the suit (it's a bluff) -> sometimes double, otherwise outbid him.
+  if (cb.trump && state.teamSuitOpen && state.teamSuitOpen[TEAM_OF(seat) + '-' + cb.trump] !== undefined && jacks[cb.trump] >= 1) {
+    const t = cb.trump;
+    if (jacks[t] >= 2 && state.doubled === 0 && cb.value >= 29 && Math.random() < 0.5) return { action: 'double' };
+    const value = Math.min(56, cb.value + jacks[t] + nines[t]);
+    if (value >= minAllowed) return { action: 'bid', value, trump: t, kind: 'suit', order: 'forward' };
+  }
+
   if (biddableSuits.length > 0) {
     const contested = cb.trump;
-    let candidates = biddableSuits.filter(s => s !== contested);
-    if (candidates.length === 0) candidates = biddableSuits;
+    // An opponent never raises the other team's suit (that only helps them): he opens/bids a DIFFERENT strong suit of his own, or passes.
+    // (His partners will then support that suit, exactly like the other team's partners support theirs.)
+    const candidates = biddableSuits.filter(s => s !== contested);
+    if (candidates.length === 0) return { action: 'pass' };
     const { suit, value } = bestOf(candidates);
     if (value >= minAllowed && value <= 56) {
       return { action: 'bid', value, trump: suit, kind: 'suit', order: jacks[suit] >= 1 ? 'forward' : 'reverse' };
