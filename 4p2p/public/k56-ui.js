@@ -156,7 +156,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<div id="sixInfoPointsWrap" style="display:flex;justify-content:center;white-space:nowrap;padding:0 6px"><span>Points: <b style="color:var(--accent);font-size:0.95em" id="teamPointsDisplay">0 - 0</b></span></div>' +
     '<div id="sixInfoBidderWrap" style="display:flex;justify-content:flex-end;overflow:hidden"><span>Bid: <b style="color:var(--accent);font-size:0.9em;text-shadow:0 0 6px rgba(244,196,48,0.5)" id="bidderDisplay">—</b></span></div>' +
     '</div></div>' +
-    '<div class="trump-chip" id="trumpChip" style="display:none">🎯</div>' +
+    '<div class="trump-chip" id="trumpChip" style="display:none"></div>' +
+    '<div class="ltrick" id="lastTrickPanel"><h6 id="lastTrickTitle">Last Trick</h6><div id="lastTrickContent"><div class="lt-empty">None yet</div></div><div class="lt-history" id="lastTrickHistory"></div></div><div class="ltrick-backdrop" id="ltrickBackdrop"></div>' +
     '<div id="bidWinnerBubble6p" style="display:none"></div>' +
     '<div id="bidStatusBanner6p" class="bid-status-banner" style="display:none"></div>' +
     '<div id="k56Trick"></div>' +
@@ -210,7 +211,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=23">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=24">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -246,6 +247,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     $('btnHostMenu').onclick = function () { ctx.menu(); };
     $('btnGameHome').onclick = function () { ctx.leave(); };
     $('btnInvite').onclick = function () { ctx.invite(); };
+    var tgl = function () { var e = !$('lastTrickPanel').classList.contains('enlarged'); $('lastTrickPanel').classList.toggle('enlarged', e); $('ltrickBackdrop').classList.toggle('on', e); };
+    $('lastTrickPanel').onclick = tgl; $('ltrickBackdrop').onclick = tgl;
     $('btnFullscreen').onclick = function () {
       var d = document, e = d.documentElement;
       try { if (d.fullscreenElement) d.exitFullscreen(); else if (e.requestFullscreen) e.requestFullscreen(); else if (e.webkitRequestFullscreen) e.webkitRequestFullscreen(); } catch (x) {}
@@ -519,26 +522,30 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var chip = $('trumpChip');
     if (cb && st.phase !== 'bidding') {
       var t = cb.kind === 'suit' || cb.trump ? SYM[cb.trump] + ' Trump' : (cb.kind === 'ns' ? 'No Suit' : 'No Trump');
-      once('chip', t + cb.value + st.doubled, function () { chip.textContent = '🎯 ' + cb.value + ' · ' + t + (st.doubled ? (st.doubled === 2 ? ' · Redoubled' : ' · Doubled') : ''); });
+      once('chip', t + cb.value + st.doubled + ':' + cb.seat, function () { var bn2 = st.seats[cb.seat]; chip.textContent = (bn2 ? (cb.seat === ctx.mySeat() ? 'You' : bn2.name) + ' · ' : '') + cb.value + ' · ' + t + (st.doubled ? (st.doubled === 2 ? ' · Redoubled' : ' · Doubled') : ''); });
       show(chip, true);
     } else show(chip, false);
-    (function () {
-      var inv = $('btnInvite'); if (!inv) return;
-      var cs = chip && chip.style.display !== 'none' && cb && st.phase !== 'bidding';
-      var put = function () {
-        if (!cs) { ['left', 'top', 'transform'].forEach(function (k) { inv.style.removeProperty(k); }); return; }
-        var cr = chip.getBoundingClientRect(); if (!cr.width) return;
-        inv.style.setProperty('transform', 'none', 'important');
-        var wantX = cr.right + 8, wantY = cr.top + (cr.height - inv.offsetHeight) / 2;
-        for (var n = 0; n < 2; n++) {                       /* nudge from wherever it is now, whatever box it is positioned against */
-          var ir = inv.getBoundingClientRect(), cs2 = getComputedStyle(inv);
-          var curL = parseFloat(cs2.left) || 0, curT = parseFloat(cs2.top) || 0;
-          inv.style.setProperty('left', Math.round(curL + wantX - ir.left) + 'px', 'important');
-          inv.style.setProperty('top', Math.round(curT + wantY - ir.top) + 'px', 'important');
-        }
-      };
-      put(); setTimeout(put, 250); setTimeout(put, 900);
-    })();
+    renderLastTrick(st);
+  }
+  function ltCards(cards, win) {
+    return cards.map(function (tc) {
+      var c = tc.card, col = RED[c.s] ? '#c0392b' : '#111';
+      return '<div class="lt-card' + (tc.seat === win ? ' lt-card-won' : '') + '"><span class="ltr" style="color:' + col + '">' + c.r + '</span><span class="lts" style="color:' + col + '">' + SYM[c.s] + '</span></div>';
+    }).join('');
+  }
+  function renderLastTrick(st) {
+    var el = $('lastTrickContent'), hi = $('lastTrickHistory'); if (!el) return;
+    var log = st.tricksLog || [], ms = ctx.mySeat();
+    var nm = function (i) { var q = st.seats[i]; return i === ms ? 'You' : (q ? q.name : 'Seat ' + i); };
+    var key = log.length + ':' + (log.length ? log[log.length - 1].winnerSeat : '');
+    once('lt', key, function () {
+      if (!log.length || !log[log.length - 1].cards || !log[log.length - 1].cards.length) { el.innerHTML = '<div class="lt-empty">None yet</div>'; if (hi) hi.innerHTML = ''; return; }
+      var lt = log[log.length - 1];
+      el.innerHTML = '<div class="lt-cards">' + ltCards(lt.cards, lt.winnerSeat) + '</div><div class="lt-win">' + esc(nm(lt.cards[0].seat)) + ' ➜ ' + esc(nm(lt.winnerSeat)) + ' +' + lt.points + 'pt</div>';
+      if (hi) hi.innerHTML = '<div class="lt-history-title">Played so far this round</div>' + log.map(function (t, i) {
+        return '<div class="lt-history-row"><span class="lt-history-num">#' + (i + 1) + '</span>' + ltCards(t.cards, t.winnerSeat) + '<span class="lt-history-win">' + esc(nm(t.winnerSeat)) + ' +' + t.points + '</span></div>';
+      }).join('');
+    });
   }
   /* the mic button sits on the top-left corner of the bid popup so it looks like part of it */
   function dockMic(b) {

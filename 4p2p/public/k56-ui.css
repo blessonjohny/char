@@ -1979,3 +1979,4 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .b56-pass{padding:0 22px !important}
 @media (max-height:700px){.b56-panel{height:calc(100vh - 70px);height:calc(100dvh - 70px)}.b56-head{padding:10px 16px 8px}.b56-title{font-size:1.2rem}.b56-suits button{height:48px}.b56-ord button{min-height:70px}.b56-ord .pv{font-size:1.4rem}.b56-actions button{height:50px}.b56-sec{margin:6px 0 4px}}
 .b56-scroll>*{flex-shrink:0}
+#btnInvite{left:8px !important;right:auto !important;top:77px !important;transform:none !important;bottom:auto !important}
