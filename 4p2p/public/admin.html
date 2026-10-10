@@ -2537,14 +2537,20 @@ function renderTblThemes() {
   const el = document.getElementById('tblThemesList'); if (!tblThemes) return;
   const games = [['six', '🎲 6-Player table'], ['k56', '🂡 56 table']];
   el.innerHTML = games.map(([g, label]) => `<div class="ub-row" style="margin-top:12px"><div class="top"><span><b>${label}</b></span><span style="color:var(--accent)">Now: ${tblThemes[g]} · ${TBL_NAMES[tblThemes[g] - 1]}</span></div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:.85rem;cursor:pointer"><input type="checkbox" data-auto="${g}" ${tblThemes.auto && tblThemes.auto[g] ? 'checked' : ''}> 🔄 Change to the next picture every day at ${tblThemes.hour || 5}:00 (${tblThemes.tz || ''})</label>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:10px">` +
     TBL_NAMES.map((n, i) => { const id = i + 1, on = tblThemes[g] === id; const pad = id < 10 ? '0' + id : '' + id;
       return `<button type="button" data-tbl="${g}:${id}" style="padding:4px;border-radius:10px;border:2px solid ${on ? 'var(--accent)' : 'var(--border)'};background:${on ? 'rgba(244,196,48,.14)' : 'rgba(255,255,255,.04)'};color:#fff;cursor:pointer;text-align:center"><img src="/images/tables/t${pad}-th.jpg" alt="" loading="lazy" style="width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:7px;display:block"><div style="font-size:.62rem;margin-top:3px;line-height:1.15">${id}. ${n}${on ? ' ✓' : ''}</div></button>`; }).join('') + '</div></div>').join('');
+  el.querySelectorAll('[data-auto]').forEach(c => c.addEventListener('change', async () => {
+    const r = await avCall('/api/admin/table-themes', 'POST', { game: c.dataset.auto, auto: c.checked });
+    if (!r.ok) { alert(r.data.error || 'Could not save.'); return; }
+    tblThemes = r.data; renderTblThemes();
+  }));
   el.querySelectorAll('[data-tbl]').forEach(b => b.addEventListener('click', async () => {
     const [g, id] = b.dataset.tbl.split(':');
     const r = await avCall('/api/admin/table-themes', 'POST', { game: g, id: Number(id) });
     if (!r.ok) { alert(r.data.error || 'Could not save.'); return; }
-    tblThemes = { ok: true, six: r.data.six, k56: r.data.k56 }; renderTblThemes();
+    tblThemes = r.data; renderTblThemes();
   }));
 }
 let sceneryData = null, sceneryFilter = 'all';
