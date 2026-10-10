@@ -343,6 +343,9 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (bid.kind === 'nt') ex = 'No Trump — signals 3+ Jacks spread across different suits. If it wins, the hand is played with no trump.';
     else if (bid.kind === 'ns') ex = 'NOS (No Suit) — signals you hold nothing in the suit just bid. If it wins it plays like No Trump.';
     else ex = 'Number first = you hold the Jack of this suit. Suit first = no Jack, but 4 or more cards in it.' + (bid.mode === 'inc' ? ' This submits a bid of ' + pv + '.' : '');
+    if (cb && bid.kind === 'suit' && bid.suit === cb.trump && team(cb.seat) === team(ms)) {
+      ex += bid.mode === 'inc' ? ' Plus call to your partner: honors only (+1 = the Jack, +2 = Jack and 9), no extra length.' : ' Plain number to your partner: those honors AND support (3+ cards in the suit).';
+    }
     $('b56Explain').textContent = ex;
     show($('b56Forced'), forced);
     var go = $('b56Go');
