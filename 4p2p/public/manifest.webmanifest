@@ -1,14 +1,25 @@
 {
+  "id": "/",
   "name": "28 Kerala Gulan",
   "short_name": "28 Gulan",
-  "start_url": "/",
+  "description": "Kerala's card games online: 28, 6-player 28, 56, Hold'em, Carrom and Pool with friends.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
   "orientation": "portrait",
-  "background_color": "#0a1628",
+  "background_color": "#1c060a",
   "theme_color": "#0a1628",
+  "categories": ["games", "entertainment"],
   "icons": [
-    {"src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png"},
-    {"src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "4-Player 28", "short_name": "4 Player", "url": "/?source=shortcut", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
+    {"name": "6-Player 28", "short_name": "6 Player", "url": "/play6.html?source=shortcut", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
+    {"name": "56", "short_name": "56", "url": "/56.html?source=shortcut", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Texas Hold'em", "short_name": "Hold'em", "url": "/holdem.html?source=shortcut", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]}
   ]
 }
