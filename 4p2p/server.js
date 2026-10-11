@@ -2177,6 +2177,95 @@ function appendChatHistory(table, entry) {
   if (!table.chatHistory) table.chatHistory = [];
   table.chatHistory.push(entry);
   if (table.chatHistory.length > 60) table.chatHistory.shift();
+  try { ghostLogChat(table, entry); } catch (e) {}
+}
+
+// ---- Saved chat for ghost-played games only (admin panel -> Ghost Players -> "Ghost game chats") ----
+// Only tables that have (or had) a ghost player seated are saved; ordinary games' chat is never stored.
+const GHOST_CHAT_FILE = path.join(DATA_DIR, 'ghost-chat-log.json');
+const GHOST_CHAT_MAX_GAMES = 200, GHOST_CHAT_MAX_MSGS = 600, GHOST_CHAT_MAX_AGE_MS = 30 * 24 * 3600 * 1000;
+let ghostChatLog = {};   // tableId -> { tableId, mode, ghosts:[names], startedAt, updatedAt, messages:[{from,msg,ts,ghost}] }
+try { ghostChatLog = JSON.parse(fs.readFileSync(GHOST_CHAT_FILE, 'utf8')) || {}; } catch (e) { ghostChatLog = {}; }
+let ghostChatSaveTimer = null;
+function ghostChatSaveSoon() {
+  if (ghostChatSaveTimer) return;
+  ghostChatSaveTimer = setTimeout(() => {
+    ghostChatSaveTimer = null;
+    const cutoff = Date.now() - GHOST_CHAT_MAX_AGE_MS;
+    let ids = Object.keys(ghostChatLog).filter(id => (ghostChatLog[id].updatedAt || 0) >= cutoff);
+    ids.sort((a, b) => ghostChatLog[a].updatedAt - ghostChatLog[b].updatedAt);
+    if (ids.length > GHOST_CHAT_MAX_GAMES) ids = ids.slice(ids.length - GHOST_CHAT_MAX_GAMES);
+    const keep = {}; ids.forEach(id => { keep[id] = ghostChatLog[id]; }); ghostChatLog = keep;
+    try { fs.writeFileSync(GHOST_CHAT_FILE, JSON.stringify(ghostChatLog)); } catch (e) { console.error('[ghost-chat-log] save failed:', e.message); }
+  }, 3000);
+}
+function ghostLogChat(table, entry) {
+  const eng = table && table.engine; if (!eng || !eng.seats) return;
+  const ghosts = eng.seats.filter(st => st && st.ghostPlayer === true).map(st => st.name);
+  if (!ghosts.length && !table._hadGhost) return;
+  table._hadGhost = true;
+  const id = eng.tableId || table.id; if (!id) return;
+  const mode = eng.seats.length === 6 ? '6p' : '4p';
+  let rec = ghostChatLog[id];
+  if (!rec) {
+    rec = ghostChatLog[id] = { tableId: id, mode, ghosts: [], startedAt: Date.now(), updatedAt: Date.now(), messages: [] };
+    // include what was said before the log existed for this table (the in-memory buffer holds the last 60)
+    (table.chatHistory || []).slice(0, -1).forEach(m => rec.messages.push({ from: m.from, msg: m.msg, ts: m.ts || Date.now(), ghost: false }));
+  }
+  ghosts.forEach(n => { if (!rec.ghosts.includes(n)) rec.ghosts.push(n); });
+  rec.messages.push({ from: entry.from, msg: entry.msg, ts: entry.ts || Date.now(), ghost: ghosts.includes(entry.from) });
+  if (rec.messages.length > GHOST_CHAT_MAX_MSGS) rec.messages.splice(0, rec.messages.length - GHOST_CHAT_MAX_MSGS);
+  rec.updatedAt = Date.now();
+  ghostChatSaveSoon();
+}
+app.get('/api/admin/ghost-chat-logs', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  const id = req.query.tableId ? String(req.query.tableId) : null;
+  if (id) { const r = ghostChatLog[id]; return r ? res.json({ ok: true, log: r }) : res.status(404).json({ ok: false, error: 'not_found' }); }
+  const games = Object.values(ghostChatLog).sort((a, b) => b.updatedAt - a.updatedAt)
+    .map(r => ({ tableId: r.tableId, mode: r.mode, ghosts: r.ghosts, startedAt: r.startedAt, updatedAt: r.updatedAt, count: r.messages.length, last: r.messages.length ? r.messages[r.messages.length - 1] : null }));
+  res.json({ ok: true, games });
+});
+
+
+// ---- Ghost players answer chat like a real person (see ghost-chat.js) ----
+const ghostChat = require('./ghost-chat');
+function ghostChatMaybeReply(mode, t, tableId, text) {
+  try {
+    const ghosts = (t.engine.seats || []).map((st, i) => (st && st.ghostPlayer === true) ? { pos: i, name: st.name } : null).filter(Boolean);
+    if (!ghosts.length) return;
+    const now = Date.now();
+    if (t._ghostBusyUntil && now < t._ghostBusyUntil) return;   // one reply at a time, never a flood
+    // Not a chatty ghost: answers the first couple of messages of a conversation, then goes quiet. If people stop talking for
+    // a while and start again, it answers a couple more. Never more than ~5 replies in 10 minutes.
+    const gc = t._ghostChat || (t._ghostChat = { lastHumanAt: 0, burst: 0, limit: 2, recent: [] });
+    if (now - gc.lastHumanAt > 150000) { gc.burst = 0; gc.limit = 2 + Math.floor(Math.random() * 2); }
+    gc.lastHumanAt = now;
+    gc.recent = gc.recent.filter(x => now - x < 600000);
+    if (gc.burst >= gc.limit || gc.recent.length >= 5) return;
+    const low = String(text || '').toLowerCase();
+    const addressed = ghosts.find(g => low.includes(String(g.name).toLowerCase()));
+    const g = addressed || ghosts[Math.floor(Math.random() * ghosts.length)];
+    const out = ghostChat.reply(text, { ghostName: g.name, persona: ghostChat.personaFor(g.name), lastAsk: t._ghostLastAsk || null });
+    t._ghostLastAsk = null;
+    if (!out) return;                       // confused / nothing natural to say: stay quiet
+    if (Math.random() < 0.15) return;       // and sometimes just doesn't answer, like a real player
+    gc.burst++; gc.recent.push(now);
+    const msg = typeof out === 'string' ? out : out.text;
+    const ask = typeof out === 'string' ? null : out.ask;
+    const delay = 2500 + Math.random() * 3500 + msg.length * 45;
+    t._ghostBusyUntil = now + delay + 3000;
+    setTimeout(() => {
+      const cur = mode === '6p' ? sixpTables[tableId] : tables[tableId];
+      if (!cur) return;
+      const st = cur.engine.seats[g.pos];
+      if (!st || st.ghostPlayer !== true) return;   // ghost left meanwhile
+      t._ghostLastAsk = ask || null;
+      if (mode === '6p') io.to('sixp_' + tableId).emit('sixp_chat', { from: g.name, msg, senderId: 'ghost-' + g.pos });
+      else io.to(tableId).emit('chat', { from: g.name, msg, senderId: 'ghost-' + g.pos });
+      appendChatHistory(cur, { from: g.name, msg, ts: Date.now() });
+    }, delay);
+  } catch (e) { console.error('[ghost-chat]', e && e.message); }
 }
 
 function ghostSnapshot() {
@@ -2269,8 +2358,9 @@ app.get('/api/challenge-leaderboard', (req, res) => {
 // the room list itself already shows.
 app.get('/api/admin/joinable-tables', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
-  const fourP = publicTableList().filter(t => t.botSeats > 0).map(t => ({ mode: '4p', ...t }));
-  const sixP = sixpPublicTableList().filter(t => t.botSeats > 0).map(t => ({ mode: '6p', ...t }));
+  const seatList = (tbl) => (tbl ? tbl.engine.seats.map((st, i) => (st && st.isBot) ? { pos: i, name: st.name } : null).filter(Boolean) : []);
+  const fourP = publicTableList().filter(t => t.botSeats > 0).map(t => ({ mode: '4p', ...t, botSeatList: seatList(tables[t.tableId]) }));
+  const sixP = sixpPublicTableList().filter(t => t.botSeats > 0).map(t => ({ mode: '6p', ...t, botSeatList: seatList(sixpTables[t.tableId]) }));
   res.json({ ok: true, tables: [...fourP, ...sixP] });
 });
 
@@ -2364,7 +2454,8 @@ app.post('/api/admin/join-ghost-player', (req, res) => {
 
   const t = mode === '6p' ? sixpTables[tableId] : tables[tableId];
   if (!t) return res.status(404).json({ ok: false, error: 'table_not_found' });
-  const botPos = t.engine.seats.findIndex(s => s && s.isBot);
+  const wantPos = Number.isInteger(req.body.pos) ? req.body.pos : -1;
+  const botPos = (wantPos >= 0 && t.engine.seats[wantPos] && t.engine.seats[wantPos].isBot) ? wantPos : t.engine.seats.findIndex(s => s && s.isBot);
   if (botPos === -1) return res.status(409).json({ ok: false, error: 'no_bot_seat_open' });
 
   const ghostPlayerId = newId();
@@ -3809,6 +3900,7 @@ io.on('connection', (socket) => {
     io.to(tableId).emit('chat', { from, msg: trimmed, senderId: socket.id });
     appendChatHistory(t, { from, msg: trimmed, ts: Date.now() });
     touch(t);
+    ghostChatMaybeReply('4p', t, tableId, trimmed);
   });
 
   // A tap of "Still here" on the idle-check popup — just counts as
@@ -4478,6 +4570,7 @@ io.on('connection', (socket) => {
     io.to('sixp_' + sixpTableId).emit('sixp_chat', { from, msg: trimmed, senderId: socket.id });
     appendChatHistory(t, { from, msg: trimmed, ts: Date.now() });
     sixpTouch(t);
+    ghostChatMaybeReply('6p', t, sixpTableId, trimmed);
   });
 
   // Purely social, no gameplay effect at all -- same feature as
@@ -5286,7 +5379,7 @@ function l56ScheduleNext(code) {
     // connected-but-stuck human has already used up its full 2-minute
     // grace period by the time it gets here -- act promptly instead of
     // making everyone else wait even longer on top of that.
-    const delay = occ.bot ? (state.phase === 'bidding' ? (1400 + Math.random() * 1400) : 900) : 900;
+    const delay = occ.bot ? (state.phase === 'bidding' ? (2000 + Math.random() * 2000) : 900) : 900;
     r.l56BotTimer = setTimeout(() => {
       const rr = l56Rooms[code];
       if (!rr || !rr.state) return;

@@ -1,3 +1,4 @@
+const pace = require('./pace');
 // ============================================================
 // 28 KERALA GULAN — 6-PLAYER VARIANT — AUTHORITATIVE GAME ENGINE
 // ============================================================
@@ -598,6 +599,15 @@ class GameEngine6P {
 
   // ---------------- Bidding (single phase, 16-28) ----------------
 
+  // Which side(s) are carrying a Kunukku (Q) right now: [ownTeamHasQ, otherTeamHasQ] relative to pos.
+  _kunukkuSides(pos) {
+    const myT = getTeam(pos); let own = false, opp = false;
+    for (let p = 0; p < this.seats.length; p++) {
+      const st = this.seats[p]; if (!st) continue;
+      if (this.qMarks && this.qMarks[st.name] > 0) { if (getTeam(p) === myT) own = true; else opp = true; }
+    }
+    return { own, opp };
+  }
   isFirstBidder(pos) {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
   }
@@ -1742,13 +1752,8 @@ class GameEngine6P {
       // more than 2 rest") -- see game-engine.js's identical fix for the
       // fuller reasoning. Same three-band weighting here so the 4p and
       // 6p tables feel consistent with each other.
-      const delay = seat.isBot ? 900
-        : isGhost ? (() => {
-            const r = Math.random();
-            if (r < 0.90) return 1000 + Math.floor(Math.random() * 1000);
-            if (r < 0.95) return 300 + Math.floor(Math.random() * 700);
-            return 2000 + Math.floor(Math.random() * 1000);
-          })()
+      const delay = seat.isBot ? pace.botDelay(this.phase)
+        : isGhost ? pace.ghostDelay(this, this.phase)
         : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         if (this.round !== capturedRound) return;
@@ -1808,9 +1813,9 @@ class GameEngine6P {
           if (this.currentPlayer !== watchdogPos) return;
           const seatNow = this.seats[watchdogPos];
           if (!seatNow || !(seatNow.isBot || seatNow.ghostPlayer === true)) return;
-          this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 3s -- retrying.`);
+          this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 7s -- retrying.`);
           this.maybeAutoAct();
-        }, 3000);
+        }, 7000);
       }
     }
   }
@@ -1898,8 +1903,23 @@ class GameEngine6P {
       // identical comment for the full reasoning.
       if (wantsLower) target = Math.min(target, 18);
 
+      // Ghost players: a bit more aggressive than the regular bots, and on their first call of the first hand after a Kunukku was
+      // handed out (or the first hand of the table) they call 20 (Honors) or higher.
+      const ghostSeat = this.seats[pos].ghostPlayer === true;
+      let ghostFloor = 0, ghostCap = 28;
+      if (ghostSeat && !wantsLower) {
+        target = Math.min(28, target + 2);
+        if (this.isFirstHandOfChampionship && !(this.bidActed && this.bidActed[pos]) && !(this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos))) {
+          const k = this._kunukkuSides(pos);
+          ghostFloor = Math.max(k.opp && !k.own ? 19 : 20, this.highestBid + 1);
+          if (first) ghostFloor = (k.opp && !k.own) ? 19 : 20;
+          ghostCap = target >= 25 ? 28 : 24;
+        }
+      }
       let bid = 0;
-      if (first) {
+      if (ghostFloor) {
+        if (ghostFloor <= ghostCap && (first || target >= 16)) bid = ghostFloor;
+      } else if (first) {
         bid = Math.max(16, Math.min(target, 22));
       } else if (minBid <= target && minBid <= 28) {
         bid = minBid <= target - 2 ? minBid + 1 : minBid;

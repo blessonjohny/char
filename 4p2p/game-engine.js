@@ -1,3 +1,4 @@
+const pace = require('./pace');
 // ============================================================
 // 28 KERALA GULAN — AUTHORITATIVE GAME ENGINE
 // ============================================================
@@ -921,6 +922,15 @@ class GameEngine {
 
   // ---------------- Bidding ----------------
 
+  // Which side(s) are carrying a Kunukku (Q) right now: [ownTeamHasQ, otherTeamHasQ] relative to pos.
+  _kunukkuSides(pos) {
+    const myT = getTeam(pos); let own = false, opp = false;
+    for (let p = 0; p < this.seats.length; p++) {
+      const st = this.seats[p]; if (!st) continue;
+      if (this.qMarks && this.qMarks[st.name] > 0) { if (getTeam(p) === myT) own = true; else opp = true; }
+    }
+    return { own, opp };
+  }
   isFirstBidder(pos) {
     return this.highestBid === 0 && this.passes === 0 && pos === nextPos(this.dealer);
   }
@@ -2161,20 +2171,8 @@ class GameEngine {
       // used up its grace period already - act promptly rather than
       // making the table wait out a full fresh 35s on top of the 2
       // minutes it's already been stuck.
-      const delay = seat.isBot ? 900
-        // Real, confirmed tuning per explicit live report ("super fast
-        // max is 3, keep everything 90% around 1 to 2, the less than 1
-        // and more than 2 rest"): replaces the earlier flat 80/20
-        // fast-vs-slow split with this exact three-band weighting -
-        // 90% of turns land in the 1.0-2.0s "normal" band, and the
-        // remaining 10% is split evenly between a quicker sub-1s turn
-        // and a slower 2.0-3.0s one. 3s stays the hard ceiling.
-        : isGhost ? (() => {
-            const r = Math.random();
-            if (r < 0.90) return 1000 + Math.floor(Math.random() * 1000); // 1.0-2.0s, 90% of turns
-            if (r < 0.95) return 300 + Math.floor(Math.random() * 700);   // <1s: 0.3-1.0s, 5% of turns
-            return 2000 + Math.floor(Math.random() * 1000);               // >2s: 2.0-3.0s, 5% of turns, 3s hard cap
-          })()
+      const delay = seat.isBot ? pace.botDelay(this.phase)
+        : isGhost ? pace.ghostDelay(this, this.phase)
         : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:
@@ -2239,9 +2237,9 @@ class GameEngine {
           if (this.currentPlayer !== watchdogPos) return;
           const seatNow = this.seats[watchdogPos];
           if (!seatNow || !(seatNow.isBot || seatNow.ghostPlayer === true)) return;
-          this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 3s -- retrying.`);
+          this.addLog(`[bot-watchdog] Seat ${watchdogPos} still hadn't acted after 7s -- retrying.`);
           this.maybeAutoAct();
-        }, 3000);
+        }, 7000);
       }
     }
     // Connected human seats just wait for a client message; nothing to do here.
@@ -2432,8 +2430,25 @@ class GameEngine {
       // something well above what the human explicitly asked for.
       if (wantsLower) target = Math.min(target, 16);
 
+      // Ghost players bid a bit more aggressively than the regular bots, and on their first call of the very first hand after a
+      // Kunukku was handed out (or the first hand of the table) they open at 20 (Honors) or higher.
+      const ghostSeat = this.seats[pos].ghostPlayer === true;
+      let ghostFloor = 0, ghostCap = 28;
+      if (ghostSeat && !wantsLower) {
+        target = Math.min(28, Math.max(target, Math.min(ev.hardCeiling + 1, target + 2)));
+        if (this.isFirstHandOfChampionship && !this.p1SeatsActed[pos]) {
+          // Opposite team just got the Kunukku -> they will try to call 20, so the ghost calls 19; its OWN team just got it -> call over
+          // the highest bidder. Nothing above 24 unless the hand really supports it.
+          const k = this._kunukkuSides(pos);
+          ghostFloor = k.own ? Math.max(19, this.highestBid + 1) : k.opp ? Math.max(19, this.highestBid + 1) : Math.max(20, this.highestBid + 1);
+          if (first) ghostFloor = k.own ? 20 : k.opp ? 19 : 20;
+          ghostCap = (ev.eligibleToRaise && (ev.hardCeiling >= 25 || target >= 25)) ? 28 : 24;
+        }
+      }
       let bid = 0;
-      if (first) {
+      if (ghostFloor) {
+        if (ghostFloor <= ghostCap && (first || target >= 16 || ev.eligibleToRaise)) bid = ghostFloor;
+      } else if (first) {
         bid = Math.max(14, Math.min(target, 20));
       } else if (minBid <= target && minBid <= 28) {
         bid = minBid <= target - 2 ? minBid + 1 : minBid;
