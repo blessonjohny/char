@@ -5906,8 +5906,13 @@ function waitThenQueuePing() {
 // navigator.vibrate simply doesn't exist on iOS Safari at all (Apple has never implemented
 // it) and is unsupported/blocked in many desktop browsers - both cases should silently do
 // nothing rather than error, since this is a nice-to-have enhancement, never a requirement.
+function hapticBoost(p) {
+  // Many Android phones (Samsung especially) don't produce any feel for pulses under ~30ms, so stretch short ones.
+  var f = function (d) { return Math.max(35, Math.round(d * 2.2)); };
+  return Array.isArray(p) ? p.map(function (d, i) { return i % 2 === 0 ? f(d) : Math.max(d, 40); }) : f(p);
+}
 function vibrate(pattern) {
-  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate(hapticBoost(pattern)); } catch (e) {}
 }
 const HAPTIC_PATTERNS = {
   cardPlayed: 15,        // a quick, light tap - matches the crisp "slap" sound
@@ -5929,7 +5934,7 @@ function playHaptic(kind) {
 // (playing a card, confirming a bid) is unnoticeable rather than a real problem to chase down.
 document.addEventListener('click', (e) => {
   const target = e.target.closest('button, .btn, .btn-outline, .icon-btn');
-  if (target) playSound('click');
+  if (target) { playSound('click'); vibrate(12); }
 }, true);
 if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) || ['toon101','toon102','toon103','toon104','toon105','toon106'].includes(MY_AVATAR_KEY)) {
   // Per explicit request: a brand-new visitor's random starting avatar

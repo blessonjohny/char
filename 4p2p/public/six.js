@@ -288,15 +288,20 @@ function playSound(kind, arg) {
 function playChime(kind) { playSound(kind); }
 document.addEventListener('click', (e) => {
   const target = e.target.closest('button, .btn, .btn-outline, .btn-primary, .icon-btn');
-  if (target) playSound('click');
+  if (target) { playSound('click'); vibrate(12); }
 }, true);
 // Haptic feedback (phone vibration) - a separate concern from sound, but the same principle:
 // short, distinct patterns per action rather than one generic buzz for everything.
 // navigator.vibrate simply doesn't exist on iOS Safari at all (Apple has never implemented
 // it) and is unsupported/blocked in many desktop browsers - both cases should silently do
 // nothing rather than error, since this is a nice-to-have enhancement, never a requirement.
+function hapticBoost(p) {
+  // Many Android phones (Samsung especially) don't produce any feel for pulses under ~30ms, so stretch short ones.
+  var f = function (d) { return Math.max(35, Math.round(d * 2.2)); };
+  return Array.isArray(p) ? p.map(function (d, i) { return i % 2 === 0 ? f(d) : Math.max(d, 40); }) : f(p);
+}
 function vibrate(pattern) {
-  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate(hapticBoost(pattern)); } catch (e) {}
 }
 const HAPTIC_PATTERNS = {
   cardPlayed: 15,

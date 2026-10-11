@@ -110,6 +110,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   var collectTimer = null, collectKey = null, winnerKey = null, resultKey = null;
 
   function $(id) { return root.getElementById ? root.getElementById(id) : root.querySelector('#' + id); }
+  /* haptics: short phone vibration patterns (Android; iPhone doesn't allow web pages to vibrate) */
+  function vib(p) { try { if (!navigator.vibrate) return; var f = function (d) { return Math.max(35, Math.round(d * 2.2)); }; navigator.vibrate(Array.isArray(p) ? p.map(function (d, i) { return i % 2 === 0 ? f(d) : Math.max(d, 40); }) : f(p)); } catch (e) {} }
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
   // only touch the DOM when something actually changed (this is what stops the flicker)
   function once(key, val, fn) { if (cache[key] === val) return; cache[key] = val; fn(); }
@@ -211,7 +213,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=29">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=30">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -256,6 +258,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     $('handCards').addEventListener('click', function (ev) {
       var el = ev.target.closest ? ev.target.closest('.card') : null;
       if (!el || !el.dataset.id) return;
+      vib(15);
       ctx.playCard(el.dataset.id);
     });
     var panel = root.querySelector('.b56-panel');
@@ -273,9 +276,9 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
         if (v === 'NT') bid.kind = 'nt'; else if (v === 'NS') bid.kind = 'ns'; else { bid.kind = 'suit'; bid.suit = v; }
       } else if (b.dataset.order) {
         bid.order = b.dataset.order;
-      } else if (b.id === 'b56Go') { return submit(); }
-      else if (b.id === 'b56Pass') { return doPass(); }
-      else if (b.id === 'b56Dbl') { return doDouble(); }
+      } else if (b.id === 'b56Go') { vib(12); return submit(); }
+      else if (b.id === 'b56Pass') { vib(12); return doPass(); }
+      else if (b.id === 'b56Dbl') { vib([20, 30, 20]); return doDouble(); }
       else return;
       renderBid(st, true);
     });
@@ -399,7 +402,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     }
     setText($('turnLabel'), lbl);
     (function (l) { if (!l) return; l.style.setProperty('width', 'fit-content', 'important'); l.style.setProperty('min-width', '0', 'important'); l.style.setProperty('max-width', '92vw', 'important'); if (!l.textContent) return; l.style.fontSize = ''; var fs = parseFloat(getComputedStyle(l).fontSize) || 12; while (l.scrollWidth > l.clientWidth + 1 && fs > 8) { fs -= 0.5; l.style.fontSize = fs + 'px'; } })($('turnLabel'));
-    var tl = $('turnLabel'), has = !!lbl, tmine = st.turn === ms, tpart = !tmine && st.turn != null && team(st.turn) === team(me());
+    var tl = $('turnLabel'), has = !!lbl, tmine = st.turn === ms; once('turnVib', tmine ? st.phase + ':' + st.turn + ':' + st.handNumber + ':' + ((st.table && st.table.length) || 0) + ':' + ((st.tricksLog && st.tricksLog.length) || 0) : '', function () { if (tmine) vib([15, 30, 15]); });
+    var tmine2 = tmine, tpart = !tmine && st.turn != null && team(st.turn) === team(me());
     tog(tl, 'tl-mine', has && tmine); tog(tl, 'tl-partner', has && tpart); tog(tl, 'tl-opp', has && !tmine && !tpart);
   }
 
@@ -470,7 +474,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
         tb.style.transition = ''; tb.style.transform = ''; tb.style.opacity = '';
         var mineW = ctx.relTeam(pt.winnerSeat) === 'Team';
         tb.style.borderColor = mineW ? '#3ddc84' : '#ef4444'; tb.style.color = mineW ? '#3ddc84' : '#ff6b6b'; tb.style.background = mineW ? 'repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 3px),linear-gradient(180deg,#12512f,#0a301d 55%,#061c11)' : 'repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 3px),linear-gradient(180deg,#5a1a1f,#36100f 55%,#210909)'; tb.style.boxShadow = 'inset 0 0 0 2px rgba(0,0,0,.55),inset 0 0 0 3px rgba(255,255,255,.18),0 10px 26px rgba(0,0,0,.65)'; tb.style.backdropFilter = 'none'; tb.style.webkitBackdropFilter = 'none';
-        var iWon = pt.winnerSeat === ctx.mySeat(); tb.dataset.me = iWon ? '1' : '0';
+        var iWon = pt.winnerSeat === ctx.mySeat(); tb.dataset.me = iWon ? '1' : '0'; vib(iWon ? [20, 40, 20] : 30);
         tb.innerHTML = '<b>' + (iWon ? 'YOU' : esc(w ? w.name : '')) + '</b> ' + (iWon ? 'win' : 'wins') + ' the trick · +' + pt.points + ' pts to ' + esc(ctx.relTeam(pt.winnerSeat));
       });
       tog(tb, 'on', true);

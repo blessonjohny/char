@@ -2855,8 +2855,13 @@ function playSound(kind, arg) {
   if (!builder) return;
   try { builder(ctx, masterGainNode, arg); } catch (e) { /* never let a sound glitch break gameplay */ }
 }
+function hapticBoost(p) {
+  // Many Android phones (Samsung especially) don't produce any feel for pulses under ~30ms, so stretch short ones.
+  var f = function (d) { return Math.max(35, Math.round(d * 2.2)); };
+  return Array.isArray(p) ? p.map(function (d, i) { return i % 2 === 0 ? f(d) : Math.max(d, 40); }) : f(p);
+}
 function vibrate(pattern) {
-  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate(hapticBoost(pattern)); } catch (e) {}
 }
 const HAPTIC_PATTERNS = {
   cardDeal: 10,
