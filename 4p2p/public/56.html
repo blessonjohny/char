@@ -779,7 +779,7 @@
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
 <script src="table-stage.js?v=4"></script>
-<script src="k56-ui.js?v=31"></script>
+<script src="k56-ui.js?v=33"></script>
 <link rel="stylesheet" href="/scenery.css">
 <script src="/fs-hide.js"></script>
 </head>
@@ -3352,7 +3352,7 @@ let noteDraft = '';
 function formatBidLabel(cb){
   if(!cb) return '';
   if(cb.kind === 'nt') return cb.value + ' No Trump';
-  if(cb.kind === 'ns') return cb.increment ? `+1 NOS ${cb.value}${cb.nosSuit ? ' ' + SUIT_SYM[cb.nosSuit] : ''}` : cb.value + ' NOS';
+  if(cb.kind === 'ns') return cb.increment ? `+${cb.increment} NOS ${cb.value}${cb.nosSuit ? ' ' + SUIT_SYM[cb.nosSuit] : ''}` : cb.value + ' NOS';
   const sym = SUIT_SYM[cb.trump];
   return cb.order === 'reverse' ? `${sym} ${cb.value}` : `${cb.value} ${sym}`;
 }

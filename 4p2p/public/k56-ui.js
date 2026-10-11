@@ -211,7 +211,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=27">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=29">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -340,7 +340,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var sym = SYM[bid.suit], red = RED[bid.suit] ? ' red' : '';
     var nsS = cb && (cb.trump || (cb.kind === 'ns' && st.nsBySeat && typeof st.nsBySeat[cb.seat] === 'string' ? st.nsBySeat[cb.seat] : null)), nsSym = nsS ? SYM[nsS] : '';
     var incPre = (bid.mode === 'inc' && cb) ? '<span class="pre">' + esc((st.seats[cb.seat] || {}).name || '') + ' bid ' + esc(ctx.formatBid(cb)) + '</span>' : '';
-    $('b56Order').innerHTML = bid.kind === 'ns' ? '<button data-order="nos" class="sel nos">' + incPre + '<span class="pv">' + (bid.mode === 'inc' ? '+1 NOS' : 'NOS') + '</span><span class="lb">' + (bid.mode === 'inc' ? pv + (nsSym ? ' ' + nsSym : '') : 'Nothing in your suit') + '</span></button>' : bid.kind !== 'suit' ? '' :
+    $('b56Order').innerHTML = bid.kind === 'ns' ? '<button data-order="nos" class="sel nos">' + incPre + '<span class="pv">' + (bid.mode === 'inc' ? '+' + bid.num + ' NOS' : 'NOS') + '</span><span class="lb">' + (bid.mode === 'inc' ? pv + (nsSym ? ' ' + nsSym : '') : 'Nothing in your suit') + '</span></button>' : bid.kind !== 'suit' ? '' :
       '<button data-order="forward" class="' + (bid.order === 'forward' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? '+' + bid.num + ' ' + sym : pv + ' ' + sym) + '</span><span class="lb">Have the Jack</span></button>' +
       '<button data-order="reverse" class="' + (bid.order === 'reverse' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? sym + ' +' + bid.num : sym + ' ' + pv) + '</span><span class="lb">No Jack, 4+ cards</span></button>';
     var ex = '';
@@ -353,8 +353,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     $('b56Explain').textContent = ex;
     show($('b56Forced'), forced);
     var go = $('b56Go');
-    go.textContent = 'Bid ' + (bid.kind === 'nt' ? pv + ' No Trump' : bid.kind === 'ns' ? (bid.mode === 'inc' ? '+1 NOS ' + pv + (nsSym ? ' ' + nsSym : '') : pv + ' NOS') : (bid.order === 'reverse' ? sym + ' ' + pv : pv + ' ' + sym));
-    show($('b56Pass'), !forced, 'block');
+    go.textContent = 'Bid ' + (bid.kind === 'nt' ? pv + ' No Trump' : bid.kind === 'ns' ? (bid.mode === 'inc' ? '+' + bid.num + ' NOS ' + pv + (nsSym ? ' ' + nsSym : '') : pv + ' NOS') : (bid.order === 'reverse' ? sym + ' ' + pv : pv + ' ' + sym));
+    show($('b56Pass'), !forced, 'block'); setText($('b56Pass'), st.finalChance ? 'Finalize bid' : 'Pass');
     var d = $('b56Dbl'); show(d, canDbl || canRe, 'block'); d.textContent = canRe ? 'Redouble' : 'Double';
   }
 
