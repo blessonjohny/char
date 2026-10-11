@@ -2230,42 +2230,81 @@ app.get('/api/admin/ghost-chat-logs', (req, res) => {
 
 // ---- Ghost players answer chat like a real person (see ghost-chat.js) ----
 const ghostChat = require('./ghost-chat');
-function ghostChatMaybeReply(mode, t, tableId, text) {
+// Human-looking, irregular gaps between chat messages (seconds): never the same rhythm twice in a row.
+const GHOST_CHAT_BUCKETS = [[2, 4, 12], [5, 9, 24], [10, 19, 28], [20, 30, 20], [31, 45, 10], [3, 6, 6]];
+function ghostChatGapMs(t) {
+  let b, guard = 0;
+  do {
+    let r = Math.random() * GHOST_CHAT_BUCKETS.reduce((s, x) => s + x[2], 0);
+    b = GHOST_CHAT_BUCKETS.find(x => (r -= x[2]) < 0) || GHOST_CHAT_BUCKETS[1];
+  } while (t._ghostLastBucket === b && ++guard < 4);
+  t._ghostLastBucket = b;
+  return (b[0] + Math.random() * (b[1] - b[0])) * 1000;
+}
+// ---- phrase bank: common short phrases real players type (a phrase only counts once 3+ times from 2+ different people) ----
+const GHOST_PHRASE_FILE = path.join(DATA_DIR, 'ghost-phrases.json');
+let ghostPhrases = {};   // phrase -> { n, who:[names up to 4] }
+try { ghostPhrases = JSON.parse(fs.readFileSync(GHOST_PHRASE_FILE, 'utf8')) || {}; } catch (e) { ghostPhrases = {}; }
+let ghostPhraseTimer = null;
+function ghostLearnPhrase(from, text, t) {
   try {
+    const p = String(text || '').trim().toLowerCase();
+    if (p.length < 2 || p.length > 22 || /[0-9@?#]|http|www|\.com/.test(p) || !/^[\p{L}\s'!.,😀-🙏👍]+$/u.test(p)) return;
+    const seatNames = ((t && t.engine && t.engine.seats) || []).filter(Boolean).map(s => String(s.name).toLowerCase());
+    if (seatNames.some(n => n.length > 2 && p.includes(n))) return;                 // never keep anything naming a player
+    const e = ghostPhrases[p] || (ghostPhrases[p] = { n: 0, who: [] });
+    e.n++; if (!e.who.includes(from) && e.who.length < 4) e.who.push(from);
+    const keys = Object.keys(ghostPhrases);
+    if (keys.length > 800) keys.sort((a, b) => ghostPhrases[a].n - ghostPhrases[b].n).slice(0, 200).forEach(k => delete ghostPhrases[k]);
+    if (!ghostPhraseTimer) ghostPhraseTimer = setTimeout(() => { ghostPhraseTimer = null; try { fs.writeFileSync(GHOST_PHRASE_FILE, JSON.stringify(ghostPhrases)); } catch (e) {} }, 10000);
+  } catch (e) {}
+}
+function ghostPhraseBank() { return Object.keys(ghostPhrases).filter(k => ghostPhrases[k].n >= 3 && ghostPhrases[k].who.length >= 2); }
+
+function ghostChatMaybeReply(mode, t, tableId, text, fromName) {
+  try {
+    ghostLearnPhrase(fromName || '', text, t);
     const ghosts = (t.engine.seats || []).map((st, i) => (st && st.ghostPlayer === true) ? { pos: i, name: st.name } : null).filter(Boolean);
     if (!ghosts.length) return;
     const now = Date.now();
-    if (t._ghostBusyUntil && now < t._ghostBusyUntil) return;   // one reply at a time, never a flood
-    // Not a chatty ghost: answers the first couple of messages of a conversation, then goes quiet. If people stop talking for
-    // a while and start again, it answers a couple more. Never more than ~5 replies in 10 minutes.
-    const gc = t._ghostChat || (t._ghostChat = { lastHumanAt: 0, burst: 0, limit: 2, recent: [] });
-    if (now - gc.lastHumanAt > 150000) { gc.burst = 0; gc.limit = 2 + Math.floor(Math.random() * 2); }
+    if (t._ghostPending) return;                                  // already about to answer: don't stack up replies
+    // Not a chatty ghost, but a conversation CAN continue: a burst of 4-7 short replies, then quiet. After 2.5 min of silence a new
+    // burst starts. Never more than ~12 replies in 10 minutes.
+    const gc = t._ghostChat || (t._ghostChat = { lastHumanAt: 0, burst: 0, limit: 5, recent: [] });
+    if (now - gc.lastHumanAt > 150000) { gc.burst = 0; gc.limit = 4 + Math.floor(Math.random() * 4); }
     gc.lastHumanAt = now;
     gc.recent = gc.recent.filter(x => now - x < 600000);
-    if (gc.burst >= gc.limit || gc.recent.length >= 5) return;
+    if (gc.burst >= gc.limit || gc.recent.length >= 12) return;
     const low = String(text || '').toLowerCase();
     const addressed = ghosts.find(g => low.includes(String(g.name).toLowerCase()));
-    const g = addressed || ghosts[Math.floor(Math.random() * ghosts.length)];
-    const out = ghostChat.reply(text, { ghostName: g.name, persona: ghostChat.personaFor(g.name), lastAsk: t._ghostLastAsk || null });
+    const g = addressed || (t._ghostTalker && ghosts.find(x => x.name === t._ghostTalker)) || ghosts[Math.floor(Math.random() * ghosts.length)];
+    t._ghostTalker = g.name;                                      // the same ghost keeps the conversation going
+    const out = ghostChat.reply(text, { ghostName: g.name, persona: ghostChat.personaFor(g.name), lastAsk: t._ghostLastAsk || null, bank: ghostPhraseBank() });
     t._ghostLastAsk = null;
-    if (!out) return;                       // confused / nothing natural to say: stay quiet
-    if (Math.random() < 0.15) return;       // and sometimes just doesn't answer, like a real player
-    gc.burst++; gc.recent.push(now);
+    if (!out) return;                                             // confused / nothing natural to say: stay quiet
+    if (Math.random() < 0.12) return;                             // sometimes just doesn't answer, like a real player
     const msg = typeof out === 'string' ? out : out.text;
     const ask = typeof out === 'string' ? null : out.ask;
-    const delay = 2500 + Math.random() * 3500 + msg.length * 45;
-    t._ghostBusyUntil = now + delay + 3000;
-    setTimeout(() => {
+    const next = typeof out === 'string' ? null : out.next;
+    gc.burst++; gc.recent.push(now);
+    t._ghostPending = true;
+    const send = (m, askNow) => {
       const cur = mode === '6p' ? sixpTables[tableId] : tables[tableId];
-      if (!cur) return;
+      if (!cur) return false;
       const st = cur.engine.seats[g.pos];
-      if (!st || st.ghostPlayer !== true) return;   // ghost left meanwhile
-      t._ghostLastAsk = ask || null;
-      if (mode === '6p') io.to('sixp_' + tableId).emit('sixp_chat', { from: g.name, msg, senderId: 'ghost-' + g.pos });
-      else io.to(tableId).emit('chat', { from: g.name, msg, senderId: 'ghost-' + g.pos });
-      appendChatHistory(cur, { from: g.name, msg, ts: Date.now() });
-    }, delay);
-  } catch (e) { console.error('[ghost-chat]', e && e.message); }
+      if (!st || st.ghostPlayer !== true) return false;           // ghost left meanwhile
+      if (askNow !== undefined) cur._ghostLastAsk = askNow;
+      if (mode === '6p') io.to('sixp_' + tableId).emit('sixp_chat', { from: g.name, msg: m, senderId: 'ghost-' + g.pos });
+      else io.to(tableId).emit('chat', { from: g.name, msg: m, senderId: 'ghost-' + g.pos });
+      appendChatHistory(cur, { from: g.name, msg: m, ts: Date.now() });
+      return true;
+    };
+    setTimeout(() => {
+      const ok = send(msg, next ? null : (ask || null));
+      if (ok && next) setTimeout(() => { send(next, ask || null); t._ghostPending = false; }, ghostChatGapMs(t) * 0.8 + next.length * 60);
+      else t._ghostPending = false;
+    }, ghostChatGapMs(t) + msg.length * 70);
+  } catch (e) { console.error('[ghost-chat]', e && e.message); t._ghostPending = false; }
 }
 
 function ghostSnapshot() {
@@ -3900,7 +3939,7 @@ io.on('connection', (socket) => {
     io.to(tableId).emit('chat', { from, msg: trimmed, senderId: socket.id });
     appendChatHistory(t, { from, msg: trimmed, ts: Date.now() });
     touch(t);
-    ghostChatMaybeReply('4p', t, tableId, trimmed);
+    ghostChatMaybeReply('4p', t, tableId, trimmed, from);
   });
 
   // A tap of "Still here" on the idle-check popup — just counts as
@@ -4570,7 +4609,7 @@ io.on('connection', (socket) => {
     io.to('sixp_' + sixpTableId).emit('sixp_chat', { from, msg: trimmed, senderId: socket.id });
     appendChatHistory(t, { from, msg: trimmed, ts: Date.now() });
     sixpTouch(t);
-    ghostChatMaybeReply('6p', t, sixpTableId, trimmed);
+    ghostChatMaybeReply('6p', t, sixpTableId, trimmed, from);
   });
 
   // Purely social, no gameplay effect at all -- same feature as
