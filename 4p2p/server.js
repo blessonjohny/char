@@ -5305,6 +5305,7 @@ function l56ScheduleNext(code) {
 }
 
 function l56RunBotBid(state, seat) {
+  if (state.finalChance && state.currentBid && state.currentBid.seat === seat) { l56Engine.addLog(state, `${state.seats[seat].name} finalized the bid.`, seat); l56Engine.closeBidding(state); return; }
   const decision = l56Engine.botDecideBid(state, seat);
   const botName = state.seats[seat].name;
   state.lastActionBySeat = state.lastActionBySeat || {};
@@ -5325,7 +5326,7 @@ function l56RunBotBid(state, seat) {
     if (!state.currentBid && state.passedSeats.length >= 6) {
       l56Engine.autoNoTrump(state);
     } else if (state.currentBid && state.passedSeats.length >= 5) {
-      l56Engine.closeBidding(state);
+      l56Engine.passesDone(state);
     } else {
       l56Engine.advanceBiddingTurn(state);
     }
@@ -5558,6 +5559,7 @@ function l56AdvanceBiddingTurn(state) {
 }
 function l56CloseBidding(state) {
   const cb = state.currentBid;
+  state.finalChance = false;
   state.phase = 'auctionClosed';
   state.auctionClosedAt = Date.now();
   state.turn = null;
@@ -5610,7 +5612,9 @@ function l56TryNudge(r) {
     if (isStuckBot || isStuckDisconnectedHuman) {
       if (state.phase === 'bidding') {
         const seat = state.turn;
-        if (state.forcedSeat === seat && !state.currentBid) {
+        if (state.finalChance && state.currentBid && state.currentBid.seat === seat) {
+          l56Engine.closeBidding(state);
+        } else if (state.forcedSeat === seat && !state.currentBid) {
           // Forced to open, can't pass -- simplest safe opening bid.
           state.currentBid = { value: 28, trump: null, seat, kind: 'nt', order: null };
           state.doubled = 0;
@@ -5631,7 +5635,7 @@ function l56TryNudge(r) {
           if (!state.currentBid && state.passedSeats.length >= 6) {
             l56Engine.autoNoTrump(state);
           } else if (state.currentBid && state.passedSeats.length >= 5) {
-            l56CloseBidding(state);
+            l56Engine.passesDone(state);
           } else {
             l56AdvanceBiddingTurn(state);
           }
@@ -5804,40 +5808,8 @@ io.on('connection', (socket) => {
       socket.emit('l56_joinDenied', { reason: 'full' });
       return;
     }
-    const reqId = newId();
-    r.pendingRequests.set(reqId, { socketId: socket.id, name: name || 'Player' });
-    let hostSocketId = null;
-    for (const [sockId, info] of r.sockets) if (info.playerId === r.hostPlayerId) hostSocketId = sockId;
-    if (!hostSocketId) {
-      // No host currently connected -- don't make someone wait forever
-      // for a popup nobody can answer; let them straight through to the
-      // seat picker instead.
-      r.pendingRequests.delete(reqId);
-      socket.emit('l56_joinApproved', { code, openSeats, botSeats, hostSeat, hostName });
-      return;
-    }
-    const hostSocket = io.sockets.sockets.get(hostSocketId);
-    if (hostSocket) hostSocket.emit('l56_joinRequest', { reqId, code, name: name || 'Player', openSeats, botSeats });
-    socket.emit('l56_joinPending');
-    // Same fix as the 4-player table: a host who's technically still
-    // connected (hasn't hit the ping timeout) but genuinely
-    // unresponsive -- AFK, didn't see the popup, background app not
-    // actually processing anything -- was leaving the joiner stuck on
-    // "waiting for the host" forever, with no timeout and no fallback.
-    setTimeout(() => {
-      const stillR = l56Rooms[code];
-      if (!stillR || !stillR.pendingRequests.has(reqId)) return; // already resolved
-      stillR.pendingRequests.delete(reqId);
-      const joinerSocket = io.sockets.sockets.get(socket.id);
-      if (!joinerSocket) return;
-      console.log(`[56] host did not respond to ${name}'s join request for table ${code} within 30s — auto-admitting`);
-      const freshSeats = stillR.state && stillR.state.seats ? stillR.state.seats : [];
-      const freshOpenSeats = freshSeats.map((s, i) => s ? null : i).filter(i => i !== null);
-      const freshBotSeats = freshSeats.map((s, i) => (s && s.bot) ? i : null).filter(i => i !== null);
-      const freshHostSeat = freshSeats.findIndex(s => s && s.playerId === stillR.hostPlayerId);
-      const freshHostName = freshHostSeat !== -1 ? freshSeats[freshHostSeat].name : null;
-      joinerSocket.emit('l56_joinApproved', { code, openSeats: freshOpenSeats, botSeats: freshBotSeats, hostSeat: freshHostSeat, hostName: freshHostName });
-    }, 30000);
+    // Open table, same as 6-player: no host permission step -- straight to the seat picker.
+    socket.emit('l56_joinApproved', { code, openSeats, botSeats, hostSeat, hostName });
   });
 
   socket.on('l56_respondJoinRequest', ({ code, reqId, approved }) => {
@@ -5937,6 +5909,7 @@ io.on('connection', (socket) => {
     const { r, pos } = seatInfo;
     const state = r.state;
     if (state.phase !== 'bidding' || state.turn !== pos) return;
+    const wasFinal = !!(state.finalChance && state.currentBid && state.currentBid.seat === pos);
     const minAllowed = state.currentBid ? state.currentBid.value + 1 : 28;
     if (typeof value !== 'number' || value < minAllowed || value > 56) return;
     if (!['suit', 'nt', 'ns'].includes(kind)) return;
@@ -5971,7 +5944,7 @@ io.on('connection', (socket) => {
     const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
     if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
     l56Engine.addLog(state, `${state.seats[pos].name} bid ${label}${noteText ? ' — "' + noteText + '"' : ''}`, pos);
-    l56Engine.advanceBiddingTurn(state);
+    if (wasFinal) l56Engine.closeBidding(state); else l56Engine.advanceBiddingTurn(state);
     l56Touch(r);
     l56Broadcast(code);
     l56ScheduleNext(code);
@@ -5984,6 +5957,12 @@ io.on('connection', (socket) => {
     const state = r.state;
     if (state.phase !== 'bidding' || state.turn !== pos) return;
     if (state.forcedSeat === pos && !state.currentBid) return; // forced opener can't pass
+    if (state.finalChance && state.currentBid && state.currentBid.seat === pos) {
+      l56Engine.addLog(state, `${state.seats[pos].name} finalized the bid.`, pos);
+      l56Engine.closeBidding(state);
+      l56Touch(r); l56Broadcast(code); l56ScheduleNext(code);
+      return;
+    }
     if (!state.passedSeats.includes(pos)) state.passedSeats.push(pos);
     state.lastActionBySeat = state.lastActionBySeat || {};
     state.lastActionBySeat[pos] = 'Pass';
@@ -5993,7 +5972,7 @@ io.on('connection', (socket) => {
     if (!state.currentBid && state.passedSeats.length >= 6) {
       l56Engine.autoNoTrump(state);
     } else if (state.currentBid && state.passedSeats.length >= 5) {
-      l56Engine.closeBidding(state);
+      l56Engine.passesDone(state);
     } else {
       l56Engine.advanceBiddingTurn(state);
     }

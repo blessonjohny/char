@@ -69,7 +69,7 @@ function addLog(state, text, seat) {
 function formatBidLabel(cb) {
   if (!cb) return '';
   if (cb.kind === 'nt') return cb.value + ' No Trump';
-  if (cb.kind === 'ns') return cb.increment ? `+1 NOS ${cb.value}${cb.nosSuit ? ' ' + SUIT_SYM[cb.nosSuit] : ''}` : cb.value + ' NOS';
+  if (cb.kind === 'ns') return cb.increment ? `+${cb.increment} NOS ${cb.value}${cb.nosSuit ? ' ' + SUIT_SYM[cb.nosSuit] : ''}` : cb.value + ' NOS';
   const sym = SUIT_SYM[cb.trump];
   return cb.order === 'reverse' ? `${sym} ${cb.value}` : `${cb.value} ${sym}`;
 }
@@ -201,6 +201,16 @@ function advanceBiddingTurn(state) {
   }
   state.turn = next;
 }
+// Five others passed over a standing bid: the bidder gets ONE final chance to raise or finalize, then play starts.
+function passesDone(state) {
+  const cb = state.currentBid;
+  if (!state.finalChance && !state.doubled && cb) {
+    state.finalChance = true; state.turn = cb.seat;
+    addLog(state, `No one called over ${state.seats[cb.seat].name}. Final chance to raise, or finalize the bid.`, cb.seat);
+    return;
+  }
+  closeBidding(state);
+}
 // Everyone passed: the first bidder (left of dealer) is auto-assigned 28 No Trump, no choices, bidding closes.
 function autoNoTrump(state) {
   const seat = (state.dealer + 1) % 6;
@@ -214,6 +224,7 @@ function autoNoTrump(state) {
 }
 function closeBidding(state) {
   const cb = state.currentBid;
+  state.finalChance = false;
   state.phase = 'auctionClosed';
   state.auctionClosedAt = Date.now();
   state.turn = null;
@@ -503,7 +514,7 @@ function dealFreshHand(state) {
   state.doubled = 0;
   state.doubledBySeat = null;
   state.passedSeats = [];
-  state.forcedSeat = null;
+  state.forcedSeat = null; state.finalChance = false;
   state.openerSeat = null;
   state.openerSuit = null;
   state.openerReassertCount = 0;
@@ -556,7 +567,7 @@ module.exports = {
   bandFor, freshDeck, shuffle, dealHands, addLog,
   formatBidLabel, formatBidLogLabel, legalCardsForSeat, cardPower,
   resolveTrick, settlePendingTrick, finishHand,
-  advanceBiddingTurn, closeBidding, autoNoTrump,
+  advanceBiddingTurn, closeBidding, passesDone, autoNoTrump,
   suitStats, suitOpenValue, botDecideBid,
   getPlayedCardsThisHand, suitLeadSafety, chooseDiscard, botChooseCard,
   newRoomState, dealFreshHand, startGame, nextHand, startNewMatch, restartRound,
