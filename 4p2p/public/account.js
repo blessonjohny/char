@@ -159,7 +159,6 @@
     ov.innerHTML = '<div class="k28a-box" role="dialog" aria-modal="true">' + (allowClose === false ? '' : '<button class="k28a-x" aria-label="Close">&times;</button>') +
       '<h2>' + esc(title) + '</h2>' + (sub ? '<p class="k28a-sub">' + sub + '</p>' : '') + bodyHtml + '</div>';
     var x = ov.querySelector('.k28a-x'); if (x) x.addEventListener('click', close);
-    ov.addEventListener('mousedown', function (e) { if (e.target === ov && allowClose !== false) close(); });
     document.body.appendChild(ov);
     return ov.querySelector('.k28a-box');
   }
@@ -292,6 +291,7 @@
       '<label class="k28a-lbl">Choose an avatar</label><div class="k28a-grid" id="k28aGrid"></div>' +
       '<div style="display:flex;gap:8px"><button class="k28a-btn alt" id="k28aUp" type="button" style="margin:0">📷 Upload photo</button>' +
       '<button class="k28a-btn alt" id="k28aRm" type="button" style="margin:0;display:' + (me.hasPhoto ? 'block' : 'none') + '">Remove photo</button></div><input type="file" id="k28aFile" accept="image/*" hidden>' +
+      '<label style="display:flex;align-items:flex-start;gap:8px;margin:8px 0 0;font-size:.82rem;color:#cdbf9a;cursor:pointer"><input type="checkbox" id="k28aBg" checked style="margin-top:2px"><span>Remove my photo background <span style="opacity:.7">(first time downloads a small helper, about 40 MB. Wi-Fi is best.)</span></span></label>' +
       '<div class="k28a-err" style="margin-top:8px"></div><button class="k28a-btn" id="k28aSave" type="button">' + (first ? 'Save &amp; start playing' : 'Save') + '</button>' +
       (first ? '' : '<div style="display:flex;gap:8px;margin-top:10px"><button class="k28a-btn alt" id="k28aOut" type="button" style="margin:0">Sign out</button><button class="k28a-btn dng" id="k28aDel" type="button" style="margin:0">Delete account</button></div>'),
       !first);
@@ -313,8 +313,9 @@
     file.addEventListener('change', function () {
       var f = file.files && file.files[0]; file.value = ''; if (!f) return;
       if (f.size > 10 * 1024 * 1024) return setErr(box, errText('too_big'));
-      setErr(box, 'Preparing photo...', true);
-      squarePhoto(f).then(function (dataUrl) {
+      var wantBg = !!(box.querySelector('#k28aBg') && box.querySelector('#k28aBg').checked);
+      setErr(box, wantBg ? 'Removing background... the first time can take up to a minute.' : 'Preparing photo...', true);
+      var note = ''; squarePhoto(f, wantBg, function (m) { if (/^Could not/.test(m)) note = m; setErr(box, m, true); }).then(function (dataUrl) {
         return api('POST', '/api/account/photo', { data: dataUrl });
       }).then(function (r) {
         if (!r || !r.ok) return setErr(box, errText(r && r.error));
@@ -323,7 +324,7 @@
         grid.querySelectorAll('div').forEach(function (d) { if (/^pic_/.test(d.dataset.key)) d.remove(); });
         cell(me.photoKey, true); showPrev(); mark();
         box.querySelector('#k28aRm').style.display = 'block';
-        addPhotoToPickers(); renderPill(); setErr(box, 'Photo added!', true);
+        addPhotoToPickers(); renderPill(); setErr(box, note || 'Photo added!', true);
       }).catch(function () { setErr(box, errText('bad_image')); });
     });
     box.querySelector('#k28aRm').addEventListener('click', function () {
@@ -369,25 +370,69 @@
     });
   }
   // center-crop to a square, 256px, WebP when the browser can (server re-checks and re-encodes)
-  function squarePhoto(file) {
+  var BG_URL = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm';
+  var bgLib = null;
+  function loadBg() {
+    if (!bgLib) bgLib = new Function('u', 'return import(u)')(BG_URL).then(function (m) { return m.removeBackground || (m.default && m.default.removeBackground) || m.default; });
+    return bgLib;
+  }
+  function withTimeout(p, ms) {
+    return new Promise(function (res, rej) { var t = setTimeout(function () { rej(new Error('timeout')); }, ms); p.then(function (v) { clearTimeout(t); res(v); }, function (e) { clearTimeout(t); rej(e); }); });
+  }
+  function toBitmap(src) {
+    if (window.createImageBitmap) return createImageBitmap(src);
     return new Promise(function (resolve, reject) {
-      function draw(src, w, h) {
-        var side = Math.min(w, h), sx = (w - side) / 2, sy = (h - side) / 2;
-        var c = document.createElement('canvas'); c.width = c.height = 256;
-        var g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(src, sx, sy, side, side, 0, 0, 256, 256);
-        var url = c.toDataURL('image/webp', 0.82);
-        if (url.indexOf('data:image/webp') !== 0) url = c.toDataURL('image/jpeg', 0.86);
-        resolve(url);
-      }
-      if (window.createImageBitmap) {
-        createImageBitmap(file).then(function (bm) { draw(bm, bm.width, bm.height); }).catch(fallback);
-      } else fallback();
-      function fallback() {
-        var u = URL.createObjectURL(file), im = new Image();
-        im.onload = function () { draw(im, im.naturalWidth, im.naturalHeight); URL.revokeObjectURL(u); };
-        im.onerror = function () { URL.revokeObjectURL(u); reject(new Error('bad')); };
-        im.src = u;
-      }
+      var u = URL.createObjectURL(src), im = new Image();
+      im.onload = function () { URL.revokeObjectURL(u); resolve(im); };
+      im.onerror = function () { URL.revokeObjectURL(u); reject(new Error('bad')); };
+      im.src = u;
+    });
+  }
+  function dim(b) { return [b.naturalWidth || b.width, b.naturalHeight || b.height]; }
+  /* cut-out picture: crop a square around the person (alpha bounding box) so they fill the frame */
+  function cutoutSquare(bm) {
+    var d = dim(bm), w = d[0], h = d[1], k = Math.min(1, 512 / Math.max(w, h));
+    var c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    var g = c.getContext('2d'); g.drawImage(bm, 0, 0, c.width, c.height);
+    var px = g.getImageData(0, 0, c.width, c.height).data, x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+    for (var y = 0; y < c.height; y++) for (var x = 0; x < c.width; x++) if (px[(y * c.width + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) throw new Error('empty');
+    var bw = x1 - x0 + 1, bh = y1 - y0 + 1, side = Math.max(bw, bh) * 1.08;
+    var sx = x0 + bw / 2 - side / 2, sy = y0 + bh / 2 - side / 2;
+    var o = document.createElement('canvas'); o.width = o.height = 256;
+    var og = o.getContext('2d'); og.imageSmoothingQuality = 'high'; og.drawImage(c, sx, sy, side, side, 0, 0, 256, 256);
+    var url = o.toDataURL('image/webp', 0.85);
+    if (url.indexOf('data:image/webp') !== 0) url = o.toDataURL('image/png');
+    return url;
+  }
+  function plainSquare(file) {
+    return toBitmap(file).then(function (bm) {
+      var d = dim(bm), w = d[0], h = d[1], side = Math.min(w, h), sx = (w - side) / 2, sy = (h - side) / 2;
+      var c = document.createElement('canvas'); c.width = c.height = 256;
+      var g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(bm, sx, sy, side, side, 0, 0, 256, 256);
+      var url = c.toDataURL('image/webp', 0.82);
+      if (url.indexOf('data:image/webp') !== 0) url = c.toDataURL('image/jpeg', 0.86);
+      return url;
+    });
+  }
+  /* wantBg: remove the background first (in the browser). If anything goes wrong the normal square photo is used instead. */
+  function squarePhoto(file, wantBg, say) {
+    if (!wantBg) return plainSquare(file);
+    return withTimeout(loadBg().then(function (remove) {
+      if (typeof remove !== 'function') throw new Error('nolib');
+      var shown = 0;
+      return remove(file, {
+        model: 'isnet_quint8',
+        output: { format: 'image/png' },
+        progress: function (key, cur, tot) {
+          if (!say || !tot) return; var pct = Math.floor(cur / tot * 100);
+          if (/fetch/.test(String(key)) && pct >= shown + 10) { shown = pct; say('Downloading helper... ' + pct + '%'); }
+          else if (/compute|inference/.test(String(key))) say('Removing background...');
+        }
+      });
+    }), 120000).then(function (blob) { return toBitmap(blob); }).then(cutoutSquare).catch(function () {
+      if (say) say('Could not remove the background, using your photo as is.');
+      return plainSquare(file);
     });
   }
 
