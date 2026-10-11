@@ -75,6 +75,7 @@ function formatBidLabel(cb) {
 }
 function formatBidLogLabel(cb) {
   if (!cb) return '';
+  if (cb.kind === 'nt' && cb.increment) return `+${cb.increment} No Trump (${cb.value})`;
   if (cb.kind === 'nt' || cb.kind === 'ns') return formatBidLabel(cb);
   if (cb.increment) {
     const sym = SUIT_SYM[cb.trump];

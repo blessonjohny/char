@@ -5918,7 +5918,10 @@ io.on('connection', (socket) => {
     const newBid = { value, trump: kind === 'suit' ? trump : null, seat: pos, kind, order: kind === 'suit' ? order : null };
     // "+N" is shown only when the player really used "Increase by" (inc === true). "Set to" is a plain call: 28 ♠, never +1 ♠.
     // (Old clients that don't send the flag keep the previous automatic behaviour.)
-    if (inc !== false) {
+    if (inc === true) {
+      // Player used "Increase by": always a plus call, whatever the suit, so show +N (relative to the bid on the table; opening = relative to 27).
+      if (kind !== 'ns') newBid.increment = value - (state.currentBid ? state.currentBid.value : 27);
+    } else if (inc !== false) {
       if (kind === 'suit' && state.currentBid && state.currentBid.trump === trump) {
         newBid.increment = value - state.currentBid.value;
       } else if (kind === 'suit' && !state.currentBid) {
