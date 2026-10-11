@@ -73,8 +73,18 @@ const l56Engine = require('./l56-engine');
 const NameFilter = require('./public/name-filter.js');
 const VOICE_PASSWORD = String(process.env.VOICE_PASSWORD || '2856');
 function voiceCodeOk(code) { return String(code == null ? '' : code).trim() === VOICE_PASSWORD; }
+// Signed-in (confirmed) account holders skip the voice password; guests still need it. Read from the sign-in cookie that
+// the socket connection carries, so it cannot be faked by the page.
+function voiceAllowed(socket, code) {
+  try { if (accounts.userFromCookieHeader(socket.handshake.headers.cookie)) return true; } catch (e) {}
+  try { if (accounts.redeemSocketToken(String(code || ''))) return true; } catch (e) {}
+  return voiceCodeOk(code);
+}
 function vetName(socket, name, existingPlayerId, ack) {
-  if (name == null || name === '' || !NameFilter.isBad(name)) return { block: false, name };
+  // Security: player names are shown in other people's pages, so strip anything that could be HTML/script (< > & quotes, backticks,
+  // control characters) before the name goes anywhere.
+  const clean = (typeof name === 'string') ? name.replace(/[<>&"'`\u0000-\u001f\u007f]/g, '').slice(0, 40) : name;
+  if (clean == null || clean === '' || !NameFilter.isBad(clean)) return { block: false, name: (typeof clean === 'string' && clean.trim() === '' && name) ? 'Player' : clean };
   if (existingPlayerId) return { block: false, name: undefined };
   try { socket.emit('nameRejected', { message: NameFilter.MESSAGE }); } catch (e) {}
   if (typeof ack === 'function') { try { ack({ ok: false, error: 'name_not_allowed', message: NameFilter.MESSAGE }); } catch (e) {} }
@@ -139,6 +149,8 @@ app.set('trust proxy', true);
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
+  // Google's sign-in popup talks back to this page; the default 'same-origin' would block that.
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
 }));
 
 // Reads the admin password from the 'x-admin-password' request header
@@ -242,6 +254,25 @@ app.get('/avatar-catalog.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, must-revalidate');
   res.end(avatars.clientJs());
+});
+// ---- Player accounts (see accounts.js): email + Google sign-in, saved name/avatar, optional photo -----------------------
+const { createAccounts } = require('./accounts');
+const accounts = createAccounts({
+  dataDir: DATA_DIR, express,
+  adminAuth: (req, res) => checkAdminAuth(req, res),
+  nameBad: (n) => NameFilter.isBad(n),
+  avatarOk: (k) => avatars.isValidKey(k) && !/^toon10[1-6]$/.test(k),     // protected personal avatars stay PIN-only
+});
+app.use(accounts.router);
+// A player's own photo avatar is served under the same url shape as every other avatar (key "pic_xxxxxxxxxx").
+app.get('/images/hero-avatars/:file', (req, res, next) => {
+  const pm = /^(pic_[a-f0-9]{10})\.(png|webp)$/.exec(req.params.file);
+  if (!pm) return next();
+  const fp = accounts.hasPic(pm[1]) && accounts.picPath(pm[1]);
+  if (!fp) return res.status(404).end();
+  res.setHeader('Content-Type', 'image/webp');
+  res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+  res.sendFile(fp);
 });
 app.get('/images/hero-avatars/:file', (req, res, next) => {
   const m = /^(toon\d+)\.(png|webp)$/.exec(req.params.file);
@@ -2693,6 +2724,7 @@ function totalActiveRooms() { return Object.keys(tables).length + Object.keys(si
 // can be overridden per-deployment via an environment variable without
 // touching either file.
 let ADMIN_SECRET = process.env.ADMIN_SECRET || '5252';
+if (!process.env.ADMIN_SECRET) console.warn('[SECURITY] ADMIN_SECRET is not set: the admin panel is using the built-in default PIN. Set a long ADMIN_SECRET environment variable on your host.');
 // In-memory only, on purpose -- resets to the env var/default on every
 // server restart or redeploy. That's the honest tradeoff of a password
 // you can change without editing files: there's no persistent store
@@ -2763,7 +2795,7 @@ function computeTableDisplayName(seats, creatorName, existingGenericNames) {
 // toon107-109) is rejected.
 // The list of valid avatars is the managed catalog (avatar-catalog.js): built-ins that are not hidden, uploaded ones, and
 // the 6 protected personal ones. Adding/deleting in the admin panel takes effect here immediately.
-function sanitizeAvatarKey(k) { return (typeof k === 'string' && avatars.isValidKey(k)) ? k : null; }
+function sanitizeAvatarKey(k) { return (typeof k === 'string' && (avatars.isValidKey(k) || accounts.hasPic(k))) ? k : null; }
 
 // Shared bot-name pool used anywhere seats get auto-filled with bots --
 // 4p's startGame, 6p's startGame, and the admin auto-bot-table spawner
@@ -4174,10 +4206,10 @@ io.on('connection', (socket) => {
   // Voice chat password (change it without editing code by setting the
   // VOICE_PASSWORD environment variable on the server).
   socket.on('voiceCheck', ({ code } = {}, ack) => {
-    if (typeof ack === 'function') ack({ ok: voiceCodeOk(code) });
+    if (typeof ack === 'function') ack({ ok: voiceAllowed(socket, code) });
   });
   socket.on('voiceJoin', ({ name, code }) => {
-    if (!voiceCodeOk(code)) { socket.emit('voiceDenied'); return; }
+    if (!voiceAllowed(socket, code)) { socket.emit('voiceDenied'); return; }
     if (name && NameFilter.isBad(name)) name = 'Player';
     const room = voiceRoomOf(socket);
     if (!room) return;
