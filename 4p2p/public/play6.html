@@ -168,11 +168,11 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
   body.k28-in-game #seatWrap1{left:76% !important;top:62% !important;}
   /* Per explicit precision request: top-right nudged up the tiniest bit. */
   /* Per explicit request: upper-right nudged down and toward center a bit (27->29, 73->71). */
-  body.k28-in-game #seatWrap2{left:71% !important;top:29% !important;}
+  body.k28-in-game #seatWrap2{left:75% !important;top:29% !important;}
   body.k28-in-game #seatWrap3{left:50% !important;top:21% !important;}
   /* Per explicit precision request: top-left nudged up the tiniest bit. */
   /* Per explicit request: upper-left nudged down and toward center a bit (30->32, 26->28). */
-  body.k28-in-game #seatWrap4{left:28% !important;top:32% !important;}
+  body.k28-in-game #seatWrap4{left:24% !important;top:32% !important;}
   /* Per explicit request: lower-left seat pulled up a little bit (66% -> 63%). */
   /* Per explicit precision request: bottom-left pulled up further and toward center-right a bit. */
   body.k28-in-game #seatWrap5{left:21% !important;top:59% !important;}
@@ -297,7 +297,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      avoid reintroducing the slot1/2 and slot4/5 overlap that an
      earlier, more aggressive centering pass had already caused once
      before (see the note above about that 36px overlap). */
-  body.k28-in-game #trickSlot0{left:50% !important;top:56% !important;}
+  body.k28-in-game #trickSlot0{left:50% !important;top:55% !important;}
   /* Per explicit report: the left pair (slots 4/5) and right pair (slots 1/2) were each only
      6 percentage points apart vertically, which measured out to a real 36px of overlap at a
      typical desktop width - confirmed directly by comparing their rendered bounding boxes,
@@ -305,14 +305,18 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
      at the edge instead of stacking on top of each other. Scoped here inside the existing
      min-width:521px, body.k28-in-game block only - deliberately left completely untouched
      below that breakpoint, so phone mode's own trick-card layout is unaffected either way. */
-  body.k28-in-game #trickSlot1{left:58.5% !important;top:49.25% !important;}
-  body.k28-in-game #trickSlot2{left:58.5% !important;top:40.75% !important;}
+  body.k28-in-game #trickSlot1{left:58.5% !important;top:54% !important;}
+  body.k28-in-game #trickSlot2{left:58.5% !important;top:37% !important;}
   /* Per explicit request: the top card slot moved further up so it sits clearly above the
      upper-left/right pair (slots 2/4) instead of below them (was 43%, i.e. lower on screen
      than their 40%, backwards from what "top" should read as). */
   body.k28-in-game #trickSlot3{left:50% !important;top:36.5% !important;}
-  body.k28-in-game #trickSlot4{left:41.5% !important;top:40.75% !important;}
-  body.k28-in-game #trickSlot5{left:41.5% !important;top:49.25% !important;}
+  body.k28-in-game #trickSlot4{left:41.5% !important;top:37% !important;}
+  body.k28-in-game .trickslot .card,body.k28-in-game .trickslot .card.tiny{width:96px !important;height:136px !important;border-radius:11px !important}
+  body.k28-in-game .trickslot .card .cr,body.k28-in-game .trickslot .card .crb,body.k28-in-game .trickslot .card.tiny .cr,body.k28-in-game .trickslot .card.tiny .crb{font-size:2rem !important}
+  body.k28-in-game .trickslot .card .cs{font-size:3rem !important}
+  body.k28-in-game .trickslot .card .suit-icon-center,body.k28-in-game .trickslot .card.tiny .suit-icon-center{width:3rem !important;height:3rem !important}
+  body.k28-in-game #trickSlot5{left:41.5% !important;top:54% !important;}
 }
 /* Per explicit follow-up request: same reversion as the 4-player
    table's identical change -- the "option 2" proportional desktop
@@ -2413,7 +2417,7 @@ body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !im
      redeployed. Bump this number on every future six.js delivery (same convention as the
      layout-editor-* files already use). -->
 <script src="/table-stage.js?v=5"></script>
-<script src="/six.js?v=32"></script>
+<script src="/six.js?v=33"></script>
 <script>
 // Wrap every existing body child into #appPhoneFrame now that the entire page (including
 // six.js above, which may have already attached listeners to specific elements) has fully
