@@ -251,6 +251,7 @@
       <button class="tab" id="tabGhost" data-cat="tools" style="display:none">🕵️ Ghost Players</button>
       <button class="tab" id="tabPoker" data-cat="tools" style="display:none">🃏 Hold'em Admin</button>
       <button class="tab" id="tabAvatars" data-cat="tools" style="display:none">🖼️ Avatars</button>
+      <button class="tab" id="tabUsers" data-cat="overview" style="display:none">👥 Users</button>
       <button class="tab" id="tabScenery" data-cat="tools" style="display:none">🌄 Backgrounds</button>
       <button class="tab" id="tabTblThemes" data-cat="tools" style="display:none">🪑 Table pictures</button>
       <button class="tab" id="tabVisitors" data-cat="stats" style="display:none">📊 Visitor Log</button>
@@ -400,6 +401,13 @@
       </div>
       <div class="sc-filter" id="scFilter"><button type="button" data-f="all" class="on">All tables</button><button type="button" data-f="4p">4-Player</button><button type="button" data-f="6p">6-Player</button><button type="button" data-f="56">56</button></div>
       <div id="sceneryList"></div>
+    </div>
+
+    <div id="usersView" style="display:none">
+      <div class="sub" style="margin-top:0">Players who made an account (guests are not listed). You can switch an account off, confirm one by hand, or delete it. Deleting removes the person's name, email and photo for good.</div>
+      <div id="usersStatus" class="ub-cards" style="margin:12px 0"></div>
+      <input type="text" id="usersSearch" placeholder="Search name or email..." style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:rgba(255,255,255,0.05);color:#fff;font-size:0.9rem;margin-bottom:12px">
+      <div id="usersList"></div>
     </div>
 
     <div id="avatarsView" style="display:none">
@@ -725,6 +733,9 @@ function switchTab(tab) {
   document.getElementById('tabLayout').classList.toggle('on', tab === 'layout');
   document.getElementById('tabUsage').classList.toggle('on', tab === 'usage');
   document.getElementById('tabAvatars').classList.toggle('on', tab === 'avatars');
+  document.getElementById('tabUsers').classList.toggle('on', tab === 'users');
+  document.getElementById('usersView').style.display = tab === 'users' ? 'block' : 'none';
+  if (tab === 'users') refreshUsers();
   document.getElementById('tabScenery').classList.toggle('on', tab === 'scenery');
   document.getElementById('tabTblThemes').classList.toggle('on', tab === 'tblthemes');
   document.getElementById('tblThemesView').style.display = tab === 'tblthemes' ? 'block' : 'none';
@@ -1101,6 +1112,52 @@ document.getElementById('tabLive').addEventListener('click', () => switchTab('li
 document.getElementById('tabVisitors').addEventListener('click', () => switchTab('visitors'));
 document.getElementById('tabHistory').addEventListener('click', () => switchTab('history'));
 document.getElementById('tabBots').addEventListener('click', () => switchTab('bots'));
+
+// ---------------- Registered users (accounts) ----------------
+let usersCache = null;
+async function refreshUsers() {
+  const list = document.getElementById('usersList');
+  const res = await adminFetch('/api/admin/users');
+  if (!res.ok) { list.innerHTML = '<div class="sub">Could not load users.</div>'; return; }
+  usersCache = await res.json();
+  drawUsers();
+}
+function userAge(ts) { if (!ts) return 'never'; const d = Math.floor((Date.now() - ts) / 86400000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; }
+function drawUsers() {
+  if (!usersCache) return;
+  const d = usersCache, q = (document.getElementById('usersSearch').value || '').trim().toLowerCase();
+  const pill = (ok, yes, no) => `<span style="color:${ok ? '#8fe3a0' : '#ff8a85'}">${ok ? '✅ ' + yes : '⚠️ ' + no}</span>`;
+  document.getElementById('usersStatus').innerHTML =
+    `<div class="ub-card big"><b>${d.total} / ${d.max}</b><span>slots used (${d.verified} confirmed)</span></div>` +
+    `<div class="ub-card"><b>Email</b><span>${pill(d.mail, 'ready', 'not set up')}</span></div>` +
+    `<div class="ub-card"><b>Google</b><span>${pill(d.google, 'ready', 'not set up')}</span></div>`;
+  const rows = d.users.filter(u => !q || (u.name + ' ' + u.email + ' ' + u.playerName).toLowerCase().includes(q));
+  document.getElementById('usersList').innerHTML = rows.length ? rows.map(u => {
+    const how = [u.google ? 'Google' : '', u.password ? 'Email' : ''].filter(Boolean).join(' + ');
+    const st = u.disabled ? '<b style="color:#ff8a85">OFF</b>' : u.verified ? '<span style="color:#8fe3a0">confirmed</span>' : '<span style="color:#ffd27a">waiting for email confirm</span>';
+    const img = u.avatar ? `<img src="/images/hero-avatars/${esc(u.avatar)}.png" style="width:44px;height:44px;border-radius:50%;object-fit:cover;background:#333;flex-shrink:0">` : '<div style="width:44px;height:44px;border-radius:50%;background:#333;flex-shrink:0"></div>';
+    return `<div style="display:flex;gap:10px;align-items:center;padding:10px;margin-bottom:8px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.04)">${img}
+      <div style="flex:1;min-width:0"><div style="font-weight:700;overflow:hidden;text-overflow:ellipsis">${esc(u.playerName || '(no player name yet)')} <span style="font-weight:400;opacity:.7">· ${esc(u.name)}</span></div>
+      <div style="font-size:.78rem;opacity:.8;overflow:hidden;text-overflow:ellipsis">${esc(u.email)} · ${how} · ${st}</div>
+      <div style="font-size:.72rem;opacity:.6">joined ${userAge(u.created)} · last seen ${userAge(u.lastLogin)}</div></div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        ${!u.verified ? `<button class="tab" onclick="userAct('${u.id}','verify')">Confirm</button>` : ''}
+        <button class="tab" onclick="userAct('${u.id}','${u.disabled ? 'enable' : 'disable'}')">${u.disabled ? 'Switch on' : 'Switch off'}</button>
+        <button class="tab" style="color:#ff8a85" onclick="userAct('${u.id}','delete')">Delete</button></div></div>`;
+  }).join('') : '<div class="sub">No registered users yet.</div>';
+}
+async function userAct(id, act) {
+  const u = usersCache && usersCache.users.find(x => x.id === id); if (!u) return;
+  if (act === 'delete' && !confirm('Delete ' + (u.playerName || u.name) + ' (' + u.email + ') for good? This cannot be undone.')) return;
+  let res;
+  if (act === 'delete') res = await adminFetch('/api/admin/users/' + id, undefined, { method: 'DELETE' });
+  else if (act === 'verify') res = await adminFetch('/api/admin/users/' + id + '/verify', undefined, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  else res = await adminFetch('/api/admin/users/' + id + '/disable', undefined, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ disabled: act === 'disable' }) });
+  if (!res.ok) alert('That did not work.');
+  refreshUsers();
+}
+document.getElementById('usersSearch').addEventListener('input', drawUsers);
+
 document.getElementById('tabGhost').addEventListener('click', () => switchTab('ghost'));
 document.getElementById('tabLeaderboard').addEventListener('click', () => switchTab('leaderboard'));
 document.getElementById('tabPoker').addEventListener('click', () => switchTab('poker'));
@@ -1134,6 +1191,7 @@ const NAV = [
   { id: 'live', icon: '🟢', title: 'Live', pages: [
     { id: 'live', title: 'Players & tables', tab: 'live' }, { id: 'bots', title: 'Bot tables', tab: 'bots' }, { id: 'ghost', title: 'Ghost players', tab: 'ghost' }, { id: 'poker', title: "Hold'em admin", tab: 'poker' } ] },
   { id: 'comments', icon: '💌', title: 'Comments', pages: [ { id: 'comments', title: 'Comments', tab: 'comments' } ] },
+  { id: 'users', icon: '👥', title: 'Users', pages: [ { id: 'users', title: 'Registered users', tab: 'users' } ] },
   { id: 'edit', icon: '🎨', title: 'Edit', pages: [
     { id: 'tables', title: 'Tables', tab: 'layout' }, { id: 'scenery', title: 'Backgrounds', tab: 'scenery' }, { id: 'tablepics', title: 'Table pictures', tab: 'tblthemes' },
     { id: 'avatars', title: 'Avatars', tab: 'avatars', sub: 'avatars' }, { id: 'kunukku', title: 'Kunukku', tab: 'avatars', sub: 'kunukku' },

@@ -95,8 +95,20 @@
       });
     }
   }
+  /* wide (computer) screens use the old landscape layout: take every inline style / rule this module added back off */
+  function reset(gs, o) {
+    if (!gs) return;
+    ['left','right','width','background-image','background-size','background-position','background-repeat','background-color'].forEach(function (k) { gs.style.removeProperty(k); });
+    document.documentElement.style.removeProperty('--tbl-bg');
+    var root = gs.getRootNode ? gs.getRootNode() : document, host = root === document ? document.head : root;
+    var tag = host.querySelector('#k28-stage-css'); if (tag && tag.textContent) tag.textContent = '';
+    if (o && o.glows) Object.keys(o.glows).forEach(function (k) {
+      var g = o.glows[k]; if (!g) return;
+      ['left','top','width','height','mix-blend-mode','display'].forEach(function (q) { g.style.removeProperty(q); });
+    });
+  }
   window.K28Stage = {
-    place: place, names: NAMES, url: url, pad: pad,
+    place: place, reset: reset, names: NAMES, url: url, pad: pad,
     theme: function (game) { return themes[game]; },
     onChange: function (f) { subs.push(f); },
     refresh: load

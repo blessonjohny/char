@@ -778,8 +778,8 @@
 <script src="/avatar-catalog.js"></script>
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
-<script src="table-stage.js?v=4"></script>
-<script src="k56-ui.js?v=36"></script>
+<script src="table-stage.js?v=5"></script>
+<script src="k56-ui.js?v=37"></script>
 <link rel="stylesheet" href="/scenery.css">
 <script src="/fs-hide.js"></script>
 </head>
@@ -963,7 +963,7 @@ let mySeat = null;
 let myAvatar = '';
 try { myAvatar = localStorage.getItem('k28_player_avatar') || ''; } catch (e) {}
 const ALL_AVATAR_KEYS_56 = (window.AVATAR_CATALOG ? AVATAR_CATALOG.keys.slice() : Array.from({length:90}, (_,i) => 'toon'+(i+1)));
-if (!myAvatar || !ALL_AVATAR_KEYS_56.includes(myAvatar)) {
+if (!myAvatar || (!ALL_AVATAR_KEYS_56.includes(myAvatar) && !/^pic_[a-f0-9]{10}$/.test(myAvatar))) {
   myAvatar = ALL_AVATAR_KEYS_56[Math.floor(Math.random() * ALL_AVATAR_KEYS_56.length)];
 }
 function heroAvatarHtml(key) {
@@ -3745,5 +3745,6 @@ document.getElementById('sideClose').addEventListener('click', ()=>{
 <script src="layout-apply-56.js?v=1"></script>
 <script src="layout-pro.js?v=2"></script>
 <script src="layout-pro-apply.js?v=1" data-table="56"></script>
+<script src="/account.js?v=1" defer></script>
 </body>
 </html>

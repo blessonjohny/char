@@ -5936,7 +5936,7 @@ document.addEventListener('click', (e) => {
   const target = e.target.closest('button, .btn, .btn-outline, .icon-btn');
   if (target) { playSound('click'); vibrate(12); }
 }, true);
-if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) || ['toon101','toon102','toon103','toon104','toon105','toon106'].includes(MY_AVATAR_KEY)) {
+if (!MY_AVATAR_KEY || (!ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) && !/^pic_[a-f0-9]{10}$/.test(MY_AVATAR_KEY)) || ['toon101','toon102','toon103','toon104','toon105','toon106'].includes(MY_AVATAR_KEY)) {
   // Per explicit request: a brand-new visitor's random starting avatar
   // must never land on one of the 5 personal, PIN-protected avatars --
   // filtered out here rather than picked and then checked, so there's
@@ -6064,7 +6064,8 @@ function heroAvatarHtml(key) {
   const PUBLIC_TOON_COUNT = 90;
   const m = typeof key === 'string' && key.match(/^toon(\d+)$/);
   const AC = window.AVATAR_CATALOG;      // the live list from the admin panel (falls back to the built-in range if it didn't load)
-  const validNum = AC ? (m && AC.has(key)) : (m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106)));
+  const isPicAvatar = typeof key === 'string' && /^pic_[a-f0-9]{10}$/.test(key);   // a signed-in player's own photo
+  const validNum = isPicAvatar || (AC ? (m && AC.has(key)) : (m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106))));
   if (!validNum) {
     // Hash the ORIGINAL invalid key (not a random pick) so the same
     // bot name/key always remaps to the same fallback avatar
@@ -14860,13 +14861,11 @@ window.addEventListener('DOMContentLoaded', () => {
     <button type="button" class="welcome-btn primary" id="btnGuestPlay" onclick="currentUser=null;document.getElementById('authScreen').style.display='none';document.getElementById('welcomeScreen').style.display='flex';showToast('Playing as Guest', 'info', 2000);">
       <span class="icon">👤</span> Play as Guest
     </button>
-    <button type="button" class="welcome-btn coming-soon" id="btnGoogleSignIn" disabled title="Coming Soon!">
-      <span class="icon">🔑</span> Sign In with Google
-      <span style="font-size:0.65rem;color:var(--text-secondary);margin-left:auto;background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px">Coming Soon</span>
+    <button type="button" class="welcome-btn" id="btnGoogleSignIn" style="display:none">
+      <span class="icon">🔑</span> Continue with Google
     </button>
-    <button type="button" class="welcome-btn coming-soon" id="btnEmailSignIn" disabled title="Coming Soon!">
-      <span class="icon">📧</span> Sign In with Email
-      <span style="font-size:0.65rem;color:var(--text-secondary);margin-left:auto;background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px">Coming Soon</span>
+    <button type="button" class="welcome-btn" id="btnEmailSignIn">
+      <span class="icon">📧</span> Sign in / Create account
     </button>
   </div>
 
@@ -14874,7 +14873,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <div class="welcome-about-text" style="text-align:center;font-size:0.72rem">
       Guest play saves everything locally in your browser.<br>
       All your bot brains, game progress, and settings are preserved.<br>
-      <span style="color:var(--accent)">Sign-in features will be available in a future update!</span>
+      <span style="color:var(--accent)">Signing in is optional &mdash; it just saves your name &amp; avatar for next time.</span>
     </div>
   </div>
 
@@ -20840,6 +20839,7 @@ function serverBotPlayForMe() {
 <script src="layout-apply.js"></script>
 <script src="layout-pro.js?v=2"></script>
 <script src="layout-pro-apply.js?v=1" data-table="4p"></script>
+<script src="/account.js?v=1" defer></script>
 <script src="/install-prompt.js" defer></script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){});});}</script>
 </body>

@@ -416,7 +416,7 @@ function checkAvatarPin(key) {
   });
 }
 const PUBLIC_AVATAR_KEYS = ALL_AVATAR_KEYS.filter(k => !PROTECTED_AVATAR_KEYS.has(k));
-if (!MY_AVATAR_KEY || !ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) || PROTECTED_AVATAR_KEYS.has(MY_AVATAR_KEY)) {
+if (!MY_AVATAR_KEY || (!ALL_AVATAR_KEYS.includes(MY_AVATAR_KEY) && !/^pic_[a-f0-9]{10}$/.test(MY_AVATAR_KEY)) || PROTECTED_AVATAR_KEYS.has(MY_AVATAR_KEY)) {
   MY_AVATAR_KEY = PUBLIC_AVATAR_KEYS[Math.floor(Math.random() * PUBLIC_AVATAR_KEYS.length)];
 }
 function heroAvatarHtml(key) {
@@ -446,7 +446,8 @@ function heroAvatarHtml(key) {
   // valid), which is exactly where PUBLIC_AVATAR_KEYS is used instead
   // of the full range.
   const AC = window.AVATAR_CATALOG;      // the live list from the admin panel (falls back to the built-in range if it didn't load)
-  const validNum = AC ? (m && AC.has(key)) : (m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106)));
+  const isPicAvatar = typeof key === 'string' && /^pic_[a-f0-9]{10}$/.test(key);   // a signed-in player's own photo
+  const validNum = isPicAvatar || (AC ? (m && AC.has(key)) : (m && ((Number(m[1]) >= 1 && Number(m[1]) <= TOON_COUNT) || (Number(m[1]) >= 101 && Number(m[1]) <= 106))));
   if (!validNum) {
     const src = key || 'x';
     let h = 0;
@@ -1238,7 +1239,7 @@ function showScreen(id) {
   // the class synchronously right here instead, at the one point that
   // actually changes visibility, so it's always already correct by
   // the time anything renders off of it.
-  document.body.classList.toggle('k28-in-game', false);   /* the table pictures use the phone layout everywhere (K28Stage) */
+  document.body.classList.toggle('k28-in-game', id === 'gameScreen' && window.innerWidth >= 521);   /* wide screens keep the old landscape table; phones use the table pictures */
 }
 // Per explicit request, same addition as the 4-player table's identical
 // change -- see there for the fuller reasoning: mirrors #gameScreen's
@@ -1264,7 +1265,7 @@ function showScreen(id) {
 setInterval(() => {
   const gs = document.getElementById('gameScreen');
   if (!gs) return;
-  const shouldBeActive = false;   /* see showScreen(): phone layout everywhere */
+  const shouldBeActive = !gs.classList.contains('hidden') && window.innerWidth >= 521;
   document.body.classList.toggle('k28-in-game', shouldBeActive);
 }, 500);
 function showToast(msg, kind, ms) {
@@ -3099,7 +3100,7 @@ function enforceSeatAvatarSizing6p() {
     5: { w: 150, h: 193, fs: 4.13 },
   };
   for (const slot in sizes) {
-    if (window.K28Stage) break;   /* the table picture module sizes avatars through a stylesheet (so the layout editors can override it) */
+    if (window.K28Stage && !document.body.classList.contains('k28-in-game')) break;   /* the table picture module sizes avatars through a stylesheet (so the layout editors can override it) */
     const av = document.getElementById('av' + slot);
     if (!av) continue;
     const s = sizes[slot];
@@ -3118,6 +3119,7 @@ function placeTable6p() {
   for (let i = 0; i < 6; i++) { seats.push($('seatWrap' + i)); tricks.push($('trickSlot' + i)); avs.push($('av' + i)); }
   const glows = {};
   ['tl', 'tr', 'bl', 'br'].forEach(k => { glows[k] = gs.querySelector('.fake-lamp-glow-' + k); });
+  if (document.body.classList.contains('k28-in-game') || window.innerWidth >= 521) { K28Stage.reset(gs, { glows }); return; }
   K28Stage.place('six', gs, { seats, tricks, avs, glows, column: false });
 }
 if (window.K28Stage) K28Stage.onChange(placeTable6p);

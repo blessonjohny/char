@@ -194,7 +194,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   function sizeClass() {
     /* the table photo is portrait: on a wide screen it is shown as a centred phone-shaped column, so the
        phone layout is used everywhere (never the old wide-photo layout) */
-    tog(host, 'k28-in-game', false);
+    tog(host, 'k28-in-game', window.innerWidth >= 521);
   }
   /* The table photo, every seat, played card, avatar size and corner light come from the shared K28Stage module
      (table-stage.js), which scales them all from the same picture so alignment holds on every screen. */
@@ -203,6 +203,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var g = {}, seats = [], tricks = [], avs = [];
     for (var i = 0; i < 6; i++) { seats.push($('seatWrap' + i)); tricks.push($('trickSlot' + i)); avs.push($('av' + i)); }
     ['tl', 'tr', 'bl', 'br'].forEach(function (k) { g[k] = root.querySelector('.fake-lamp-glow-' + k); });
+    if (window.innerWidth >= 521) { S.reset($('gameScreen'), { glows: g }); return; }
     S.place('k56', $('gameScreen'), { seats: seats, tricks: tricks, avs: avs, glows: g, column: true });
   }
   function applySizes() { placeStage(); }

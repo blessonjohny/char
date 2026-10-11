@@ -1822,10 +1822,12 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 :host{display:block;position:static;height:0;margin:0;background:none!important;color:#fff;
   -webkit-user-select:none;user-select:none;touch-action:manipulation;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 :host([hidden]){display:none!important}
-#gameScreen,:host(.k28-in-game) #gameScreen{display:block!important;z-index:50;
-  background-color:transparent!important;
+#gameScreen,:host(.k28-in-game) #gameScreen{display:block!important;z-index:50}
+@media (max-width:520px){
+#gameScreen{background-color:transparent!important;
   background-image:linear-gradient(to bottom,rgba(0,0,0,.75) 0%,rgba(0,0,0,.5) 55%,rgba(0,0,0,0) 100%)!important;
   background-size:100% 10%!important;background-position:top!important;background-repeat:no-repeat!important}
+}
 #gameScreen .btn-outline{font-family:inherit}
 .k56-wrap{display:contents}
 .seat.empty-seat{opacity:.25}
