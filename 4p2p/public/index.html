@@ -4708,7 +4708,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.88rem;cursor:pointer">
           <input type="checkbox" id="teachToggle" style="width:18px;height:18px"> 🧠 Teach my partner bot
         </label>
-        <div id="teachInfo" style="font-size:0.75rem;opacity:.8;margin-top:5px;line-height:1.4">Your partner (the seat opposite you) copies how you bid. Other bots never see your hand.</div>
+        <div id="teachInfo" style="font-size:0.75rem;opacity:.8;margin-top:5px;line-height:1.4">Your partner bot learns from the way you play and starts to follow your style. Nobody — bot or human — ever sees your cards.</div>
         <div id="teachStatus" style="font-size:0.78rem;margin-top:4px;color:#c4b5fd"></div>
         <a href="#" id="teachReset" style="font-size:0.72rem;color:#c4b5fd;display:none">Reset my bot</a>
       </div>
@@ -16274,7 +16274,7 @@ document.getElementById('btnStartGame').addEventListener('click', () => {
         return;
       }
       tog.checked = !!res.on; showStatus(res.status);
-      if (res.on) info.textContent = 'Your partner bot will copy how you bid. Other bots never see your hand.';
+      if (res.on) info.textContent = 'Your partner bot is learning your style. Nobody ever sees your cards.';
     });
   }
   tog.addEventListener('change', function () {
