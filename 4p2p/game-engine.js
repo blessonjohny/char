@@ -51,6 +51,8 @@ const RANKS = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0 };
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1 };
 const brain = require('./bot-brain');
+const partnerBot = require('./partner-bot');
+partnerBot.load();
 const leaderboard = require('./leaderboard');
 const challengeLeaderboard = require('./challenge-leaderboard');
 brain.loadBrains();
@@ -100,6 +102,13 @@ function cardEq(a, b) { return a.suit === b.suit && a.rank === b.rank; }
 // defensive read (how good this hand is at spoiling someone else's
 // contract), and turns the offensive score into a per-bid-level
 // probability curve computed from the actual cards — not a fixed table.
+// Hand shape recorded for 'Teach my partner' (see partner-bot.js).
+function teachFeatures(hand) {
+  const hp = brain.getHandProfile(hand);
+  const ev = evaluatePhase1Hand(hand);
+  return { p: hp.totalPoints, h: hp.highCardCount, c: ev.hardCeiling };
+}
+
 function evaluatePhase1Hand(hand) {
   const bySuit = {};
   for (const s of SUITS) bySuit[s] = [];
@@ -986,6 +995,7 @@ class GameEngine {
     if (bid === 0) {
       if (first) bid = 14; // first bidder cannot pass
       else {
+        this._teachNote(pos, 0);
         this.passes++;
         this.p1SeatsActed[pos] = true;
         this.p1TurnsTaken++;
@@ -996,6 +1006,7 @@ class GameEngine {
     }
     const minBid = restricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 14);
     if (bid < minBid || bid > 28) return { ok: false, reason: 'invalid_bid_amount' };
+    this._teachNote(pos, bid);
     this.highestBid = bid;
     this.bidder = pos;
     this.passes = 0;
@@ -1007,6 +1018,16 @@ class GameEngine {
     if (this.seats[pos]) this._bidderHandProfileForLearning = brain.getHandProfile(this.seats[pos].hand);
     this.addLog(`Seat ${pos} bid ${bid}.`);
     return this._afterBidAction(pos, true);
+  }
+
+  // 'Teach my partner': remember the shape of a teacher's hand and their latest call (bid or pass) this round.
+  _teachNote(pos, bid) {
+    const st = this.seats[pos];
+    if (!st || st.isBot || !st.teachKey) return;
+    try {
+      if (!this._teachObs) this._teachObs = {};
+      this._teachObs[pos] = { key: st.teachKey, f: teachFeatures(st.hand), bid };
+    } catch (e) {}
   }
 
   _afterBidAction(actingPos, wasABid) {
@@ -1898,6 +1919,22 @@ class GameEngine {
       this.lastLearningBotName = seatI.name;
     }
     this._bidderHandProfileForLearning = null;
+    // 'Teach my partner': feed each teacher's call this round into their profile, and tell the profile how the
+    // partner bot's own bid (if it was the bidder) turned out.
+    try {
+      for (const k of Object.keys(this._teachObs || {})) {
+        const o = this._teachObs[k];
+        partnerBot.observe(o.key, o.f, o.bid, (Number(k) === this.bidder && o.bid === this.highestBid) ? !!made : null);
+      }
+      for (let i = 0; i < 4; i++) {
+        const st = this.seats[i];
+        if (st && st.isBot && st.teachFor) {
+          if (i === this.bidder) partnerBot.botOutcome(st.teachFor, !!made);
+          partnerBot.roundDone(st.teachFor);
+        }
+      }
+    } catch (e) { console.error('[partner-bot] round-end learning failed:', e.message); }
+    this._teachObs = {};
     // Flush to disk right here rather than relying purely on the periodic
     // timer — round-ends are infrequent enough that this costs nothing
     // meaningful, and frequent enough that an unexpected restart (a Render
@@ -2420,6 +2457,18 @@ class GameEngine {
         // Only ever pull DOWN toward a more conservative memory, never up -
         // see the comment above this block for why.
         target = Math.min(target, Math.round((target + avgBid) / 2));
+      }
+
+      // 'Teach my partner' bot: lean toward how its teacher bids on a similar hand (more the more it has seen).
+      // In safe mode (it recently over-bid) it ignores the style and bids a notch lower instead.
+      const teachKey = this.seats[pos].teachFor;
+      if (teachKey && !wantsLower) {
+        if (partnerBot.isSafe(teachKey)) {
+          target = Math.max(14, target - 1);
+        } else {
+          const sg = partnerBot.suggest(teachKey, teachFeatures(hand));
+          if (sg) target = Math.min(ev.hardCeiling + 1, Math.round(target * (1 - sg.weight) + sg.bid * sg.weight));
+        }
       }
 
       // "Stay low" is the deliberate last word on this bid, applied

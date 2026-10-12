@@ -134,9 +134,50 @@ function settlePendingTrick(state) {
   state.turn = winnerSeat;
   state.pendingTrick = null;
   const cardsLeft = state.hands.reduce((a, h) => a + h.length, 0);
-  if (cardsLeft === 0) finishHand(state);
+  if (cardsLeft === 0) { finishHand(state); return; }
+  checkEarlyWin(state);
+}
+
+// "Already won": once the bidding team has reached its bid, or the other side has taken so many points that the
+// bid can no longer be reached (the deck holds 56 points in all), the rest of the hand cannot change who wins
+// it. Same idea as the 6-player table's popup: if the team that is already ahead has a human at the table, ask
+// them whether to keep playing or go straight to the result; if it is all bots, just settle the hand now.
+const TOTAL_POINTS = 56;
+function checkEarlyWin(state) {
+  if (state.earlyWinDeclined || state.pendingEarlyWinChoice) return;
+  const cb = state.currentBid;
+  if (!cb || !state.teamPoints) return;
+  const bidTeam = TEAM_OF(cb.seat);
+  const defTeam = bidTeam === 'A' ? 'B' : 'A';
+  const bidderClinched = state.teamPoints[bidTeam] >= cb.value;
+  const defenseClinched = state.teamPoints[defTeam] > TOTAL_POINTS - cb.value;
+  if (!bidderClinched && !defenseClinched) return;
+  const winTeam = bidderClinched ? bidTeam : defTeam;
+  const hasHuman = state.seats.some((s, i) => s && !s.bot && s.connected !== false && TEAM_OF(i) === winTeam);
+  if (hasHuman) {
+    state.pendingEarlyWinChoice = { team: winTeam, made: bidderClinched, ts: Date.now() };
+    addLog(state, `Team ${winTeam} has ${bidderClinched ? 'already reached the bid' : 'made the bid impossible to reach'} — waiting for them to keep playing or move on.`);
+  } else {
+    addLog(state, `Team ${winTeam} has ${bidderClinched ? 'already reached the bid' : 'made the bid impossible to reach'} — hand settled early.`);
+    finishHand(state);
+  }
+}
+function respondEarlyWin(state, pos, continuePlay) {
+  const ew = state.pendingEarlyWinChoice;
+  if (!ew) return false;
+  if (TEAM_OF(pos) !== ew.team) return false;
+  state.pendingEarlyWinChoice = null;
+  if (continuePlay) {
+    state.earlyWinDeclined = true;
+    addLog(state, `Team ${ew.team} chose to keep playing the hand out.`);
+  } else {
+    addLog(state, `Team ${ew.team} chose to move on — hand settled now.`);
+    finishHand(state);
+  }
+  return true;
 }
 function finishHand(state) {
+  state.pendingEarlyWinChoice = null;
   const cb = state.currentBid;
   const biddingTeam = TEAM_OF(cb.seat);
   const oppTeam = biddingTeam === 'A' ? 'B' : 'A';
@@ -524,6 +565,8 @@ function dealFreshHand(state) {
   state.lastActionBySeat = {};
   state.revealedVoidBySeat = {};
   state.reviewHold = false;
+  state.pendingEarlyWinChoice = null;
+  state.earlyWinDeclined = false;
   state.suitBidBySeat = {};
   state.teamSuitOpen = {};
   state.bidHistory = [];
@@ -567,7 +610,7 @@ module.exports = {
   SUITS, SUIT_SYM, RANKS, RANK_PTS, TEAM_OF, THEME_COUNT,
   bandFor, freshDeck, shuffle, dealHands, addLog,
   formatBidLabel, formatBidLogLabel, legalCardsForSeat, cardPower,
-  resolveTrick, settlePendingTrick, finishHand,
+  resolveTrick, settlePendingTrick, finishHand, checkEarlyWin, respondEarlyWin,
   advanceBiddingTurn, closeBidding, passesDone, autoNoTrump,
   suitStats, suitOpenValue, botDecideBid,
   getPlayedCardsThisHand, suitLeadSafety, chooseDiscard, botChooseCard,

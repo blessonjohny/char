@@ -91,6 +91,7 @@ function vetName(socket, name, existingPlayerId, ack) {
   return { block: true, name };
 }
 const geoip = require('geoip-lite');
+const partnerBot = require('./partner-bot');
 
 // ============================================================
 // GLOBAL CRASH PROTECTION — this is not optional polish, it's the
@@ -3465,6 +3466,48 @@ io.on('connection', (socket) => {
     withTable((t) => { touch(t); });
   });
 
+  // ---- "Teach my partner" (28, 4-player) -------------------------------------------------------------------
+  // A seated player switches it on in the lobby. Key = their account id if signed in, otherwise a browser id
+  // they send (guests). The partner bot (the seat opposite) is then created when the game starts.
+  function teachKeyFor(guestId) {
+    try {
+      const u = accounts.userFromCookieHeader(socket.handshake.headers.cookie);
+      if (u && u.id) return 'u:' + String(u.id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+    } catch (e) {}
+    const g = String(guestId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+    return 'g:' + g;
+  }
+  socket.on('setTeach', ({ on, guestId }, ack) => {
+    withTable((t, pos) => {
+      const reply = (o) => { if (typeof ack === 'function') ack(o); };
+      if (pos === null || pos === undefined) return reply({ ok: false });
+      const key = teachKeyFor(guestId);
+      if (!partnerBot.validKey(key)) return reply({ ok: false, error: 'no_id' });
+      if (t.engine.phase !== 'lobby') return reply({ ok: false, error: 'already_started' });
+      const seat = t.engine.seats[pos];
+      if (!seat) return reply({ ok: false });
+      if (on) {
+        // One teacher per table.
+        const other = t.engine.seats.findIndex((s, i) => s && i !== pos && s.teachKey);
+        if (other >= 0) return reply({ ok: false, error: 'someone_else_teaching' });
+        const partnerPos = [3, 2, 1, 0][pos];
+        const ps = t.engine.seats[partnerPos];
+        if (ps && !ps.isBot) return reply({ ok: false, error: 'partner_is_human' });
+        seat.teachKey = key;
+      } else {
+        delete seat.teachKey;
+      }
+      reply({ ok: true, on: !!seat.teachKey, status: partnerBot.status(key) });
+    });
+  });
+  socket.on('teachStatus', ({ guestId }, ack) => {
+    if (typeof ack === 'function') ack({ ok: true, status: partnerBot.status(teachKeyFor(guestId)) });
+  });
+  socket.on('teachReset', ({ guestId }, ack) => {
+    partnerBot.reset(teachKeyFor(guestId));
+    if (typeof ack === 'function') ack({ ok: true, status: partnerBot.status(teachKeyFor(guestId)) });
+  });
+
   socket.on('fillBots', ({ count }) => {
     withTable((t, pos) => {
       // Per explicit request: any seated player can adjust the bot-fill
@@ -3505,6 +3548,20 @@ io.on('connection', (socket) => {
       // connected to the table's socket room.
       if (pos === null || pos === undefined) return;
       if (t.engine.phase !== 'lobby') return;
+      // 'Teach my partner': the seat opposite the teacher becomes their trained bot (if it's free / a bot).
+      t.engine.seats.forEach((st, i) => { if (st && st.isBot && st.teachFor) st.teachFor = null; });
+      const teacherPos = t.engine.seats.findIndex(s => s && !s.isBot && s.teachKey);
+      if (teacherPos >= 0) {
+        const pp = [3, 2, 1, 0][teacherPos];
+        if (!t.engine.seats[pp]) t.engine.seatBot(pp, 'Partner Bot');
+        const ps = t.engine.seats[pp];
+        if (ps && ps.isBot) {
+          ps.teachFor = t.engine.seats[teacherPos].teachKey;
+          t.engine.addLog(`${ps.name} is learning from ${t.engine.seats[teacherPos].name}.`);
+        } else {
+          delete t.engine.seats[teacherPos].teachKey;
+        }
+      }
       const open = t.engine.emptySeats();
       // Shuffle so repeated games don't always show the same first few
       // names in the list — previously toFill was always 3, so seats
@@ -5416,6 +5473,25 @@ function l56ScheduleNext(code) {
     return;
   }
 
+  // Paused on the "already won" question: nothing else may move. If nobody answers in 30s, keep playing.
+  if (state.phase === 'playing' && state.pendingEarlyWinChoice) {
+    const ew = state.pendingEarlyWinChoice;
+    const key = 'earlywin:' + ew.ts;
+    if (r.l56EarlyWinKey === key) return;
+    r.l56EarlyWinKey = key;
+    if (r.l56EarlyWinTimer) clearTimeout(r.l56EarlyWinTimer);
+    r.l56EarlyWinTimer = setTimeout(() => {
+      const rr = l56Rooms[code];
+      if (!rr || !rr.state || !rr.state.pendingEarlyWinChoice || rr.state.pendingEarlyWinChoice.ts !== ew.ts) return;
+      const anyPos = rr.state.seats.findIndex((s, i) => s && L56_TEAM_OF(i) === ew.team);
+      l56Engine.respondEarlyWin(rr.state, anyPos, true);
+      l56Touch(rr);
+      l56Broadcast(code);
+      l56ScheduleNext(code);
+    }, Math.max(0, 30000 - (Date.now() - ew.ts)));
+    return;
+  }
+
   if ((state.phase === 'bidding' || state.phase === 'playing') && state.turn !== null && state.turn !== undefined) {
     const occ = state.seats[state.turn];
     if (!occ) return;
@@ -5648,14 +5724,9 @@ function l56ResolveTrick(state) {
 }
 // Faithful port of settlePendingTrick() + finishHand() from public/56.html.
 function l56SettlePendingTrick(state) {
-  if (!state.pendingTrick) return;
-  const winnerSeat = state.pendingTrick.winnerSeat;
-  state.table = [];
-  state.leadSuit = null;
-  state.turn = winnerSeat;
-  state.pendingTrick = null;
-  const cardsLeft = state.hands.reduce((a, h) => a + h.length, 0);
-  if (cardsLeft === 0) l56FinishHand(state);
+  // One copy of this logic only (l56-engine.js), so the fallback sweep behaves exactly like the normal path,
+  // including the "already won" check.
+  l56Engine.settlePendingTrick(state);
 }
 function l56FinishHand(state) {
   const cb = state.currentBid;
@@ -5744,6 +5815,17 @@ function l56TryNudge(r) {
   if (!state) return false;
   const now = Date.now();
 
+  // Paused on the "already won" question: only the 30s default may move it.
+  if (state.pendingEarlyWinChoice) {
+    const ew = state.pendingEarlyWinChoice;
+    if ((now - ew.ts) >= 30000) {
+      const anyPos = state.seats.findIndex((s, i) => s && L56_TEAM_OF(i) === ew.team);
+      l56Engine.respondEarlyWin(state, anyPos, true);
+      state.updatedAt = now;
+      return true;
+    }
+    return false;
+  }
   // A finished trick still sitting on screen past its display time.
   if (state.pendingTrick && (now - state.pendingTrick.ts) >= L56_TRICK_DISPLAY_MS) {
     l56SettlePendingTrick(state);
@@ -6060,8 +6142,24 @@ io.on('connection', (socket) => {
     const seatInfo = l56SeatFor(socket, code);
     if (!seatInfo) return;
     const { r } = seatInfo;
-    if (r.state.phase !== 'handEnd' || !r.state.matchOver) return;
+    // After a finished match anyone at the table can start the next one; "Restart Game" in the middle of a
+    // match is a host action (any connected seated human counts, same as Restart Round).
+    const matchFinished = r.state.phase === 'handEnd' && r.state.matchOver;
+    const hostRestart = r.state.phase !== 'lobby' && l56IsEffectiveHost(r, socket.data.l56 && socket.data.l56.playerId);
+    if (!matchFinished && !hostRestart) return;
     l56Engine.startNewMatch(r.state);
+    l56Touch(r);
+    l56Broadcast(code);
+    l56ScheduleNext(code);
+  });
+
+  // The team that is already ahead answers "keep playing" or "move on" (see checkEarlyWin in l56-engine.js).
+  socket.on('l56_respondEarlyWin', ({ code, continuePlay }) => {
+    const seatInfo = l56SeatFor(socket, code);
+    if (!seatInfo) return;
+    const { r, pos } = seatInfo;
+    if (r.state.phase !== 'playing') return;
+    if (!l56Engine.respondEarlyWin(r.state, pos, !!continuePlay)) return;
     l56Touch(r);
     l56Broadcast(code);
     l56ScheduleNext(code);
@@ -6193,6 +6291,7 @@ io.on('connection', (socket) => {
     const { r, pos } = seatInfo;
     const state = r.state;
     if (state.phase !== 'playing' || state.turn !== pos) return;
+    if (state.pendingEarlyWinChoice) return;   // the table is paused on the "already won" question
     const legal = l56Engine.legalCardsForSeat(state, pos);
     if (!legal.some(c => c.id === cardId)) return;
     const hand = state.hands[pos];
