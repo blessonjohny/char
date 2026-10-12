@@ -151,7 +151,9 @@
     btn.addEventListener('click', async () => {
       retryBlockedAudio(); // a real tap — good moment to also unstick any blocked playback
       if (!inCall) {
-        // Password first -- the microphone isn't touched until it's accepted.
+        // Respect / no-personal-details notice first (shown once per browser), then the password;
+        // the microphone isn't touched until both are accepted.
+        if (window.K28Safety && !(await K28Safety.ask())) return;
         if (!(await ensureVoiceAccess())) return;
         const ok = await join();
         if (ok) { btn.classList.add('live'); panel.classList.add('on'); renderList(); }
@@ -221,6 +223,11 @@
           #k28vPwBox{width:100%;max-width:330px;background:#12181f;color:#e8edf2;border:1px solid #f4c430;border-radius:14px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,0.6);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
           #k28vPwBox h3{margin:0 0 10px;font-size:1.05rem;color:#f4c430;text-align:center}
           #k28vPwBox p{margin:0 0 6px;font-size:0.88rem;line-height:1.45;text-align:center;color:#cfd8e2}
+          #k28vPwOr{margin:12px 0 6px;font-size:0.8rem;text-align:center;color:#9fb0c2}
+          #k28vPwRow{display:flex;gap:8px}
+          #k28vPwIn{flex:1;min-width:0;padding:10px;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:#0b1016;color:#e8edf2;font-size:16px}
+          #k28vPwUse{padding:10px 14px;border-radius:9px;font-weight:800;border:1px solid #f4c430;background:#243040;color:#f4c430;cursor:pointer}
+          #k28vPwErr{min-height:1em;margin:6px 0 0;font-size:0.8rem;text-align:center;color:#ff8a80}
           #k28vPwBtns{display:flex;gap:10px;margin-top:14px}
           #k28vPwBtns button{flex:1;padding:11px 8px;border-radius:9px;font-weight:800;font-size:0.85rem;cursor:pointer;border:1px solid rgba(255,255,255,0.25);background:#243040;color:#e8edf2}
           #k28vPwBtns button.go{flex:2;background:linear-gradient(135deg,#f4c430,#c99a1e);border-color:#f4c430;color:#241a12}
@@ -232,8 +239,11 @@
       ov.innerHTML = `
         <div id="k28vPwBox" role="dialog" aria-modal="true" aria-labelledby="k28vPwTitle">
           <h3 id="k28vPwTitle">🎙️ Voice chat</h3>
-          <p>Voice chat is for signed-in players.</p>
+          <p>Sign in to use voice chat.</p>
           <p><b>Sign in or create a free account to switch it on.</b></p>
+          <div id="k28vPwOr">— or use the voice password —</div>
+          <div id="k28vPwRow"><input id="k28vPwIn" type="password" placeholder="Voice password" autocomplete="off"><button type="button" id="k28vPwUse">Join</button></div>
+          <div id="k28vPwErr"></div>
           <div id="k28vPwBtns">
             <button type="button" id="k28vPwCancel">Not now</button>
             <button type="button" id="k28vPwGo" class="go">Sign in to activate</button>
@@ -253,6 +263,16 @@
       document.addEventListener('keydown', onKey, true);
       ov.addEventListener('click', (e) => { if (e.target === ov) finish(false); });
       document.body.appendChild(ov);
+      const tryPw = async () => {
+        const inp = ov.querySelector('#k28vPwIn'), err = ov.querySelector('#k28vPwErr');
+        const c = inp.value.trim(); if (!c) return;
+        if (await serverAcceptsCode(c)) {
+          voiceCode = c; try { sessionStorage.setItem('k28v_code', c); } catch (e) {}
+          finish(true);
+        } else { err.textContent = 'Wrong password — try again or sign in.'; inp.select(); }
+      };
+      ov.querySelector('#k28vPwUse').addEventListener('click', tryPw);
+      ov.querySelector('#k28vPwIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryPw(); });
       ov.querySelector('#k28vPwCancel').addEventListener('click', () => finish(false));
       ov.querySelector('#k28vPwGo').addEventListener('click', () => {
         const acc = window.__k28Account;

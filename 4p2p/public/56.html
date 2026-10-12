@@ -55,7 +55,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <script src="/socket.io/socket.io.js"></script>
-<script src="/voice.js"></script>
+<script src="/safety-notice.js?v=1"></script>
+<script src="/voice.js?v=3"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&family=Rajdhani:wght@600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,600&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -578,6 +579,8 @@
   #joinPendingOverlay, #joinRequestOverlay, #seatPicker56Overlay, #stillPlaying56Overlay{
     z-index:45; top:0; height:100%;
   }
+  /* above the table view (k56-ui) while the table is on screen */
+  #earlyWin56Overlay{z-index:3000; top:0; height:100%; align-items:center;}
   .review-box{
     display:flex; flex-direction:column; text-align:left; overflow:hidden;
     background:rgba(10,30,23,0.98); border:1px solid var(--line); border-radius:14px;
@@ -798,7 +801,7 @@
     <div class="lp-crest">56</div>
     <h1>Kerala 56</h1>
     <div class="tag">Six players · Two teams · One target</div>
-    <div class="tag" style="margin-top:6px;font-size:.78rem;opacity:.85">Ampathiaaru · Ambathiyaaru · <span lang="ml">അമ്പത്തിയാറ്</span> — <a href="/kerala-56-ampathiaaru-guide.html" style="color:inherit;text-decoration:underline">How to play 56</a></div>
+    <div class="tag" style="margin-top:6px;font-size:.78rem;opacity:.85">Ampathiaaru · Ambathiyaaru · <span lang="ml">അമ്പത്തിയാറ്</span><br><a href="/kerala-56-ampathiaaru-guide.html" style="color:inherit;text-decoration:underline">How to play 56</a></div>
   </div>
 
   <div id="inviteBanner56" class="hidden" style="text-align:center;font-size:0.85rem">
@@ -830,6 +833,19 @@
     fill or replace bots, and can remove seats. If the host leaves, the next connected player becomes host.
   </details>
   <a href="/" class="lp-back">⬅ Back to Main Menu</a>
+</div>
+
+<!-- ======================= ALREADY WON THIS HAND (same idea as the 6-player table) ======================= -->
+<div id="earlyWin56Overlay" class="overlay-msg hidden">
+  <div class="box" style="text-align:center">
+    <h2>🏆 Already Won This Hand</h2>
+    <p id="earlyWin56Text"></p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+      <button class="btn btn-gold" id="earlyWin56Keep">▶️ Keep Playing</button>
+      <button class="btn btn-ghost" id="earlyWin56Next">⏭️ Start Next Round</button>
+      <button class="btn btn-gold hidden" id="earlyWin56Ok">OK</button>
+    </div>
+  </div>
 </div>
 
 <!-- ======================= JOIN-REQUEST PENDING (shown to the joiner) ======================= -->
@@ -1441,6 +1457,8 @@ function ensureSyncSocket(){
   });
 
   syncSocket.on('l56_joinRequest', ({reqId, code, name}) => {
+    // Tables are open now (no host approval) -- the server never sends this any more; ignore any stray one.
+    if(true) return;
     document.getElementById('joinRequestText').textContent = `${name} wants to join your table.`;
     const overlay = document.getElementById('joinRequestOverlay');
     overlay.classList.remove('hidden');
@@ -1988,8 +2006,9 @@ function requestJoinRoom(code){
   
   myName = name;
   ensureSyncSocket();
+  // Open table: the server answers straight away with the seat picker -- no host permission step,
+  // so there is nothing to wait on (no "Asking the host..." screen any more).
   syncSocket.emit('l56_requestJoin', {code, name});
-  document.getElementById('joinPendingOverlay').classList.remove('hidden');
 }
 
 function renderRoomList(rooms){
@@ -2194,6 +2213,7 @@ function clampChatPanel56ToViewport(){
   panel.style.top = top + 'px';
 }
 function openChat56(){
+  if (window.K28Safety && !K28Safety.accepted()) { K28Safety.ask().then(function (ok) { if (ok) openChat56(); }); return; }
   document.getElementById('chatOverlay56').classList.add('on');
   if(!chatPanel56Inited) initChatPanel56Position();
   else clampChatPanel56ToViewport();
@@ -2470,6 +2490,7 @@ function render(state){
   applyTheme(state.themeIndex || 0);
   detectQMarkChanges(state);
   detectPartnerSignal56(state);
+  handleEarlyWin56(state);   // before the table-view branch below, which returns early during play
   // Same rule six.js uses: voice only makes sense once you're actually
   // seated and playing, not while still in the lobby waiting on others.
   if(window.K28Voice){
@@ -2976,15 +2997,20 @@ function renderLobbyOverlay(state){
   const amHost = !!state.hostPlayerId && state.hostPlayerId === MY_PLAYER_ID;
   isHost = amHost;
   const seated = state.seats.filter(s=>s).length;
-  const canStart = seated === 6;
+  const canStart = seated >= 1 && mySeat !== null;   // any seated player can start; empty seats are filled with bots automatically
   const hasEmpty = seated < 6;
+  // Empty seats fill with bots on their own (the host's browser does it, once) -- people who join later simply take over a bot seat.
+  if(amHost && hasEmpty && !window.__l56AutoFilling){
+    window.__l56AutoFilling = true;
+    fillEmptySeatsWithBots(true).catch(()=>{}).then(()=>{ window.__l56AutoFilling = false; });
+  }
   const myT = mySeat !== null ? TEAM_OF(mySeat) : null;
   const rows = state.seats.map((s,i)=>{
     if(!s) return `<div class="lb-seat empty"><div class="lb-av">＋</div><div class="lb-info"><div class="lb-name" style="color:#9fb0c3;font-weight:600">Open seat ${i+1}</div><div class="lb-meta">Waiting for a player or a bot</div></div></div>`;
     const f = K56_CTX.face(s, i, state);
     const rel = myT === null ? '' : (TEAM_OF(i) === myT ? 'team' : 'opp');
     const hostTag = state.hostPlayerId && s.playerId === state.hostPlayerId ? ' 👑' : '';
-    const kick = (amHost && i !== mySeat) ? `<button class="lb-kick" onclick="kickSeat56(${i})" title="Remove">✕</button>` : '';
+    const kick = (amHost && i !== mySeat && !s.bot) ? `<button class="lb-kick" onclick="kickSeat56(${i})" title="Remove">✕</button>` : '';
     return `<div class="lb-seat ${rel}"><div class="lb-av" style="${f.bg ? 'background:' + f.bg : ''}">${f.html}</div><div class="lb-info"><div class="lb-name">${escapeHtml(s.name)}${hostTag}${i===mySeat?' (you)':''}</div><div class="lb-meta">Seat ${i+1}${rel ? ` <span class="lb-chip ${rel}">${rel === 'team' ? 'Team' : 'Opp'}</span>` : ''}${s.bot ? ' · 🤖 Bot' : ''}</div></div>${kick}</div>`;
   }).join('');
   const dots = Array.from({length:6}, (_,i) => `<i class="${i < seated ? 'on' : ''}"></i>`).join('');
@@ -2998,11 +3024,8 @@ function renderLobbyOverlay(state){
       <div class="lb-title">Waiting for players</div>
       <div class="lb-dots">${dots}<span style="margin-left:6px">${seated}/6 seated</span></div>
       <div class="lb-actions">
-        ${amHost ? `
-          <button class="btn btn-gold" id="startBtn" ${canStart?'':'disabled'}>Start Game</button>
-          ${canStart ? '' : '<div class="lb-note">Fill all 6 seats to start — invite friends or add bots.</div>'}
-          ${hasEmpty ? '<button class="btn btn-maroon sec" id="fillBotsBtn">🤖 Fill Empty Seats with Bots</button>' : ''}
-        ` : `<div class="lb-note" style="font-size:14px;color:#e8d9a8">Waiting for the host to start the game…</div>`}
+        <button class="btn btn-gold" id="startBtn" ${canStart?'':'disabled'}>Start Game</button>
+        <div class="lb-note">Bots hold the empty seats &mdash; friends who join take a bot's seat.</div>
         <button class="btn btn-ghost sec" id="btnInviteFromLobby56">💌 Invite a Friend</button>
       </div>
       <div class="lb-seats">${rows}</div>
@@ -3014,8 +3037,7 @@ function renderLobbyOverlay(state){
   document.getElementById('btnInviteFromLobby56').addEventListener('click', shareInviteLink56);
   document.getElementById('lbLeave').addEventListener('click', exitToHome);
   document.getElementById('lbChat').addEventListener('click', openChat56);
-  if(amHost && canStart) document.getElementById('startBtn').addEventListener('click', startGame);
-  if(amHost && hasEmpty) document.getElementById('fillBotsBtn').addEventListener('click', fillEmptySeatsWithBots);
+  if(canStart) document.getElementById('startBtn').addEventListener('click', startGame);
 }
 
 async function kickSeat56(pos){
@@ -3109,8 +3131,8 @@ function botFace(seatObj, seatIdx, state){
   return faces.verySad;
 }
 
-async function fillEmptySeatsWithBots(){
-  if(!isHost){ showToast('Only the host can do that.', 2500); return; }
+async function fillEmptySeatsWithBots(silent){
+  if(!isHost){ if(!silent) showToast('Only the host can do that.', 2500); return; }
   let state = await loadState();
   if(!state || state.phase !== 'lobby') return;
   const emptySeats = [];
@@ -3120,6 +3142,7 @@ async function fillEmptySeatsWithBots(){
     const id = identities[k] || {name: 'Bot ' + (seatIdx+1), gender: 'm'};
     state.seats[seatIdx] = {name: id.name, bot: true, gender: id.gender};
   });
+  if(!emptySeats.length) return;
   addLog(state, 'Empty seats filled with bots.');
   await saveState(state);
   render(state);
@@ -3325,8 +3348,50 @@ function linkifyEscaped(escapedText){
 // ============================================================
 // GAME ACTIONS
 // ============================================================
+// "Already won this hand": once a team has reached the bid (or made it impossible to reach) the server pauses and
+// asks that team whether to play the rest out or go straight to the result. Everyone else just sees why it paused.
+let earlyWinDismissedKey56 = null;
+function handleEarlyWin56(state){
+  const ov = document.getElementById('earlyWin56Overlay');
+  if(!ov) return;
+  const ew = state && state.phase === 'playing' ? state.pendingEarlyWinChoice : null;
+  if(!ew){ ov.classList.add('hidden'); earlyWinDismissedKey56 = null; return; }
+  const key = (state.handNumber||0) + ':' + ew.team + ':' + (ew.ts||0);
+  const mine = mySeat !== null && TEAM_OF(mySeat) === ew.team;
+  if(!mine && earlyWinDismissedKey56 === key){ ov.classList.add('hidden'); return; }
+  const who = mine ? 'Your team has' : 'The other team has';
+  const what = ew.made ? 'already reached the bid' : 'made the bid impossible to reach';
+  document.getElementById('earlyWin56Text').innerHTML = who + ' ' + what + ' \u2014 the result of this hand is already decided.' +
+    (mine ? '<br><br>Keep playing out the remaining tricks, or go straight to the next round?'
+          : '<br><br>Waiting for them to decide whether to keep playing or move on.');
+  document.getElementById('earlyWin56Keep').classList.toggle('hidden', !mine);
+  document.getElementById('earlyWin56Next').classList.toggle('hidden', !mine);
+  document.getElementById('earlyWin56Ok').classList.toggle('hidden', mine);
+  ov.dataset.key = key;
+  ov.classList.remove('hidden');
+}
+function respondEarlyWin56(continuePlay){
+  document.getElementById('earlyWin56Overlay').classList.add('hidden');
+  syncSocket.emit('l56_respondEarlyWin', {code: roomCode, continuePlay: !!continuePlay});
+}
+document.getElementById('earlyWin56Keep').addEventListener('click', () => respondEarlyWin56(true));
+document.getElementById('earlyWin56Next').addEventListener('click', () => respondEarlyWin56(false));
+document.getElementById('earlyWin56Ok').addEventListener('click', () => {
+  const ov = document.getElementById('earlyWin56Overlay');
+  earlyWinDismissedKey56 = ov.dataset.key || null;
+  ov.classList.add('hidden');
+});
+
 async function startGame(){
-  if(!isHost){ showToast('Only the host can start the game.', 2500); return; }
+  if(mySeat === null){ showToast('Take a seat first.', 2500); return; }
+  // Safety net: if any seat is somehow still empty, fill it (host's browser) or let the server's host-or-seated check handle it.
+  try{
+    const st = await loadState();
+    if(st && st.phase === 'lobby' && st.seats.some(x=>!x)){
+      if(isHost) await fillEmptySeatsWithBots(true);
+      else { showToast('Seats are still filling \u2014 try again in a second.', 2000); return; }
+    }
+  }catch(e){}
   // Dealing, bot AI, and every phase transition now happen on the
   // server (see l56-engine.js / server.js) -- this just asks for it and
   // renders whatever comes back via the normal sync56_state push,

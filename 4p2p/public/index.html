@@ -4704,6 +4704,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
           <option value="3">3 bots</option>
         </select>
       </div>
+      <div id="teachRow" style="margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.35)">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.88rem;cursor:pointer">
+          <input type="checkbox" id="teachToggle" style="width:18px;height:18px"> 🧠 Teach my partner bot
+        </label>
+        <div id="teachInfo" style="font-size:0.75rem;opacity:.8;margin-top:5px;line-height:1.4">Your partner (the seat opposite you) copies how you bid. Other bots never see your hand.</div>
+        <div id="teachStatus" style="font-size:0.78rem;margin-top:4px;color:#c4b5fd"></div>
+        <a href="#" id="teachReset" style="font-size:0.72rem;color:#c4b5fd;display:none">Reset my bot</a>
+      </div>
       <button class="btn btn-success" style="width:100%;margin-top:12px;padding:16px 14px;font-size:0.95rem;border-radius:12px" id="btnStartGame" disabled>Start Game</button>
       <button class="btn btn-outline btn-sm" style="width:100%;margin-top:8px;display:none" id="btnManageSeats">🎛️ Manage Seats</button>
       <button class="btn btn-outline" style="width:100%;margin-top:8px;padding:13px 14px;font-size:0.85rem;border-radius:12px" id="btnLeaveRoom">Leave Room</button>
@@ -5396,7 +5404,8 @@ textarea.cmt-field{resize:vertical;min-height:130px;line-height:1.45}
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
 </script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/voice.js"></script>
+<script src="/safety-notice.js?v=1"></script>
+<script src="/voice.js?v=3"></script>
 
 <script>
 // ==================== CONFIG ====================
@@ -14081,6 +14090,7 @@ function clampChatPanelToViewport() {
 }
 
 function openChat() {
+  if (window.K28Safety && !K28Safety.accepted()) { K28Safety.ask().then(function (ok) { if (ok) openChat(); }); return; }
   document.getElementById('chatOverlay').classList.add('on');
   if (!chatPanelInited) initChatPanelPosition();
   else clampChatPanelToViewport();
@@ -16231,6 +16241,65 @@ document.getElementById('btnStartGame').addEventListener('click', () => {
   gameSocket.emit('fillBots', { count: botCount });
   gameSocket.emit('startGame');
 });
+
+// ==================== TEACH MY PARTNER (28) ====================
+(function () {
+  var tog = document.getElementById('teachToggle'), st = document.getElementById('teachStatus'),
+      info = document.getElementById('teachInfo'), rst = document.getElementById('teachReset'),
+      card = document.getElementById('playersCard');
+  if (!tog || !card) return;
+  function gid() {
+    try {
+      var g = localStorage.getItem('k28_teach_id');
+      if (!g) { g = 'g' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); localStorage.setItem('k28_teach_id', g); }
+      return g;
+    } catch (e) { return 'tmp' + Math.random().toString(36).slice(2, 12); }
+  }
+  function showStatus(s) {
+    if (!s) { st.textContent = ''; return; }
+    if (!s.hands) st.textContent = 'Your bot is new — it learns after each round.';
+    else if (s.skill == null) st.textContent = 'Your bot is still learning (' + s.hands + ' hand' + (s.hands === 1 ? '' : 's') + ' seen).';
+    else st.textContent = 'Your bot bids like you ' + s.skill + '% of the time (' + s.hands + ' hands seen).' + (s.safe ? ' Playing safe for a few rounds after an over-bid.' : '');
+    rst.style.display = s.hands ? 'inline' : 'none';
+  }
+  function send(on) {
+    if (typeof gameSocket === 'undefined' || !gameSocket) return;
+    gameSocket.emit('setTeach', { on: on, guestId: gid() }, function (res) {
+      if (!res || !res.ok) {
+        tog.checked = false;
+        var m = { partner_is_human: 'Your partner seat has a real player — teaching needs the seat opposite you open for a bot.',
+                  someone_else_teaching: 'Someone else at this table is already teaching a bot.',
+                  already_started: 'The game has already started.' };
+        if (res && m[res.error]) st.textContent = m[res.error];
+        return;
+      }
+      tog.checked = !!res.on; showStatus(res.status);
+      if (res.on) info.textContent = 'Your partner bot will copy how you bid. Other bots never see your hand.';
+    });
+  }
+  tog.addEventListener('change', function () {
+    try { localStorage.setItem('k28_teach_on', tog.checked ? '1' : '0'); } catch (e) {}
+    send(tog.checked);
+  });
+  rst.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (!confirm('Reset your partner bot? It will forget how you bid.')) return;
+    gameSocket.emit('teachReset', { guestId: gid() }, function (res) { if (res && res.ok) showStatus(res.status); });
+  });
+  var wasVisible = false;
+  new MutationObserver(function () {
+    var vis = card.style.display !== 'none';
+    if (vis && !wasVisible) {
+      var want = false; try { want = localStorage.getItem('k28_teach_on') === '1'; } catch (e) {}
+      tog.checked = false;
+      if (typeof gameSocket !== 'undefined' && gameSocket) {
+        gameSocket.emit('teachStatus', { guestId: gid() }, function (r) { if (r && r.ok) showStatus(r.status); });
+        if (want) { tog.checked = true; send(true); }
+      }
+    }
+    wasVisible = vis;
+  }).observe(card, { attributes: true, attributeFilter: ['style'] });
+})();
 
 // ==================== MOBILE ENHANCEMENTS ====================
 function initMobileEnhancements() {

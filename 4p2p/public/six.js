@@ -4732,6 +4732,7 @@ function clampChatPanelToViewport() {
   panel.style.top = top + 'px';
 }
 function openChat() {
+  if (window.K28Safety && !K28Safety.accepted()) { K28Safety.ask().then(function (ok) { if (ok) openChat(); }); return; }
   $('chatOverlay').classList.add('on');
   if (!chatPanelInited) initChatPanelPosition();
   else clampChatPanelToViewport();
