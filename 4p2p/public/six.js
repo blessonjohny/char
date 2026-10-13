@@ -2094,7 +2094,64 @@ $('btnReadyRoomStart6p').addEventListener('click', () => {
   socket.emit('sixp_confirmStart');
 });
 
+// ---- Teach my mates (6-player) ----
+var teachInitDone = false, teachTable = null;
+function teachGuestId() {
+  try {
+    var g = localStorage.getItem('k28_teach_id');
+    if (!g) { g = 'g' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36); localStorage.setItem('k28_teach_id', g); }
+    return g;
+  } catch (e) { return 'tmp' + Math.random().toString(36).slice(2, 12); }
+}
+function teachShowStatus(s) {
+  var st = $('teachStatus'), rst = $('teachReset');
+  if (!st) return;
+  if (!s) { st.textContent = ''; return; }
+  if (!s.hands) st.textContent = 'Your mates are new — they learn after each round.';
+  else if (s.skill == null) st.textContent = 'Your mates are still learning (' + s.hands + ' hand' + (s.hands === 1 ? '' : 's') + ' seen).';
+  else st.textContent = 'Your mates bid like you ' + s.skill + '% of the time (' + s.hands + ' hands seen).' + (s.safe ? ' Playing safe for a few rounds after an over-bid.' : '');
+  if (rst) rst.style.display = s.hands ? 'inline' : 'none';
+}
+function teachSend(on) {
+  socket.emit('sixp_setTeach', { on: on, guestId: teachGuestId() }, function (res) {
+    var tog = $('teachToggle');
+    if (!res || !res.ok) {
+      tog.checked = false;
+      var m = { partner_is_human: 'Mate seats (same side as you) have a real player — teaching needs them open for bots.',
+                someone_else_teaching: 'Someone else at this table is already teaching their mates.',
+                already_started: 'The game has already started.' };
+      if (res && m[res.error]) $('teachStatus').textContent = m[res.error];
+      return;
+    }
+    tog.checked = !!res.on; teachShowStatus(res.status);
+  });
+}
+function initTeach6p(state) {
+  if (!$('teachToggle')) return;
+  var tid = (state && state.tableId) || (typeof MY_TABLE_ID !== 'undefined' ? MY_TABLE_ID : '') || 'x';
+  if (teachInitDone && teachTable === tid) return;
+  teachTable = tid;
+  $('teachRow').style.display = 'block';
+  if (!teachInitDone) {
+    teachInitDone = true;
+    $('teachToggle').addEventListener('change', function () {
+      try { localStorage.setItem('k28_teach_on', this.checked ? '1' : '0'); } catch (e) {}
+      teachSend(this.checked);
+    });
+    $('teachReset').addEventListener('click', function (e) {
+      e.preventDefault();
+      if (!confirm('Reset your mates? They will forget how you bid.')) return;
+      socket.emit('sixp_teachReset', { guestId: teachGuestId() }, function (res) { if (res && res.ok) teachShowStatus(res.status); });
+    });
+  }
+  $('teachToggle').checked = false;
+  socket.emit('sixp_teachStatus', { guestId: teachGuestId() }, function (r) { if (r && r.ok) teachShowStatus(r.status); });
+  var want = false; try { want = localStorage.getItem('k28_teach_on') === '1'; } catch (e) {}
+  if (want) { $('teachToggle').checked = true; teachSend(true); }
+}
+
 function renderLobby(state) {
+  initTeach6p(state);
   const seated = state.seats.filter(Boolean).length;
   $('lobbySub').textContent = `${seated}/6 players`;
   $('lobbyPlayerList').innerHTML = state.seats.filter(Boolean).map((s, i) => {

@@ -2036,6 +2036,14 @@ body.k28-in-game #btnInvite,#btnInvite{position:absolute !important;top:77px !im
     <span style="font-size:0.8rem;color:var(--text-secondary)">Fill empty spots with bots:</span>
     <select id="botFillSelect" style="padding:6px 10px;border-radius:8px;background:var(--panel);color:#fff;border:1px solid var(--border)"></select>
   </div>
+  <div id="teachRow" style="display:none;width:100%;max-width:320px;margin:0 0 16px;padding:10px 12px;border-radius:12px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.35);box-sizing:border-box;text-align:left">
+    <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.85rem;cursor:pointer">
+      <input type="checkbox" id="teachToggle" style="width:18px;height:18px"> 🧠 Teach my mates
+    </label>
+    <div id="teachInfo" style="font-size:0.74rem;opacity:.8;margin-top:5px;line-height:1.4">Your two teammates (Mate 1 and Mate 2) learn from the way you play and start to follow your style. Nobody — bot or human — ever sees your cards. If someone takes a Mate seat and leaves, it goes back to your learning bot.</div>
+    <div id="teachStatus" style="font-size:0.76rem;margin-top:4px;color:#c4b5fd"></div>
+    <a href="#" id="teachReset" style="font-size:0.72rem;color:#c4b5fd;display:none">Reset my mates</a>
+  </div>
   <button class="btn btn-success" id="btnStartGame" style="display:none">▶ Start Game</button>
   <button class="btn btn-outline" id="btnLeaveLobby">Leave Table</button>
 </div>
