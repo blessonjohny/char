@@ -2210,7 +2210,10 @@ class GameEngine {
       // minutes it's already been stuck.
       const delay = seat.isBot ? pace.botDelay(this.phase)
         : isGhost ? pace.ghostDelay(this, this.phase)
-        : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
+        : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : (this.phase === 'choosingTrump' ? 30000 : 15000));
+      // ^ A DISCONNECTED human (plug icon: closed the tab, lost signal) is covered by a bot for that one turn after 15s
+      //   (30s when choosing trump -- the one decision that is costly to get wrong). The seat stays theirs and they can
+      //   step straight back in. A CONNECTED player who is merely slow is left alone until CONNECTED_BUT_STUCK_MS (110s).
       setTimeout(() => {
         // Re-check everything at fire-time, not just at schedule-time:
         // - the round hasn't moved on

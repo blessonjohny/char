@@ -92,6 +92,17 @@ function vetName(socket, name, existingPlayerId, ack) {
 }
 const geoip = require('geoip-lite');
 const partnerBot = require('./partner-bot');
+// Teach-my-partner key for a socket: account id if signed in, else the browser's guest id. 6-player profiles are
+// kept separate from 4-player ones (different hand size) by the '~6' suffix.
+function teachKey6(socket, guestId) {
+  let base = '';
+  try {
+    const u = accounts.userFromCookieHeader(socket.handshake.headers.cookie);
+    if (u && u.id) base = 'u:' + String(u.id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+  } catch (e) {}
+  if (!base) base = 'g:' + String(guestId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+  return base + '~6';
+}
 
 // ============================================================
 // GLOBAL CRASH PROTECTION — this is not optional polish, it's the
@@ -2803,6 +2814,39 @@ function sanitizeAvatarKey(k) { return (typeof k === 'string' && (avatars.isVali
 // below all draw from this exact same list, so a bot named "Ancy" means
 // the same thing (well-worn AI, tracked brain history) everywhere it
 // shows up rather than each call site inventing its own separate pool.
+// When a human's seat turns into a bot (they tapped Leave, or stayed disconnected long enough), the seat gets a normal
+// bot name instead of keeping the leaver's name. Their own name is remembered (humanName) and restored if they reconnect.
+// Mate seats ("Teach my partner") go back to their Mate name. Anything keyed on the name (Kunukku marks) moves with it.
+function botifySeatName(engine, seats, pos) {
+  try {
+    const s = seats[pos];
+    if (!s) return;
+    const old = s.name;
+    let nm;
+    if (s.teachFor && s.mateName) nm = s.mateName;
+    else {
+      const used = new Set(seats.filter(Boolean).map(x => x.name));
+      const free = BOT_NAME_POOL.filter(n => !used.has(n));
+      nm = free.length ? free[Math.floor(Math.random() * free.length)] : ('Bot' + pos);
+    }
+    s.humanName = old;
+    s.name = nm; s.avatar = null;
+    if (engine && engine.qMarks && engine.qMarks[old] > 0) { engine.qMarks[nm] = (engine.qMarks[nm] || 0) + engine.qMarks[old]; delete engine.qMarks[old]; }
+    if (engine && engine.addLog) engine.addLog(`${old}'s seat is now played by ${nm} (bot).`);
+  } catch (e) { console.error('[botifySeatName]', e.message); }
+}
+function restoreHumanName(engine, seats, pos, newName) {
+  try {
+    const s = seats[pos];
+    if (!s) return;
+    const want = newName || s.humanName;
+    if (!want) return;
+    const cur = s.name;
+    s.name = want;
+    delete s.humanName;
+    if (engine && engine.qMarks && cur !== want && engine.qMarks[cur] > 0) { engine.qMarks[want] = (engine.qMarks[want] || 0) + engine.qMarks[cur]; delete engine.qMarks[cur]; }
+  } catch (e) {}
+}
 const BOT_NAME_POOL = ['Ancy', 'Anjali', 'Meera', 'Neha', 'Priya', 'Reena', 'Divya', 'Lakshmi', 'Sarah', 'Nisha', 'Deepa', 'Elsa', 'Maya', 'Sherin', 'Teena', 'Anu', 'Reshma', 'Jisha', 'Nimmy', 'Beena', 'Soumya', 'Liya', 'Merin', 'Asha', 'Anita', 'Betty', 'Celine', 'Diya', 'Fiona', 'Gracy', 'Hema', 'Indu', 'Jessy', 'Kavya', 'Leena', 'Mariya', 'Babi', 'Linda', 'Babitha', 'Maria', 'Leela', 'Anna', 'Thankam', 'Lincy', 'Princy', 'Ajai', 'Alok', 'Anup', 'Appu', 'Arun', 'Benson', 'Binchu', 'Charlie', 'Jerin', 'Johny', 'Koshy', 'Nate', 'Peter', 'Rahul', 'Rajesh', 'Randall', 'Renji', 'Roji', 'Roney', 'Sanjay', 'Shyam', 'Stev', 'Vinod', 'Wesley', 'Easo', 'Joseph', 'Abin', 'Bibin', 'Cibin', 'Denny', 'Eldho', 'Frankie', 'George', 'Hari', 'Ivan', 'Jibin', 'Kevin', 'Libin', 'Manoj', 'Nibin', 'Oommen', 'Pauly', 'Robin', 'Sibin', 'Tibin', 'Unni', 'Vishnu', 'Wilson', 'Xavier', 'Yohan', 'Zachariah', 'Aby', 'Bijoy', 'Cyriac', 'Davis', 'Ebin', 'Fenil', 'Gibin', 'Hillary', 'Ittoop', 'Jaison', 'Kurian', 'Lijo', 'Mathew', 'Ninan', 'Oliver'];
 
 // Seats a new joiner can step into beyond the fully-empty ones: real bot
@@ -3256,7 +3300,7 @@ io.on('connection', (socket) => {
         // by that conversion specifically so this could still happen.
         if (t.engine.seats[idx.pos].isBot) t.engine.seats[idx.pos].isBot = false;
         t.engine.markConnected(idx.pos, true);
-        if (name) t.engine.seats[idx.pos].name = name;
+        restoreHumanName(t.engine, t.engine.seats, idx.pos, name);
         detachSocketFromAllTables(socket, idx.tableId);
         t.sockets.set(socket.id, { playerId, pos: idx.pos });
         socket.join(tableId);
@@ -4125,6 +4169,7 @@ io.on('connection', (socket) => {
         } else {
           const leavingName = t.engine.seats[info.pos].name;
           t.engine.convertToBot(info.pos);
+          botifySeatName(t.engine, t.engine.seats, info.pos);
           // Same gap as the silent-disconnect path below: if this was
           // this seat's turn right now, nothing else was ever going to
           // call maybeAutoAct() again on its own -- the bot conversion
@@ -4506,7 +4551,7 @@ io.on('connection', (socket) => {
         // see sweepAbandonedSeats below.
         if (t.engine.seats[idx.pos].isBot) t.engine.seats[idx.pos].isBot = false;
         t.engine.markConnected(idx.pos, true);
-        if (name) t.engine.seats[idx.pos].name = name;
+        restoreHumanName(t.engine, t.engine.seats, idx.pos, name);
         detachSocketFromAllTables(socket, idx.tableId);
         t.sockets.set(socket.id, { playerId: sixpPlayerId, pos: idx.pos });
         socket.join('sixp_' + sixpTableId);
@@ -4750,12 +4795,60 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ---- "Teach my partner" (6-player): the teacher's two teammates become "Mate 1" / "Mate 2" -----------------
+  socket.on('sixp_setTeach', ({ on, guestId }, ack) => {
+    withSixpTable((t, pos) => {
+      const reply = (o) => { if (typeof ack === 'function') ack(o); };
+      if (pos === null || pos === undefined) return reply({ ok: false });
+      const key = teachKey6(socket, guestId);
+      if (!partnerBot.validKey(key)) return reply({ ok: false, error: 'no_id' });
+      if (t.engine.phase !== 'lobby') return reply({ ok: false, error: 'already_started' });
+      const seat = t.engine.seats[pos];
+      if (!seat) return reply({ ok: false });
+      if (on) {
+        const other = t.engine.seats.findIndex((s, i) => s && i !== pos && s.teachKey);
+        if (other >= 0) return reply({ ok: false, error: 'someone_else_teaching' });
+        const mates = [0, 1, 2, 3, 4, 5].filter(p => p !== pos && p % 2 === pos % 2);
+        if (mates.some(p => t.engine.seats[p] && !t.engine.seats[p].isBot)) return reply({ ok: false, error: 'partner_is_human' });
+        seat.teachKey = key;
+      } else {
+        delete seat.teachKey;
+      }
+      reply({ ok: true, on: !!seat.teachKey, status: partnerBot.status(key) });
+    });
+  });
+  socket.on('sixp_teachStatus', ({ guestId }, ack) => {
+    if (typeof ack === 'function') ack({ ok: true, status: partnerBot.status(teachKey6(socket, guestId)) });
+  });
+  socket.on('sixp_teachReset', ({ guestId }, ack) => {
+    const k = teachKey6(socket, guestId);
+    partnerBot.reset(k);
+    if (typeof ack === 'function') ack({ ok: true, status: partnerBot.status(k) });
+  });
+
   socket.on('sixp_startGame', () => {
     withSixpTable((t, pos) => {
       // Per explicit request: any seated player can start the game
       // now, not just the host, matching the same 4-player change.
       if (pos === null || pos === undefined) return;
       if (t.engine.phase !== 'lobby') return;
+      // 'Teach my partner': the teacher's two teammates become their learning "Mate 1" / "Mate 2" bots.
+      t.engine.seats.forEach((st) => { if (st && st.isBot && st.teachFor) { st.teachFor = null; st.mateName = null; } });
+      const tPos = t.engine.seats.findIndex(s => s && !s.isBot && s.teachKey);
+      if (tPos >= 0) {
+        const mates = [0, 1, 2, 3, 4, 5].filter(p => p !== tPos && p % 2 === tPos % 2);
+        if (mates.some(p => t.engine.seats[p] && !t.engine.seats[p].isBot)) {
+          delete t.engine.seats[tPos].teachKey;
+        } else {
+          mates.forEach((p, n) => {
+            const nm = 'Mate ' + (n + 1);
+            if (!t.engine.seats[p]) t.engine.seatBot(p, nm);
+            const ms = t.engine.seats[p];
+            ms.name = nm; ms.mateName = nm; ms.teachFor = t.engine.seats[tPos].teachKey;
+          });
+          t.engine.addLog(`Mate 1 and Mate 2 are learning from ${t.engine.seats[tPos].name}.`);
+        }
+      }
       const empties = t.engine.emptySeats();
       const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
       let botNum = 0;
@@ -5217,6 +5310,7 @@ io.on('connection', (socket) => {
       } else {
         const leavingName = t.engine.seats[pos].name;
         t.engine.convertToBot(pos);
+        botifySeatName(t.engine, t.engine.seats, pos);
         // Same gap as the silent-disconnect path: if this was this
         // seat's turn right now, nothing else was ever going to call
         // maybeAutoAct() again on its own -- converting to a bot only
@@ -5656,7 +5750,7 @@ function l56Touch(r) {
 // can never truly deadlock, the same guarantee the fully
 // server-authoritative 4-player and 6-player tables already have.
 const L56_STALL_MS = 20000; // a bot's turn/pending screen sitting this long with no client update -> server steps in
-const L56_HUMAN_GRACE_MS = 35000; // a DISCONNECTED human's own turn gets a longer grace period than a bot -- brief blips are common and often invisible to them; matches the same 35s grace period the 4-player/6-player engines use
+const L56_HUMAN_GRACE_MS = 15000; // a DISCONNECTED human's own turn gets a longer grace period than a bot -- brief blips are common and often invisible to them; matches the same 35s grace period the 4-player/6-player engines use
 const L56_TRICK_DISPLAY_MS = 3000;
 const L56_AUCTION_RESULT_MS = 3000;
 const L56_TEAM_OF = seat => (seat % 2 === 0 ? 'A' : 'B');
@@ -6021,7 +6115,10 @@ io.on('connection', (socket) => {
     if (r.state.seats[pos]) {
       // Same reclaim-from-the-2-minute-sweep as the other tables -- 56
       // uses `bot`, not `isBot`, for its seat shape.
-      if (r.state.seats[pos].bot) r.state.seats[pos].bot = false;
+      if (r.state.seats[pos].bot) {
+        r.state.seats[pos].bot = false;
+        if (r.state.seats[pos].humanName) { r.state.seats[pos].name = name || r.state.seats[pos].humanName; delete r.state.seats[pos].humanName; }
+      }
       r.state.seats[pos].connected = true;
       r.state.seats[pos].disconnectedAt = null;
     }
@@ -6438,7 +6535,11 @@ io.on('connection', (socket) => {
       if (r.state.phase === 'lobby') {
         r.state.seats[info.pos] = null;
       } else {
-        r.state.seats[info.pos] = { name: r.state.seats[info.pos].name, bot: true };
+        {
+          const used = new Set(r.state.seats.filter(Boolean).map(x => x.name));
+          const free = BOT_NAME_POOL.filter(n => !used.has(n));
+          r.state.seats[info.pos] = { name: free.length ? free[Math.floor(Math.random() * free.length)] : ('Bot' + info.pos), bot: true };
+        }
       }
     }
     if (info && r.hostPlayerId === info.playerId) l56ReassignHost(r);
@@ -8132,13 +8233,13 @@ function sweepAbandonedSeats() {
     return changed;
   }
   for (const t of Object.values(tables)) {
-    if (sweepEngineSeats(t, t.engine.seats, (i) => { if (t.engine.currentPlayer === i) t.engine.maybeAutoAct(); })) {
+    if (sweepEngineSeats(t, t.engine.seats, (i) => { botifySeatName(t.engine, t.engine.seats, i); if (t.engine.currentPlayer === i) t.engine.maybeAutoAct(); })) {
       touch(t);
       broadcastTable(t);
     }
   }
   for (const t of Object.values(sixpTables)) {
-    if (sweepEngineSeats(t, t.engine.seats, (i) => { if (t.engine.currentPlayer === i) t.engine.maybeAutoAct(); })) {
+    if (sweepEngineSeats(t, t.engine.seats, (i) => { botifySeatName(t.engine, t.engine.seats, i); if (t.engine.currentPlayer === i) t.engine.maybeAutoAct(); })) {
       sixpTouch(t);
       sixpBroadcastTable(t);
     }
@@ -8164,6 +8265,13 @@ function sweepAbandonedSeats() {
       const seat = r.state.seats[i];
       if (seat && !seat.bot && !seat.connected && seat.disconnectedAt && (now - seat.disconnectedAt) >= SEAT_ABANDON_GRACE_MS) {
         seat.bot = true;
+        // Normal bot name instead of the leaver's (their own name comes back if they reconnect).
+        try {
+          const used = new Set(r.state.seats.filter(Boolean).map(x => x.name));
+          const free = BOT_NAME_POOL.filter(n => !used.has(n));
+          seat.humanName = seat.name;
+          seat.name = free.length ? free[Math.floor(Math.random() * free.length)] : ('Bot' + i);
+        } catch (e) {}
         changed = true;
       }
     }

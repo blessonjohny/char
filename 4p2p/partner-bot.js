@@ -60,7 +60,7 @@ setInterval(prune, 6 * 3600 * 1000);
 process.on('SIGTERM', save);
 process.on('SIGINT', save);
 
-function validKey(k) { return typeof k === 'string' && /^[ug]:[A-Za-z0-9_-]{6,64}$/.test(k); }
+function validKey(k) { return typeof k === 'string' && /^[ug]:[A-Za-z0-9_-]{6,64}(~6)?$/.test(k); }
 
 function get(key, create) {
   if (!validKey(key)) return null;

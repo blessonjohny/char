@@ -25,6 +25,7 @@ const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0, '6': 0
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
 const SEATS = 6;
 const brain = require('./bot-brain');
+const partnerBot = require('./partner-bot');
 const leaderboard = require('./leaderboard');
 const challengeLeaderboard = require('./challenge-leaderboard');
 brain.loadBrains();
@@ -32,6 +33,7 @@ brain.loadBrains();
 // Alternating seats form each team: 0,2,4 vs 1,3,5 — matches the source
 // file's own getTeam() exactly, not assumed.
 function getTeam(pos) { return pos % 2 === 0 ? 0 : 1; }
+
 // Turn order goes to the right around the table: seat numbers count UP,
 // wrapping from 5 back to 0. The very first dealer of a match is chosen
 // at random (see the constructor / restartGame below); every dealer
@@ -312,7 +314,28 @@ class GameEngine6P {
     // See game-engine.js's identical fix for the full reasoning - clears any leftover
     // ghost-player flag so it can't follow this seat if a real human takes it over later.
     seat.ghostPlayer = false;
+    this._restoreMate(seat);
     return true;
+  }
+
+  // 'Teach my partner': a Mate seat that a visitor took over goes back to being the teacher's learning bot
+  // ("Mate 1"/"Mate 2") the moment that visitor leaves -- it never turns into an ordinary bot.
+  _restoreMate(seat) {
+    if (seat && seat.teachFor && seat.mateName) { seat.name = seat.mateName; seat.avatar = null; }
+  }
+
+  // 'Teach my partner': remember a teacher's hand shape and latest call (bid or pass) this round.
+  _teachNote(pos, bid) {
+    const st = this.seats[pos];
+    if (!st || st.isBot || !st.teachKey) return;
+    try {
+      if (!this._teachObs) this._teachObs = {};
+      this._teachObs[pos] = { key: st.teachKey, f: this._teachFeatures(st.hand), bid };
+    } catch (e) {}
+  }
+  _teachFeatures(hand) {
+    const hp = brain.getHandProfile(hand);
+    return { p: hp.totalPoints, h: hp.highCardCount, c: this._tableBid(hand).bidValue };
   }
 
   replaceBot(pos, playerId, name, avatar) {
@@ -562,7 +585,7 @@ class GameEngine6P {
     const seat = this.seats[pos];
     if (!seat) return false;
     if (this.phase === 'lobby') { this.seats[pos] = null; }
-    else { seat.isBot = true; seat.connected = true; seat.playerId = null; }
+    else { seat.isBot = true; seat.connected = true; seat.playerId = null; this._restoreMate(seat); }
     this.addLog(`${seat.name} was removed by the host.`);
     this._notify();
     this.maybeAutoAct();
@@ -724,6 +747,7 @@ class GameEngine6P {
     if (bid === 0) {
       if (first) bid = 16; // first bidder cannot pass
       else {
+        this._teachNote(pos, 0);
         this.bidActed[pos] = true;
         this.passes++;
         this.bidTurnsTaken++;
@@ -735,6 +759,7 @@ class GameEngine6P {
     if (partnerAlreadyHonors && bid !== 28) return { ok: false, reason: 'partner_already_honors_28_or_thani_only' };
     const minBid = honorsRestricted ? Math.max(20, this.highestBid + 1) : (this.highestBid > 0 ? this.highestBid + 1 : 16);
     if (bid < minBid || bid > 28) return { ok: false, reason: 'invalid_bid_amount' };
+    this._teachNote(pos, bid);
     this.highestBid = bid;
     this.bidder = pos;
     this.bidActed[pos] = true;
@@ -1560,6 +1585,23 @@ class GameEngine6P {
       this.lastLearningBotName = seatI.name;
     }
     this._bidderHandProfileForLearning = null;
+    // 'Teach my partner': feed the teacher's call into their profile; tell it how a Mate's own bid turned out.
+    try {
+      for (const k of Object.keys(this._teachObs || {})) {
+        const o = this._teachObs[k];
+        partnerBot.observe(o.key, o.f, o.bid, (Number(k) === this.bidder && o.bid === this.highestBid) ? !!made : null);
+      }
+      const doneKeys = new Set();
+      for (let i = 0; i < SEATS; i++) {
+        const st = this.seats[i];
+        if (st && st.isBot && st.teachFor) {
+          if (i === this.bidder) partnerBot.botOutcome(st.teachFor, !!made);
+          doneKeys.add(st.teachFor);
+        }
+      }
+      doneKeys.forEach((k) => partnerBot.roundDone(k));
+    } catch (e) { console.error('[partner-bot] 6p round-end learning failed:', e.message); }
+    this._teachObs = {};
     brain.saveBrains();
 
     // No championship/King meta-game in this variant — the match just ends outright the
@@ -1754,7 +1796,10 @@ class GameEngine6P {
       // 6p tables feel consistent with each other.
       const delay = seat.isBot ? pace.botDelay(this.phase)
         : isGhost ? pace.ghostDelay(this, this.phase)
-        : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : 35000);
+        : (turnAgeMs >= CONNECTED_BUT_STUCK_MS ? 900 : (this.phase === 'choosingTrump' ? 30000 : 15000));
+      // ^ A DISCONNECTED human (plug icon: closed the tab, lost signal) is covered by a bot for that one turn after 15s
+      //   (30s when choosing trump -- the one decision that is costly to get wrong). The seat stays theirs and they can
+      //   step straight back in. A CONNECTED player who is merely slow is left alone until CONNECTED_BUT_STUCK_MS (110s).
       setTimeout(() => {
         if (this.round !== capturedRound) return;
         if (this.phase !== capturedPhase) return;
@@ -1898,6 +1943,18 @@ class GameEngine6P {
       let pb = 0;
       if (this.bidder >= 0 && getTeam(this.bidder) === getTeam(pos)) pb = 1 * b.bidWeights.partnerSupport;
       target = Math.min(28, Math.round(target + pb));
+
+      // 'Teach my partner' Mate bots: lean toward how their teacher bids on a similar hand; after a recent over-bid
+      // they ignore the style and bid a notch lower for a few rounds.
+      const teachKey = this.seats[pos].teachFor;
+      if (teachKey && !wantsLower) {
+        if (partnerBot.isSafe(teachKey)) {
+          target = Math.max(16, target - 1);
+        } else {
+          const sg = partnerBot.suggest(teachKey, this._teachFeatures(hand));
+          if (sg) target = Math.min(28, Math.max(16, Math.round(target * (1 - sg.weight) + sg.bid * sg.weight)));
+        }
+      }
 
       // Deliberate last word on this bid - see the 4-player game's
       // identical comment for the full reasoning.
