@@ -5400,7 +5400,7 @@ textarea.cmt-field{resize:vertical;min-height:130px;line-height:1.45}
   // separate constant from K28_BUILD_TAG (not derived from it) so this
   // page's own deploy-mismatch check above always compares two build
   // identifiers exactly, never a human-formatted string.
-  window.SITE_LAST_UPDATED = 'Aug 14, 2026';
+  window.SITE_LAST_UPDATED = 'Oct 14, 2026';
   console.log('[28 Kerala Gulan] build:', window.K28_BUILD_TAG);
 </script>
 <script src="/socket.io/socket.io.js"></script>
@@ -7731,7 +7731,7 @@ function maybeShowCommentInviteToast() {
     setTimeout(dismiss, 12000); // don't linger forever if ignored
   }, 3500); // let the page settle first rather than greeting them instantly
 }
-maybeShowCommentInviteToast();
+// (retired Oct 14, 2026: the 'Updated / Leave a Comment' toast is replaced by the What's New popup, shown after the leaderboard.)
 
 // ==================== STILL PLAYING? (idle check) ====================
 let stillPlayingInterval = null;
@@ -15982,6 +15982,8 @@ async function showLeaderboardPopup() {
   const dismiss = () => {
     overlay.classList.remove('on');
     okBtn.removeEventListener('click', dismiss);
+    // The What's New popup comes right after the leaderboard.
+    if (!window.__isAdminWatchMode && typeof maybeShowUpdateAnnouncement === 'function') maybeShowUpdateAnnouncement();
   };
   okBtn.addEventListener('click', dismiss);
 
@@ -18159,28 +18161,29 @@ maybeShowIosInstallHint();
 // new announcement at all, since they'd already be marked as having
 // "seen" that exact version string.
 // ============================================================
-const K28_UPDATE_VERSION = '2026-08-14-welcome-quote';
+const K28_UPDATE_VERSION = '2026-10-14-mate-bots';
 const K28_UPDATE_HTML = `
-  <div style="font-size:1.6rem;margin-bottom:4px">🌍</div>
-  <div style="color:#f4c430;font-size:1.05rem;font-weight:800;margin-bottom:4px">Welcome to 28GULAN.COM</div>
-  <div style="color:var(--text-secondary);font-size:0.8rem;line-height:1.6;text-align:left;margin:14px 0">
-    This site is built for people who love <b style="color:#fff">28 and 56</b> — the goal is simple:
-    play with fellow card lovers from around the world you've never met, and have a genuinely good time
-    together. Building a community around these games, one hand at a time.<br><br>
-    <b style="color:#fff">🎯 New rule: COT</b> (Aug 14) — sweep every trick so far on a bid ≤19, and with
-    a few cards left you can bet on sweeping everything for a bonus, or risk a bigger penalty if you don't.<br><br>
-    Got ideas for what this place should become, or spotted something that felt off? We'd genuinely love
-    to hear it.
+  <div style="font-size:1.6rem;margin-bottom:4px">🤖🃏</div>
+  <div style="display:inline-block;background:rgba(244,196,48,0.18);color:#f4c430;font-size:0.66rem;font-weight:800;padding:2px 10px;border-radius:20px;letter-spacing:0.02em;margin-bottom:8px">🆕 UPDATED OCT 14, 2026</div>
+  <div style="color:#f4c430;font-size:1.05rem;font-weight:800;margin-bottom:4px">Your mate bots can now learn from you</div>
+  <div style="color:var(--text-secondary);font-size:0.82rem;line-height:1.6;text-align:left;margin:14px 0">
+    Mate bots now pick up your playing style — how you bid, which trump you call, and how you play your cards.
+    When you start a game against bots, switch on <b style="color:#fff">Teach my partner bot</b> and train your partner to play more like you.<br><br>
+    <b style="color:#fff">Signed-in players:</b> your mates are saved automatically.<br>
+    <b style="color:#fff">Guests:</b> your mates are saved for 30 days on the same device.<br><br>
+    Play, teach your mates your moves, and help them become better partners! ♠️♥️
   </div>
   <div style="display:flex;flex-direction:column;gap:8px">
-    <button id="btnUpdateAnnounceComment" class="btn btn-outline" style="width:100%">💌 Share Ideas & Comments</button>
     <button id="btnUpdateAnnounceOk" class="btn btn-primary" style="width:100%">Got it, let's play!</button>
   </div>
 `;
+var __k28UpdateShown = false;
 function maybeShowUpdateAnnouncement(){
+  if (__k28UpdateShown) return;
   try {
     if (localStorage.getItem('k28_seenUpdateVersion') === K28_UPDATE_VERSION) return;
   } catch (e) { return; }
+  __k28UpdateShown = true;
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:3500;display:flex;align-items:center;justify-content:center;padding:20px';
   const box = document.createElement('div');
@@ -18193,10 +18196,6 @@ function maybeShowUpdateAnnouncement(){
     overlay.remove();
   };
   document.getElementById('btnUpdateAnnounceOk').addEventListener('click', dismiss);
-  document.getElementById('btnUpdateAnnounceComment').addEventListener('click', () => {
-    dismiss();
-    openCommentBox();
-  });
 }
 // Real, confirmed bug fix found during admin-watch feature testing:
 // this creates a full-screen, high z-index overlay unconditionally
@@ -18204,7 +18203,14 @@ function maybeShowUpdateAnnouncement(){
 // unaware an admin-watch session might be starting -- it was covering
 // the entire spectator view underneath. window.__isAdminWatchMode is
 // set at the very top of <head>, well before this line ever runs.
-if (!window.__isAdminWatchMode) maybeShowUpdateAnnouncement();
+// Shown AFTER the leaderboard popup (see showLeaderboardPopup's dismiss). Fallback: if the leaderboard never opens,
+// show it anyway a few seconds in so the news is never lost.
+if (!window.__isAdminWatchMode) {
+  setTimeout(function () {
+    var lb = document.getElementById('leaderboardPopupOverlay');
+    if (!lb || !lb.classList.contains('on')) maybeShowUpdateAnnouncement();
+  }, 6000);
+}
 
 // Formats a visitor-log session length (ms) as "2h 14m", "5m 32s", or
 // "12s" -- whichever units are actually meaningful, never "0h 0m".
