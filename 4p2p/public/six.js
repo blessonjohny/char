@@ -2108,8 +2108,12 @@ function teachShowStatus(s) {
   if (!st) return;
   if (!s) { st.textContent = ''; return; }
   if (!s.hands) st.textContent = 'Your mates are new — they learn after each round.';
-  else if (s.skill == null) st.textContent = 'Your mates are still learning (' + s.hands + ' hand' + (s.hands === 1 ? '' : 's') + ' seen).';
-  else st.textContent = 'Your mates bid like you ' + s.skill + '% of the time (' + s.hands + ' hands seen).' + (s.safe ? ' Playing safe for a few rounds after an over-bid.' : '');
+  else {
+    var p = function (v) { return v == null ? 'still learning' : v + '%'; };
+    st.innerHTML = 'How often your mates make the same call as you (last 30):<br>' +
+      '🃏 Bidding: <b>' + p(s.skill) + '</b> &nbsp;·&nbsp; ♠ Trump pick: <b>' + p(s.trumpSkill) + '</b> &nbsp;·&nbsp; ▶ Card play: <b>' + p(s.playSkill) + '</b><br>' +
+      '<span style="opacity:.75">' + s.hands + ' hand' + (s.hands === 1 ? '' : 's') + ' seen.' + (s.safe ? ' Playing safe for a few rounds after an over-bid.' : '') + '</span>';
+  }
   if (rst) rst.style.display = s.hands ? 'inline' : 'none';
 }
 function teachSend(on) {
