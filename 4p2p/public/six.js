@@ -2150,12 +2150,31 @@ function initTeach6p(state) {
     if (r && r.ok) teachShowStatus(r.status);
     // Signed in: the choice is remembered on the account (works on any device). Guest: remembered on this device.
     var on = (r && r.ok && r.status && r.status.signedIn) ? !!r.status.autoOn : want;
+    teachDesired = !!on; teachLastSig = '';
     if (on) { $('teachToggle').checked = true; teachSend(true); }
   });
 }
 
+var teachDesired = null, teachLastSig = '';
+function teachSync6(state) {
+  if (!$('teachToggle') || !state || !state.seats || typeof MY_POS !== 'number' || MY_POS < 0) return;
+  if (teachDesired === null) { try { teachDesired = localStorage.getItem('k28_teach_on') === '1'; } catch (e) { teachDesired = false; } }
+  var tog = $('teachToggle');
+  if (!tog._syncWired) { tog._syncWired = true; tog.addEventListener('change', function () { teachDesired = tog.checked; teachLastSig = ''; }); }
+  var taken = [0, 1, 2, 3, 4, 5].some(function (p) { return p !== MY_POS && p % 2 === MY_POS % 2 && state.seats[p] && !state.seats[p].isBot; });
+  var sig = MY_POS + '|' + (taken ? 1 : 0) + '|' + (teachDesired ? 1 : 0);
+  if (sig === teachLastSig) return;
+  teachLastSig = sig;
+  if (taken) {
+    if (tog.checked) tog.checked = false;
+    if (teachDesired) $('teachStatus').textContent = 'A seat on your side has a real player. Pick a seat where both mate seats are open and your mate bots will take them.';
+    return;
+  }
+  if (teachDesired && !tog.checked) teachSend(true);
+}
 function renderLobby(state) {
   initTeach6p(state);
+  try { teachSync6(state); } catch (e) {}
   const seated = state.seats.filter(Boolean).length;
   $('lobbySub').textContent = `${seated}/6 players`;
   $('lobbyPlayerList').innerHTML = state.seats.filter(Boolean).map((s, i) => {

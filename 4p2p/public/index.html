@@ -16289,6 +16289,23 @@ document.getElementById('btnStartGame').addEventListener('click', () => {
     if (!confirm('Reset your partner bot? It will forget how you bid.')) return;
     gameSocket.emit('teachReset', { guestId: gid() }, function (res) { if (res && res.ok) showStatus(res.status); });
   });
+  // Retry when you take / change a seat or the seat opposite you changes (joining someone else's table).
+  var desired = false, lastSig = '';
+  try { desired = localStorage.getItem('k28_teach_on') === '1'; } catch (e) {}
+  tog.addEventListener('change', function () { desired = tog.checked; lastSig = ''; });
+  window.k28TeachSync = function (seats) {
+    if (card.style.display === 'none' || !seats || typeof MY_POS !== 'number' || MY_POS < 0 || MY_POS > 3) return;
+    var pp = [3, 2, 1, 0][MY_POS], taken = !!(seats[pp] && !seats[pp].isBot);
+    var sig = MY_POS + '|' + (taken ? 1 : 0) + '|' + (desired ? 1 : 0);
+    if (sig === lastSig) return;
+    lastSig = sig;
+    if (taken) {
+      if (tog.checked) tog.checked = false;
+      if (desired) st.textContent = 'The seat opposite you has a real player. Pick a seat whose opposite seat is open and your partner bot will take it.';
+      return;
+    }
+    if (desired && !tog.checked) send(true);
+  };
   var wasVisible = false;
   new MutationObserver(function () {
     var vis = card.style.display !== 'none';
@@ -16300,6 +16317,7 @@ document.getElementById('btnStartGame').addEventListener('click', () => {
           if (r && r.ok) showStatus(r.status);
           // Signed in: the choice is remembered on the account (works on any device). Guest: remembered on this device.
           var on = (r && r.ok && r.status && r.status.signedIn) ? !!r.status.autoOn : want;
+          desired = on; lastSig = '';
           if (on) { tog.checked = true; send(true); }
         });
       }
@@ -18497,6 +18515,7 @@ function renderServerPlayersCard() {
     startBtn.textContent = !startBtn.disabled ? '▶ Start Game' : 'Need 2-4 players';
   }
   if (botRow) botRow.style.display = SERVER_IS_HOST ? 'flex' : 'none';
+  try { if (window.k28TeachSync) window.k28TeachSync(seats); } catch (e) {}
 }
 
 function renderServerRoomList(rooms) {
@@ -20919,6 +20938,7 @@ function serverBotPlayForMe() {
 <script src="/install-prompt.js" defer></script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){});});}</script>
 <script src="/teach-info.js?v=1"></script>
+<script src="/mybots.js?v=1"></script>
 <script>(function(){var a=document.getElementById("teachMore4p");if(!a)return;function go(e){e.preventDefault();if(window.K28TeachInfo)K28TeachInfo.open("4p");}a.addEventListener("click",go);a.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" ")go(e);});})();</script>
 </body>
 </html>
