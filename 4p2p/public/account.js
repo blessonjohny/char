@@ -282,6 +282,29 @@
     if (c && c.keys && c.keys.length) return c.keys.slice();
     var a = []; for (var i = 1; i <= 90; i++) a.push('toon' + i); return a;
   }
+  /* ------------------------------------------------------------------ my stats */
+  function openStats() {
+    var box = open('📊 My stats', 'Your results while signed in at 4-player and 6-player tables', '<div id="k28aStBody" style="font-size:.85rem;color:#cdbf9a">Loading…</div>');
+    api('GET', '/api/my-stats').then(function (r) {
+      var body = box.querySelector('#k28aStBody'); if (!body) return;
+      if (!r || !r.ok) { body.textContent = 'Could not load your stats. Please try again.'; return; }
+      var P = r.stats.periods, cur = '7';
+      function cell(v) { return '<td style="text-align:right;padding:5px 6px">' + (v || 0) + '</td>'; }
+      function draw() {
+        var p = P[cur];
+        var rows = [['Games played', 'games'], ['Games won', 'champWon'], ['Games lost', 'champLost'], ['Left unfinished', 'unfinished'], ['Rounds won', 'roundsWon'], ['Rounds lost', 'roundsLost']];
+        var tabs = [['7', 'Last 7 days'], ['30', 'Last 30 days'], ['life', 'All time']].map(function (t) {
+          return '<button type="button" data-p="' + t[0] + '" style="flex:1;padding:7px 4px;border-radius:8px;border:1.5px solid ' + (cur === t[0] ? '#d4a62a' : 'rgba(255,255,255,.18)') + ';background:' + (cur === t[0] ? 'rgba(212,166,42,.18)' : 'transparent') + ';color:#f7e09a;font-weight:700;font-size:.74rem;cursor:pointer">' + t[1] + '</button>';
+        }).join('');
+        body.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:10px">' + tabs + '</div>' +
+          '<table style="width:100%;border-collapse:collapse;color:#efe7fb"><thead><tr style="opacity:.75;font-size:.72rem"><th style="text-align:left;padding:4px 6px"></th><th style="text-align:right;padding:4px 6px">4-player</th><th style="text-align:right;padding:4px 6px">6-player</th><th style="text-align:right;padding:4px 6px">Total</th></tr></thead><tbody>' +
+          rows.map(function (x) { return '<tr style="border-top:1px solid rgba(255,255,255,.1)"><td style="padding:5px 6px">' + x[0] + '</td>' + cell(p['4p'][x[1]]) + cell(p['6p'][x[1]]) + '<td style="text-align:right;padding:5px 6px;font-weight:800;color:#f7e09a">' + (p.all[x[1]] || 0) + '</td></tr>'; }).join('') +
+          '</tbody></table><div style="font-size:.7rem;opacity:.65;margin-top:10px;line-height:1.4">A game is a full championship (first to 15). “Left unfinished” = a game you started that has no result, for example you left or the table closed (one still in progress shows here until it ends). Only games played while signed in are counted. Daily detail is kept for ' + r.stats.keepDays + ' days; “All time” keeps running totals.</div>';
+        Array.prototype.forEach.call(body.querySelectorAll('button[data-p]'), function (b) { b.addEventListener('click', function () { cur = b.getAttribute('data-p'); draw(); }); });
+      }
+      draw();
+    });
+  }
   function openProfile(first) {
     if (!me) return openAuth('in');
     var chosen = me.avatar || '';
@@ -293,6 +316,7 @@
       '<button class="k28a-btn alt" id="k28aRm" type="button" style="margin:0;display:' + (me.hasPhoto ? 'block' : 'none') + '">Remove photo</button></div><input type="file" id="k28aFile" accept="image/*" hidden>' +
       '<label style="display:flex;align-items:flex-start;gap:8px;margin:8px 0 0;font-size:.82rem;color:#cdbf9a;cursor:pointer"><input type="checkbox" id="k28aBg" checked style="margin-top:2px"><span>Remove my photo background <span style="opacity:.7">(first time downloads a small helper, about 40 MB. Wi-Fi is best.)</span></span></label>' +
       '<div class="k28a-err" style="margin-top:8px"></div><button class="k28a-btn" id="k28aSave" type="button">' + (first ? 'Save &amp; start playing' : 'Save') + '</button>' +
+      (first ? '' : '<button class="k28a-btn alt" id="k28aStats" type="button" style="margin:10px 0 0">📊 My stats</button>') +
       (first ? '' : '<div style="display:flex;gap:8px;margin-top:10px"><button class="k28a-btn alt" id="k28aOut" type="button" style="margin:0">Sign out</button><button class="k28a-btn dng" id="k28aDel" type="button" style="margin:0">Delete account</button></div>'),
       !first);
     var prev = box.querySelector('#k28aPrev'), grid = box.querySelector('#k28aGrid');
@@ -348,6 +372,8 @@
         setMe(r.user); close(); toast(first ? 'All set, ' + me.playerName + '! 🎴' : 'Saved!');
       });
     });
+    var stBtn = box.querySelector('#k28aStats');
+    if (stBtn) stBtn.addEventListener('click', openStats);
     var out = box.querySelector('#k28aOut');
     if (out) out.addEventListener('click', function () {
       api('POST', '/api/auth/logout', {}).then(function () {
