@@ -125,8 +125,58 @@ function status(key) {
   const n = pr.agree.length;
   return { hands: pr.hands, skill: n >= 10 ? Math.round(100 * pr.agree.reduce((a, b) => a + b, 0) / n) : null, safe: pr.safeRounds > 0 };
 }
+// ---- Play style (card play + trump choice): a handful of small counters, not a game log -------------------------------
+// style = { feedYes, feedTotal, leadHigh, leadLow, leadTotal, tn, td:[4] }
+//   feed*  : partner was winning the trick -- did the player load it with their highest point card?
+//   lead*  : player led a suit they held 2+ cards of -- highest card, lowest card, or in between?
+//   tn/td  : trump choice -- running total of (chosen suit's features - the other suits' average), 4 features.
+const STYLE_CAP = 60;   // counters are halved past this so recent play counts more and the profile never grows
+function styleOf(pr) {
+  if (!pr.style) pr.style = { feedYes: 0, feedTotal: 0, leadHigh: 0, leadLow: 0, leadTotal: 0, tn: 0, td: [0, 0, 0, 0] };
+  return pr.style;
+}
+function decay(st) {
+  if (st.feedTotal > STYLE_CAP) { st.feedYes /= 2; st.feedTotal /= 2; }
+  if (st.leadTotal > STYLE_CAP) { st.leadHigh /= 2; st.leadLow /= 2; st.leadTotal /= 2; }
+  if (st.tn > 30) { st.tn /= 2; st.td = st.td.map((x) => x / 2); }
+}
+// kind 'feed' (yes: boolean) | 'lead' (rank: 'high'|'low'|'mid')
+function observePlay(key, kind, v) {
+  const pr = get(key, true);
+  if (!pr) return;
+  const st = styleOf(pr);
+  if (kind === 'feed') { st.feedTotal++; if (v) st.feedYes++; }
+  else if (kind === 'lead') { st.leadTotal++; if (v === 'high') st.leadHigh++; else if (v === 'low') st.leadLow++; }
+  decay(st);
+  pr.updated = Date.now();
+  dirty = true;
+}
+// diff = 4-number vector: chosen suit's features minus the other suits' average.
+function observeTrump(key, diff) {
+  const pr = get(key, true);
+  if (!pr) return;
+  const st = styleOf(pr);
+  st.tn++;
+  for (let i = 0; i < 4; i++) st.td[i] += diff[i];
+  decay(st);
+  pr.updated = Date.now();
+  dirty = true;
+}
+const MIN_STYLE = 8;
+// What this player tends to do. Each field is null until there are enough examples.
+function playStyle(key) {
+  const pr = get(key, false);
+  if (!pr || !pr.style || pr.safeRounds > 0) return null;
+  const st = pr.style;
+  return {
+    feed: st.feedTotal >= MIN_STYLE ? st.feedYes / st.feedTotal : null,
+    leadHigh: st.leadTotal >= MIN_STYLE ? st.leadHigh / st.leadTotal : null,
+    leadLow: st.leadTotal >= MIN_STYLE ? st.leadLow / st.leadTotal : null,
+    trump: st.tn >= MIN_STYLE ? { weights: st.td.map((x) => x / st.tn), strength: Math.min(1, st.tn / 20) } : null,
+  };
+}
 function reset(key) {
   if (validKey(key) && profiles[key]) { delete profiles[key]; dirty = true; save(); }
 }
 
-module.exports = { load, save, validKey, suggest, observe, botOutcome, roundDone, isSafe, status, reset };
+module.exports = { load, save, validKey, suggest, observe, botOutcome, roundDone, isSafe, status, reset, observePlay, observeTrump, playStyle };

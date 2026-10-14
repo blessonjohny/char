@@ -318,6 +318,81 @@ class GameEngine6P {
     return true;
   }
 
+  // ---- 'Teach my partner': card play + trump choice (see partner-bot.js) -------------------------------------------
+  // Features of one suit in a hand, used for the trump-choice style: [length, Jack with support, 9 with support, Ace].
+  _trumpFeat(hand, suit) {
+    const cards = hand.filter(c => c.suit === suit);
+    const n = cards.length;
+    return [n / 6, (cards.some(c => c.rank === 'J') && n >= 2) ? 1 : 0, (cards.some(c => c.rank === '9') && n >= 2) ? 1 : 0, cards.some(c => c.rank === 'A') ? 1 : 0];
+  }
+  _teachTrump(pos, suit) {
+    const st = this.seats[pos];
+    if (!st || st.isBot || !st.teachKey || this._assistActive) return;
+    try {
+      const f = {};
+      for (const s of SUITS) f[s] = this._trumpFeat(st.hand, s);
+      const others = SUITS.filter(s => s !== suit);
+      const diff = [0, 1, 2, 3].map(i => f[suit][i] - others.reduce((a, s) => a + f[s][i], 0) / others.length);
+      partnerBot.observeTrump(st.teachKey, diff);
+    } catch (e) {}
+  }
+  // The teacher's own card choice, seen BEFORE the card leaves their hand (this only ever reads the teacher's own play).
+  _teachPlay(pos, card) {
+    const st = this.seats[pos];
+    if (!st || st.isBot || !st.teachKey || this._assistActive) return;
+    try {
+      const hand = st.hand;
+      const legal = hand.filter(c => this.canPlayCard(pos, c).ok);
+      if (legal.length < 2) return;
+      if (this.trickSuit === '') {
+        const same = hand.filter(c => c.suit === card.suit);
+        if (same.length >= 2) {
+          const ranks = same.map(c => RANK_ORDER[c.rank]), r = RANK_ORDER[card.rank];
+          partnerBot.observePlay(st.teachKey, 'lead', r === Math.max(...ranks) ? 'high' : r === Math.min(...ranks) ? 'low' : 'mid');
+        }
+      } else {
+        const cw = this._currentTrickWinnerSoFar();
+        if (cw && getTeam(cw.pos) === getTeam(pos)) {
+          const pts = legal.map(c => c.points);
+          if (Math.max(...pts) > Math.min(...pts)) partnerBot.observePlay(st.teachKey, 'feed', card.points === Math.max(...pts));
+        }
+      }
+    } catch (e) {}
+  }
+  // A Mate bot nudges the base bot's card toward its teacher's habits. Never overrides the safety rules in the base
+  // logic: it only swaps between cards that are already legal, never plays a trump card as a plain discard, and only
+  // feeds points when the partner's win is secure.
+  _teachAdjustCard(pos, hand, chosen, myTeam, isLast) {
+    const key = this.seats[pos].teachFor;
+    if (!key || !chosen) return chosen;
+    const ps = partnerBot.playStyle(key);
+    if (!ps) return chosen;
+    const legal = hand.filter(c => this.canPlayCard(pos, c).ok);
+    if (legal.length < 2) return chosen;
+    if (this.trickSuit === '') {
+      const same = legal.filter(c => c.suit === chosen.suit).sort((a, b) => RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
+      if (same.length >= 2 && ps.leadHigh !== null) {
+        if (ps.leadHigh >= 0.6 && chosen !== same[0] && same[0].rank !== 'J') return same[0];
+        if (ps.leadLow >= 0.6 && chosen !== same[same.length - 1]) return same[same.length - 1];
+      }
+      return chosen;
+    }
+    if (ps.feed === null) return chosen;
+    const cw = this._currentTrickWinnerSoFar();
+    if (!cw || getTeam(cw.pos) !== myTeam) return chosen;
+    const cwc = cw.card;
+    const secure = isLast || (cwc.suit === this.trickSuit && cwc.suit !== this.trumpSuit && !this._higherCardOfSuitStillOut(this.trickSuit, cwc.rank));
+    if (!secure) return chosen;
+    // plain discards only: never a trump-suit card unless trump is what was led
+    const pool = legal.filter(c => c.suit !== this.trumpSuit || this.trickSuit === this.trumpSuit);
+    if (pool.length < 2) return chosen;
+    const hi = pool.slice().sort((a, b) => b.points - a.points)[0];
+    const lo = pool.slice().sort((a, b) => a.points - b.points)[0];
+    if (ps.feed >= 0.6 && hi.points > chosen.points) return hi;
+    if (ps.feed <= 0.35 && chosen.points > lo.points) return lo;
+    return chosen;
+  }
+
   // 'Teach my partner': a Mate seat that a visitor took over goes back to being the teacher's learning bot
   // ("Mate 1"/"Mate 2") the moment that visitor leaves -- it never turns into an ordinary bot.
   _restoreMate(seat) {
@@ -903,6 +978,7 @@ class GameEngine6P {
     if (this.phase !== 'choosingTrump') return { ok: false, reason: 'not_choosing_trump' };
     if (pos !== this.bidder) return { ok: false, reason: 'not_the_bidder' };
     if (!SUITS.includes(suit)) return { ok: false, reason: 'invalid_suit' };
+    this._teachTrump(pos, suit);
     this.trumpSuit = suit;
     const hand = this.seats[pos].hand;
     let idx = -1;
@@ -1003,6 +1079,7 @@ class GameEngine6P {
   playCard(pos, card) {
     const chk = this.canPlayCard(pos, card);
     if (!chk.ok) return chk;
+    this._teachPlay(pos, card);
     const hand = this.seats[pos].hand;
     const idx = hand.findIndex(c => cardEq(c, card));
     const played = hand.splice(idx, 1)[0];
@@ -2025,6 +2102,8 @@ class GameEngine6P {
       // gets only a small bonus -- enough to edge out an equally bare
       // 1-card suit of nothing, but not enough to beat real length.
       let bestSuit = SUITS[0], bestScore = -1;
+      // 'Teach my partner' Mate: nudge toward how the teacher picks trump (length / Jack / 9 / Ace), only enough to settle close calls.
+      const trumpStyle = this.seats[pos].teachFor ? partnerBot.playStyle(this.seats[pos].teachFor) : null;
       for (const s of SUITS) {
         const cards = bySuit[s];
         const hasJ = cards.some(c => c.rank === 'J');
@@ -2033,6 +2112,10 @@ class GameEngine6P {
         if (hasJ && cards.length >= 2) score += 100;
         else if (has9 && cards.length >= 2) score += 60;
         else if (hasJ) score += 12; // lone Jack, no support at all
+        if (trumpStyle && trumpStyle.trump) {
+          const f = this._trumpFeat(hand, s), w = trumpStyle.trump.weights;
+          score += 40 * trumpStyle.trump.strength * (f[0] * w[0] + f[1] * w[1] + f[2] * w[2] + f[3] * w[3]);
+        }
         if (score > bestScore) { bestScore = score; bestSuit = s; }
       }
       // Per explicit live report: a bot's turn to choose trump was
@@ -2138,7 +2221,8 @@ class GameEngine6P {
           return;
         }
       }
-      const chosen = this._chooseBotCard(pos, hand, myTeam, isBT, isLast, wt, cwc, tPts);
+      let chosen = this._chooseBotCard(pos, hand, myTeam, isBT, isLast, wt, cwc, tPts);
+      chosen = this._teachAdjustCard(pos, hand, chosen, myTeam, isLast);
       // TEMPORARY DIAGNOSTIC per explicit live report -- removed before
       // shipping. Split into the two genuinely different cases per
       // explicit follow-up, since a single "any other trump in hand"
