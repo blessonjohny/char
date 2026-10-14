@@ -28,12 +28,12 @@
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,2,14,.82);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
     var learns = six
       ? 'Your two mates (Mate 1 and Mate 2) copy how you <b>bid</b>, which <b>trump</b> you pick, and how you <b>lead</b> and <b>feed points</b> to a winning partner.'
-      : 'Your partner bot copies how you <b>bid</b> — how high you go on a hand like the one it holds.';
+      : 'Your partner bot copies how you <b>bid</b>, which <b>trump</b> you pick, and how you <b>lead</b> and <b>feed points</b> to a winning partner.';
     ov.innerHTML =
       '<div style="max-width:390px;width:100%;max-height:92vh;overflow:auto;background:linear-gradient(160deg,#2a1257,#12062b);border:2px solid #d4a62a;border-radius:18px;padding:20px 20px 16px;color:#efe7fb;box-shadow:0 18px 50px rgba(0,0,0,.6)">' +
       '<div style="font-size:1.2rem;font-weight:800;color:#f7e09a;margin-bottom:12px">🧠 Teach my ' + (six ? 'mates' : 'partner bot') + '</div>' +
       row('🎓', 'What it does', learns) +
-      row('📈', 'Gets better as you play', 'It learns after every round. After about 10 hands you’ll see how often it bids like you.') +
+      row('📈', 'Gets better as you play', 'It learns after every round. After about 10 hands you’ll see how often it makes the same call as you on bidding, trump and card play.') +
       row('🙈', 'Your cards stay private', 'Nobody — bot or human — ever sees your hand. It only saves simple numbers about your habits, never the actual cards you were dealt.') +
       row('🛡️', 'Plays safe', 'If it over-bids twice, it plays a little safer for a few rounds, then goes back to your style.') +
       (six ? row('🔁', 'Seat taken?', 'If someone sits in a Mate seat and later leaves, it goes back to your learning bot.') : '') +

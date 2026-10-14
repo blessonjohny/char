@@ -16261,8 +16261,12 @@ document.getElementById('btnStartGame').addEventListener('click', () => {
   function showStatus(s) {
     if (!s) { st.textContent = ''; return; }
     if (!s.hands) st.textContent = 'Your bot is new — it learns after each round.';
-    else if (s.skill == null) st.textContent = 'Your bot is still learning (' + s.hands + ' hand' + (s.hands === 1 ? '' : 's') + ' seen).';
-    else st.textContent = 'Your bot bids like you ' + s.skill + '% of the time (' + s.hands + ' hands seen).' + (s.safe ? ' Playing safe for a few rounds after an over-bid.' : '');
+    else {
+      var p = function (v) { return v == null ? 'still learning' : v + '%'; };
+      st.innerHTML = 'How often your bot makes the same call as you (last 30):<br>' +
+        '🃏 Bidding: <b>' + p(s.skill) + '</b> &nbsp;·&nbsp; ♠ Trump pick: <b>' + p(s.trumpSkill) + '</b> &nbsp;·&nbsp; ▶ Card play: <b>' + p(s.playSkill) + '</b><br>' +
+        '<span style="opacity:.75">' + s.hands + ' hand' + (s.hands === 1 ? '' : 's') + ' seen.' + (s.safe ? ' Playing safe for a few rounds after an over-bid.' : '') + '</span>';
+    }
     rst.style.display = s.hands ? 'inline' : 'none';
   }
   function send(on) {
@@ -18191,8 +18195,7 @@ const K28_UPDATE_HTML = `
   <div style="color:#f4c430;font-size:1.05rem;font-weight:800;margin-bottom:4px">Mate bots can now learn from you</div>
   <div style="color:var(--text-secondary);font-size:0.82rem;line-height:1.6;text-align:left;margin:14px 0">
     Create a room, fill the empty seats with bots, and switch on <b style="color:#fff">Teach my partner bot</b>.<br>
-    <b style="color:#fff">4-player:</b> your partner learns how you bid.<br>
-    <b style="color:#fff">6-player:</b> your two mates also learn how you pick trump and play your cards.<br><br>
+    <b style="color:#fff">4-player and 6-player:</b> your partner bot (or your two mates) learns how you bid, how you pick trump, and how you play your cards. The lobby shows how often they match you on each.<br><br>
     <b style="color:#fff">Signed-in players:</b> your mates are saved to your account, named with the first 3 letters of the name you play under (like “Cha Mate 1”), and Teach stays switched on every time you play, on any device.<br>
     <b style="color:#fff">Guests:</b> your mates are saved on the same device for 30 days after you last play.<br><br>
     Tap <b style="color:#fff">ℹ️ Learn more</b> in the lobby to see exactly how it works. Play, teach, and help your mates become better partners! ♠️♥️
