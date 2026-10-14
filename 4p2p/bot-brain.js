@@ -145,7 +145,16 @@ function getHumanProfile(brain, playerId) {
   return brain.humanProfiles[playerId];
 }
 
+// 'Teach my partner' bots of signed-in players are named like "Cha Mate 1" (first 3 letters of the player's name). They
+// all share the ordinary "Mate 1" / "Mate 2" / "Partner Bot" general brain so brains never pile up per player -- what is
+// personal to a player lives in partner-bot.js.
+function canonicalBrainName(n) {
+  const m = /^\S{1,3} Mate(?: ([12]))?$/.exec(String(n));
+  return m ? (m[1] ? 'Mate ' + m[1] : 'Partner Bot') : n;
+}
+
 function getBrain(botName) {
+  botName = canonicalBrainName(botName);
   if (!botBrains[botName]) {
     botBrains[botName] = createDefaultBrain(botName);
   }

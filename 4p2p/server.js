@@ -94,6 +94,13 @@ const geoip = require('geoip-lite');
 const partnerBot = require('./partner-bot');
 // Teach-my-partner key for a socket: account id if signed in, else the browser's guest id. 6-player profiles are
 // kept separate from 4-player ones (different hand size) by the '~6' suffix.
+// Name prefix for a signed-in teacher's bots: the first 3 letters of the name they are PLAYING under at this table
+// (never the account name -- they can play under any name and nobody learns the account behind it). Guests get none.
+function teachNamePrefix(key, seatName) {
+  if (!key || key.charAt(0) !== 'u') return '';
+  const letters = String(seatName || '').replace(/[^A-Za-z0-9\u00C0-\u024F\u0D00-\u0D7F\u0900-\u097F]/g, '').slice(0, 3);
+  return letters ? letters.charAt(0).toUpperCase() + letters.slice(1) + ' ' : '';
+}
 function teachKey6(socket, guestId) {
   let base = '';
   try {
@@ -3541,6 +3548,7 @@ io.on('connection', (socket) => {
       } else {
         delete seat.teachKey;
       }
+      partnerBot.setAuto(key, !!seat.teachKey);
       reply({ ok: true, on: !!seat.teachKey, status: partnerBot.status(key) });
     });
   });
@@ -3597,9 +3605,12 @@ io.on('connection', (socket) => {
       const teacherPos = t.engine.seats.findIndex(s => s && !s.isBot && s.teachKey);
       if (teacherPos >= 0) {
         const pp = [3, 2, 1, 0][teacherPos];
-        if (!t.engine.seats[pp]) t.engine.seatBot(pp, 'Partner Bot');
+        const pnm = teachNamePrefix(t.engine.seats[teacherPos].teachKey, t.engine.seats[teacherPos].name);
+        const partnerName = pnm ? pnm + 'Mate' : 'Partner Bot';
+        if (!t.engine.seats[pp]) t.engine.seatBot(pp, partnerName);
         const ps = t.engine.seats[pp];
         if (ps && ps.isBot) {
+          ps.name = partnerName; ps.mateName = partnerName;
           ps.teachFor = t.engine.seats[teacherPos].teachKey;
           t.engine.addLog(`${ps.name} is learning from ${t.engine.seats[teacherPos].name}.`);
         } else {
@@ -4814,6 +4825,7 @@ io.on('connection', (socket) => {
       } else {
         delete seat.teachKey;
       }
+      partnerBot.setAuto(key, !!seat.teachKey);
       reply({ ok: true, on: !!seat.teachKey, status: partnerBot.status(key) });
     });
   });
@@ -4841,12 +4853,12 @@ io.on('connection', (socket) => {
           delete t.engine.seats[tPos].teachKey;
         } else {
           mates.forEach((p, n) => {
-            const nm = 'Mate ' + (n + 1);
+            const nm = teachNamePrefix(t.engine.seats[tPos].teachKey, t.engine.seats[tPos].name) + 'Mate ' + (n + 1);
             if (!t.engine.seats[p]) t.engine.seatBot(p, nm);
             const ms = t.engine.seats[p];
             ms.name = nm; ms.mateName = nm; ms.teachFor = t.engine.seats[tPos].teachKey;
           });
-          t.engine.addLog(`Mate 1 and Mate 2 are learning from ${t.engine.seats[tPos].name}.`);
+          t.engine.addLog(`${t.engine.seats[mates[0]].name} and ${t.engine.seats[mates[1]].name} are learning from ${t.engine.seats[tPos].name}.`);
         }
       }
       const empties = t.engine.emptySeats();

@@ -121,9 +121,9 @@ function isSafe(key) { const pr = get(key, false); return !!(pr && pr.safeRounds
 // What the lobby shows: hands seen + "how much like you" % (null until enough data).
 function status(key) {
   const pr = get(key, false);
-  if (!pr) return { hands: 0, skill: null, safe: false };
+  if (!pr) return { hands: 0, skill: null, safe: false, autoOn: false, signedIn: !!(key && key.charAt(0) === 'u') };
   const n = pr.agree.length;
-  return { hands: pr.hands, skill: n >= 10 ? Math.round(100 * pr.agree.reduce((a, b) => a + b, 0) / n) : null, safe: pr.safeRounds > 0 };
+  return { hands: pr.hands, skill: n >= 10 ? Math.round(100 * pr.agree.reduce((a, b) => a + b, 0) / n) : null, safe: pr.safeRounds > 0, autoOn: !!pr.autoOn, signedIn: key.charAt(0) === 'u' };
 }
 // ---- Play style (card play + trump choice): a handful of small counters, not a game log -------------------------------
 // style = { feedYes, feedTotal, leadHigh, leadLow, leadTotal, tn, td:[4] }
@@ -175,8 +175,16 @@ function playStyle(key) {
     trump: st.tn >= MIN_STYLE ? { weights: st.td.map((x) => x / st.tn), strength: Math.min(1, st.tn / 20) } : null,
   };
 }
+// Signed-in players: remember that they want Teach switched on every time (follows them to any device).
+function setAuto(key, on) {
+  if (!validKey(key) || key.charAt(0) !== 'u') return;
+  const pr = get(key, true);
+  if (!pr) return;
+  pr.autoOn = !!on;
+  dirty = true;
+}
 function reset(key) {
   if (validKey(key) && profiles[key]) { delete profiles[key]; dirty = true; save(); }
 }
 
-module.exports = { load, save, validKey, suggest, observe, botOutcome, roundDone, isSafe, status, reset, observePlay, observeTrump, playStyle };
+module.exports = { load, save, validKey, suggest, observe, botOutcome, roundDone, isSafe, status, reset, observePlay, observeTrump, playStyle, setAuto };
