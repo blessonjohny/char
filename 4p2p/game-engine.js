@@ -1020,10 +1020,23 @@ class GameEngine {
     return this._afterBidAction(pos, true);
   }
 
+  // Your trained bots can sit in ANY bot seat, but your profile only learns while one of them is your teammate.
+  _teachHasMate(pos) {
+    const st = this.seats[pos];
+    if (!st || st.isBot || !st.teachKey) return false;
+    const m = this.seats[[3, 2, 1, 0][pos]];
+    return !!(m && m.isBot && m.teachFor === st.teachKey);
+  }
+  _teachBotIsMate(botPos) {
+    const st = this.seats[botPos];
+    if (!st || !st.isBot || !st.teachFor) return false;
+    const t = this.seats[[3, 2, 1, 0][botPos]];
+    return !!(t && !t.isBot && t.teachKey === st.teachFor);
+  }
   // 'Teach my partner': remember the shape of a teacher's hand and their latest call (bid or pass) this round.
   _teachNote(pos, bid) {
     const st = this.seats[pos];
-    if (!st || st.isBot || !st.teachKey) return;
+    if (!st || st.isBot || !st.teachKey || !this._teachHasMate(pos)) return;
     try {
       if (!this._teachObs) this._teachObs = {};
       this._teachObs[pos] = { key: st.teachKey, f: teachFeatures(st.hand), bid };
@@ -1928,7 +1941,7 @@ class GameEngine {
       }
       for (let i = 0; i < 4; i++) {
         const st = this.seats[i];
-        if (st && st.isBot && st.teachFor) {
+        if (st && st.isBot && st.teachFor && this._teachBotIsMate(i)) {
           if (i === this.bidder) partnerBot.botOutcome(st.teachFor, !!made);
           partnerBot.roundDone(st.teachFor);
         }

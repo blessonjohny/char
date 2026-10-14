@@ -327,7 +327,7 @@ class GameEngine6P {
   }
   _teachTrump(pos, suit) {
     const st = this.seats[pos];
-    if (!st || st.isBot || !st.teachKey || this._assistActive) return;
+    if (!st || st.isBot || !st.teachKey || this._assistActive || !this._teachHasMate(pos)) return;
     try {
       const f = {};
       for (const s of SUITS) f[s] = this._trumpFeat(st.hand, s);
@@ -339,7 +339,7 @@ class GameEngine6P {
   // The teacher's own card choice, seen BEFORE the card leaves their hand (this only ever reads the teacher's own play).
   _teachPlay(pos, card) {
     const st = this.seats[pos];
-    if (!st || st.isBot || !st.teachKey || this._assistActive) return;
+    if (!st || st.isBot || !st.teachKey || this._assistActive || !this._teachHasMate(pos)) return;
     try {
       const hand = st.hand;
       const legal = hand.filter(c => this.canPlayCard(pos, c).ok);
@@ -399,10 +399,21 @@ class GameEngine6P {
     if (seat && seat.teachFor && seat.mateName) { seat.name = seat.mateName; seat.avatar = null; }
   }
 
+  // Your trained bots can sit in ANY bot seat, but your profile only learns while one of them is your teammate.
+  _teachHasMate(pos) {
+    const st = this.seats[pos];
+    if (!st || st.isBot || !st.teachKey) return false;
+    return [0, 1, 2, 3, 4, 5].some(p => p !== pos && p % 2 === pos % 2 && this.seats[p] && this.seats[p].isBot && this.seats[p].teachFor === st.teachKey);
+  }
+  _teachBotIsMate(botPos) {
+    const st = this.seats[botPos];
+    if (!st || !st.isBot || !st.teachFor) return false;
+    return [0, 1, 2, 3, 4, 5].some(p => p !== botPos && p % 2 === botPos % 2 && this.seats[p] && !this.seats[p].isBot && this.seats[p].teachKey === st.teachFor);
+  }
   // 'Teach my partner': remember a teacher's hand shape and latest call (bid or pass) this round.
   _teachNote(pos, bid) {
     const st = this.seats[pos];
-    if (!st || st.isBot || !st.teachKey) return;
+    if (!st || st.isBot || !st.teachKey || !this._teachHasMate(pos)) return;
     try {
       if (!this._teachObs) this._teachObs = {};
       this._teachObs[pos] = { key: st.teachKey, f: this._teachFeatures(st.hand), bid };
@@ -1671,7 +1682,7 @@ class GameEngine6P {
       const doneKeys = new Set();
       for (let i = 0; i < SEATS; i++) {
         const st = this.seats[i];
-        if (st && st.isBot && st.teachFor) {
+        if (st && st.isBot && st.teachFor && this._teachBotIsMate(i)) {
           if (i === this.bidder) partnerBot.botOutcome(st.teachFor, !!made);
           doneKeys.add(st.teachFor);
         }

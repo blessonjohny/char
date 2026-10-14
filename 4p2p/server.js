@@ -3552,6 +3552,50 @@ io.on('connection', (socket) => {
       reply({ ok: true, on: !!seat.teachKey, status: partnerBot.status(key) });
     });
   });
+  // Your trained bots on ANY bot seat (partner or opponent). They use your style everywhere; your profile only
+  // learns while one of them is your teammate. scope 'all' = every bot at the table when the game starts.
+  function botStyleList(t, key) {
+    const mine = [];
+    t.engine.seats.forEach((st, i) => { if (st && st.isBot && st.teachFor === key) mine.push(i); });
+    return mine;
+  }
+  socket.on('setTeachScope', ({ all, guestId }, ack) => {
+    withTable((t, pos) => {
+      if (pos === null || pos === undefined) return typeof ack === 'function' && ack({ ok: false });
+      const seat = t.engine.seats[pos];
+      if (!seat || !seat.teachKey) return typeof ack === 'function' && ack({ ok: false, error: 'teach_off' });
+      seat.teachAll = !!all;
+      if (typeof ack === 'function') ack({ ok: true, all: !!seat.teachAll });
+    });
+  });
+  socket.on('botStyleStatus', ({ guestId }, ack) => {
+    withTable((t, pos) => {
+      if (typeof ack !== 'function') return;
+      if (pos === null || pos === undefined) return ack({ ok: false });
+      const key = teachKeyFor(guestId);
+      ack({ ok: true, mine: botStyleList(t, key), teaching: !!(t.engine.seats[pos] && t.engine.seats[pos].teachKey) });
+    });
+  });
+  socket.on('setBotStyle', ({ botPos, on, guestId }, ack) => {
+    withTable((t, pos) => {
+      const reply = (o) => { if (typeof ack === 'function') ack(o); };
+      if (pos === null || pos === undefined) return reply({ ok: false });
+      const key = teachKeyFor(guestId);
+      if (!partnerBot.validKey(key)) return reply({ ok: false, error: 'no_id' });
+      const seat = t.engine.seats[pos];
+      const bs = t.engine.seats[botPos];
+      if (!seat || !bs || !bs.isBot) return reply({ ok: false, error: 'not_bot' });
+      if (on) {
+        const other = t.engine.seats.findIndex((s, i) => s && i !== pos && s.teachKey);
+        if (other >= 0) return reply({ ok: false, error: 'someone_else_teaching' });
+        seat.teachKey = key;
+        bs.teachFor = key;
+      } else if (bs.teachFor === key) {
+        bs.teachFor = null; bs.mateName = null;
+      }
+      reply({ ok: true, mine: botStyleList(t, key) });
+    });
+  });
   socket.on('teachStatus', ({ guestId }, ack) => {
     if (typeof ack === 'function') ack({ ok: true, status: partnerBot.status(teachKeyFor(guestId)) });
   });
@@ -3617,6 +3661,7 @@ io.on('connection', (socket) => {
           delete t.engine.seats[teacherPos].teachKey;
         }
       }
+      const teacherSeatPos = teacherPos;
       const open = t.engine.emptySeats();
       // Shuffle so repeated games don't always show the same first few
       // names in the list — previously toFill was always 3, so seats
@@ -3625,6 +3670,10 @@ io.on('connection', (socket) => {
       let toFill = Math.min(t.botFill, open.length);
       for (let i = 0; i < toFill; i++) {
         t.engine.seatBot(open[i], shuffled[i % shuffled.length]);
+      }
+      // "All bots use my style": every bot at the table (partner or opponent) plays with the teacher's style.
+      if (teacherSeatPos >= 0 && t.engine.seats[teacherSeatPos] && t.engine.seats[teacherSeatPos].teachKey && t.engine.seats[teacherSeatPos].teachAll) {
+        t.engine.seats.forEach((st) => { if (st && st.isBot && !st.teachFor) st.teachFor = t.engine.seats[teacherSeatPos].teachKey; });
       }
       // Per explicit follow-up request: this used to deal cards and
       // jump straight into bidding the instant this fired -- now it
@@ -4829,6 +4878,47 @@ io.on('connection', (socket) => {
       reply({ ok: true, on: !!seat.teachKey, status: partnerBot.status(key) });
     });
   });
+  function botStyleList6(t, key) {
+    const mine = [];
+    t.engine.seats.forEach((st, i) => { if (st && st.isBot && st.teachFor === key) mine.push(i); });
+    return mine;
+  }
+  socket.on('sixp_setTeachScope', ({ all, guestId }, ack) => {
+    withSixpTable((t, pos) => {
+      if (pos === null || pos === undefined) return typeof ack === 'function' && ack({ ok: false });
+      const seat = t.engine.seats[pos];
+      if (!seat || !seat.teachKey) return typeof ack === 'function' && ack({ ok: false, error: 'teach_off' });
+      seat.teachAll = !!all;
+      if (typeof ack === 'function') ack({ ok: true, all: !!seat.teachAll });
+    });
+  });
+  socket.on('sixp_botStyleStatus', ({ guestId }, ack) => {
+    withSixpTable((t, pos) => {
+      if (typeof ack !== 'function') return;
+      if (pos === null || pos === undefined) return ack({ ok: false });
+      ack({ ok: true, mine: botStyleList6(t, teachKey6(socket, guestId)), teaching: !!(t.engine.seats[pos] && t.engine.seats[pos].teachKey) });
+    });
+  });
+  socket.on('sixp_setBotStyle', ({ botPos, on, guestId }, ack) => {
+    withSixpTable((t, pos) => {
+      const reply = (o) => { if (typeof ack === 'function') ack(o); };
+      if (pos === null || pos === undefined) return reply({ ok: false });
+      const key = teachKey6(socket, guestId);
+      if (!partnerBot.validKey(key)) return reply({ ok: false, error: 'no_id' });
+      const seat = t.engine.seats[pos];
+      const bs = t.engine.seats[botPos];
+      if (!seat || !bs || !bs.isBot) return reply({ ok: false, error: 'not_bot' });
+      if (on) {
+        const other = t.engine.seats.findIndex((s, i) => s && i !== pos && s.teachKey);
+        if (other >= 0) return reply({ ok: false, error: 'someone_else_teaching' });
+        seat.teachKey = key;
+        bs.teachFor = key;
+      } else if (bs.teachFor === key) {
+        bs.teachFor = null; bs.mateName = null;
+      }
+      reply({ ok: true, mine: botStyleList6(t, key) });
+    });
+  });
   socket.on('sixp_teachStatus', ({ guestId }, ack) => {
     if (typeof ack === 'function') ack({ ok: true, status: partnerBot.status(teachKey6(socket, guestId)) });
   });
@@ -4861,12 +4951,16 @@ io.on('connection', (socket) => {
           t.engine.addLog(`${t.engine.seats[mates[0]].name} and ${t.engine.seats[mates[1]].name} are learning from ${t.engine.seats[tPos].name}.`);
         }
       }
+      const teacherSeatPos6 = tPos;
       const empties = t.engine.emptySeats();
       const shuffled = [...BOT_NAME_POOL].sort(() => Math.random() - 0.5);
       let botNum = 0;
       for (const p of empties) {
         t.engine.seatBot(p, shuffled[botNum % shuffled.length]);
         botNum++;
+      }
+      if (teacherSeatPos6 >= 0 && t.engine.seats[teacherSeatPos6] && t.engine.seats[teacherSeatPos6].teachKey && t.engine.seats[teacherSeatPos6].teachAll) {
+        t.engine.seats.forEach((st) => { if (st && st.isBot && !st.teachFor) st.teachFor = t.engine.seats[teacherSeatPos6].teachKey; });
       }
       // Per explicit follow-up request, matching the identical
       // 4-player change: this used to deal cards and jump straight
