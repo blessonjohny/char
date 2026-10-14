@@ -2145,9 +2145,13 @@ function initTeach6p(state) {
     });
   }
   $('teachToggle').checked = false;
-  socket.emit('sixp_teachStatus', { guestId: teachGuestId() }, function (r) { if (r && r.ok) teachShowStatus(r.status); });
   var want = false; try { want = localStorage.getItem('k28_teach_on') === '1'; } catch (e) {}
-  if (want) { $('teachToggle').checked = true; teachSend(true); }
+  socket.emit('sixp_teachStatus', { guestId: teachGuestId() }, function (r) {
+    if (r && r.ok) teachShowStatus(r.status);
+    // Signed in: the choice is remembered on the account (works on any device). Guest: remembered on this device.
+    var on = (r && r.ok && r.status && r.status.signedIn) ? !!r.status.autoOn : want;
+    if (on) { $('teachToggle').checked = true; teachSend(true); }
+  });
 }
 
 function renderLobby(state) {
