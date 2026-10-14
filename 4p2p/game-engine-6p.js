@@ -333,7 +333,7 @@ class GameEngine6P {
       for (const s of SUITS) f[s] = this._trumpFeat(st.hand, s);
       const others = SUITS.filter(s => s !== suit);
       const diff = [0, 1, 2, 3].map(i => f[suit][i] - others.reduce((a, s) => a + f[s][i], 0) / others.length);
-      partnerBot.observeTrump(st.teachKey, diff);
+      partnerBot.observeTrump(st.teachKey, diff, SUITS.map(x => f[x]), SUITS.indexOf(suit));
     } catch (e) {}
   }
   // The teacher's own card choice, seen BEFORE the card leaves their hand (this only ever reads the teacher's own play).

@@ -121,9 +121,11 @@ function isSafe(key) { const pr = get(key, false); return !!(pr && pr.safeRounds
 // What the lobby shows: hands seen + "how much like you" % (null until enough data).
 function status(key) {
   const pr = get(key, false);
-  if (!pr) return { hands: 0, skill: null, safe: false, autoOn: false, signedIn: !!(key && key.charAt(0) === 'u') };
-  const n = pr.agree.length;
-  return { hands: pr.hands, skill: n >= 10 ? Math.round(100 * pr.agree.reduce((a, b) => a + b, 0) / n) : null, safe: pr.safeRounds > 0, autoOn: !!pr.autoOn, signedIn: key.charAt(0) === 'u' };
+  if (!pr) return { hands: 0, skill: null, trumpSkill: null, playSkill: null, safe: false, autoOn: false, signedIn: !!(key && key.charAt(0) === 'u') };
+  const pct = (arr) => (arr && arr.length >= 10) ? Math.round(100 * arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+  return { hands: pr.hands, skill: pct(pr.agree), trumpSkill: pct(pr.agreeTrump), playSkill: pct(pr.agreePlay),
+           trumpN: (pr.agreeTrump || []).length, playN: (pr.agreePlay || []).length,
+           safe: pr.safeRounds > 0, autoOn: !!pr.autoOn, signedIn: key.charAt(0) === 'u' };
 }
 // ---- Play style (card play + trump choice): a handful of small counters, not a game log -------------------------------
 // style = { feedYes, feedTotal, leadHigh, leadLow, leadTotal, tn, td:[4] }
@@ -145,6 +147,17 @@ function observePlay(key, kind, v) {
   const pr = get(key, true);
   if (!pr) return;
   const st = styleOf(pr);
+  // Honest score: before learning from this play, would the style learned so far have made the same call?
+  try {
+    let hit = null;
+    if (kind === 'feed' && st.feedTotal >= MIN_STYLE) hit = ((st.feedYes / st.feedTotal) >= 0.5) === !!v ? 1 : 0;
+    else if (kind === 'lead' && st.leadTotal >= MIN_STYLE) {
+      const mid = st.leadTotal - st.leadHigh - st.leadLow;
+      const best = st.leadHigh >= st.leadLow && st.leadHigh >= mid ? 'high' : (st.leadLow >= mid ? 'low' : 'mid');
+      hit = best === v ? 1 : 0;
+    }
+    if (hit !== null) { if (!pr.agreePlay) pr.agreePlay = []; pr.agreePlay.push(hit); if (pr.agreePlay.length > 30) pr.agreePlay.shift(); }
+  } catch (e) {}
   if (kind === 'feed') { st.feedTotal++; if (v) st.feedYes++; }
   else if (kind === 'lead') { st.leadTotal++; if (v === 'high') st.leadHigh++; else if (v === 'low') st.leadLow++; }
   decay(st);
@@ -152,10 +165,21 @@ function observePlay(key, kind, v) {
   dirty = true;
 }
 // diff = 4-number vector: chosen suit's features minus the other suits' average.
-function observeTrump(key, diff) {
+function observeTrump(key, diff, feats, chosenIdx) {
   const pr = get(key, true);
   if (!pr) return;
   const st = styleOf(pr);
+  // Honest score: would the style learned so far have picked the same suit as the player did?
+  try {
+    if (st.tn >= MIN_STYLE && Array.isArray(feats) && feats.length === 4) {
+      const w = st.td.map((x) => x / st.tn);
+      let best = 0, bs = -1e9;
+      feats.forEach((f, i) => { const sc = f[0] * w[0] + f[1] * w[1] + f[2] * w[2] + f[3] * w[3]; if (sc > bs) { bs = sc; best = i; } });
+      if (!pr.agreeTrump) pr.agreeTrump = [];
+      pr.agreeTrump.push(best === chosenIdx ? 1 : 0);
+      if (pr.agreeTrump.length > 30) pr.agreeTrump.shift();
+    }
+  } catch (e) {}
   st.tn++;
   for (let i = 0; i < 4; i++) st.td[i] += diff[i];
   decay(st);
