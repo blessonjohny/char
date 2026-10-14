@@ -92,6 +92,8 @@ function vetName(socket, name, existingPlayerId, ack) {
 }
 const geoip = require('geoip-lite');
 const partnerBot = require('./partner-bot');
+const playerStats = require('./player-stats');
+playerStats.load();
 // Teach-my-partner key for a socket: account id if signed in, else the browser's guest id. 6-player profiles are
 // kept separate from 4-player ones (different hand size) by the '~6' suffix.
 // Name prefix for a signed-in teacher's bots: the first 3 letters of the name they are PLAYING under at this table
@@ -283,6 +285,7 @@ const accounts = createAccounts({
   avatarOk: (k) => avatars.isValidKey(k) && !/^toon10[1-6]$/.test(k),     // protected personal avatars stay PIN-only
 });
 app.use(accounts.router);
+playerStats.setKnownUsers(() => accounts._users());
 // A player's own photo avatar is served under the same url shape as every other avatar (key "pic_xxxxxxxxxx").
 app.get('/images/hero-avatars/:file', (req, res, next) => {
   const pm = /^(pic_[a-f0-9]{10})\.(png|webp)$/.exec(req.params.file);
@@ -2428,6 +2431,13 @@ app.post('/api/admin/import-leaderboard', (req, res) => {
 // admin auth -- for the new home-page popup every player sees, not
 // just admins. Same underlying data as the admin endpoint above,
 // just without the auth gate.
+// "My stats" for the signed-in player (read from the sign-in cookie; nobody can ask for someone else's).
+app.get('/api/my-stats', (req, res) => {
+  const u = accounts.userFromCookieHeader(req.headers.cookie);
+  if (!u) return res.status(401).json({ ok: false, error: 'not_signed_in' });
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, stats: playerStats.summary(u.id) });
+});
 app.get('/api/leaderboard', (req, res) => {
   res.json({ ok: true, leaderboard: leaderboard.getLeaderboard() });
 });
@@ -3501,10 +3511,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Stats: remember which signed-in account sits in this seat (read from the sign-in cookie, so it cannot be faked).
+  function stampAcct(seat) {
+    try {
+      if (!seat || seat.isBot) return;
+      const u = accounts.userFromCookieHeader(socket.handshake.headers.cookie);
+      if (u && u.id) seat.acctId = u.id;
+    } catch (e) {}
+  }
   function withTable(fn) {
     const t = tables[tableId];
     const info = t && t.sockets.get(socket.id);
     if (!t || !info || info.pos < 0) return;
+    stampAcct(t.engine.seats[info.pos]);
     fn(t, info.pos);
   }
 
@@ -4780,6 +4799,7 @@ io.on('connection', (socket) => {
     if (!t) return;
     const info = t.sockets.get(socket.id);
     if (!info) return;
+    if (info.pos >= 0) stampAcct(t.engine.seats[info.pos]);
     fn(t, info.pos);
   }
 

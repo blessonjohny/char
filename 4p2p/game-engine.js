@@ -54,6 +54,7 @@ const brain = require('./bot-brain');
 const partnerBot = require('./partner-bot');
 partnerBot.load();
 const leaderboard = require('./leaderboard');
+const playerStats = require('./player-stats');
 const challengeLeaderboard = require('./challenge-leaderboard');
 brain.loadBrains();
 
@@ -1878,6 +1879,7 @@ class GameEngine {
     const roundWinningTeam = made ? bT : (1 - bT);
     const roundLosingTeam = 1 - roundWinningTeam;
     this.roundLossesThisChampionship[roundLosingTeam]++;
+    playerStats.onRound('4p', this, 4, getTeam, roundWinningTeam);
 
     // Q-mark removal: personally calling and winning a bid sheds one Q
     // from yourself, if you're carrying any. On the very first hand of a
@@ -1972,6 +1974,7 @@ class GameEngine {
       const losingTeam = 1 - winningTeam;
       this.kingStreak[winningTeam]++;
       this.kingStreak[losingTeam] = 0;
+      playerStats.onChampEnd('4p', this, 4, getTeam, winningTeam);
       const isKing = this.kingStreak[winningTeam] >= this.KING_TARGET;
       this.lastChampionshipResult = {
         championshipNumber: this.championshipNumber,

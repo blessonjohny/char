@@ -27,6 +27,7 @@ const SEATS = 6;
 const brain = require('./bot-brain');
 const partnerBot = require('./partner-bot');
 const leaderboard = require('./leaderboard');
+const playerStats = require('./player-stats');
 const challengeLeaderboard = require('./challenge-leaderboard');
 brain.loadBrains();
 
@@ -1630,6 +1631,7 @@ class GameEngine6P {
     const roundWinningTeam = made ? bT : (1 - bT);
     const roundLosingTeam = 1 - roundWinningTeam;
     this.roundLossesThisMatch[roundLosingTeam]++;
+    playerStats.onRound('6p', this, SEATS, getTeam, roundWinningTeam);
     // Q-mark removal: same rule as the 4-player game — personally
     // calling and winning a bid sheds one Q from yourself; on the very
     // first hand of a new match specifically, your partner sheds one
@@ -1702,6 +1704,7 @@ class GameEngine6P {
     if (this.gameScore[0] >= 15 || this.gameScore[1] >= 15) {
       const winningTeam = this.gameScore[0] > this.gameScore[1] ? 0 : 1;
       const losingTeam = 1 - winningTeam;
+      playerStats.onChampEnd('6p', this, SEATS, getTeam, winningTeam);
       // gameOverAt lets the server refuse an immediate sixp_restartGame -- see
       // that handler's comment for the full reasoning (guests were missing
       // the final result/animation entirely when the host restarted within
