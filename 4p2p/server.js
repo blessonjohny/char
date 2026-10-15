@@ -5804,6 +5804,9 @@ function l56RunBotBid(state, seat) {
     l56Engine.advanceBiddingTurn(state);
   } else {
     const newBid = { value: decision.value, trump: decision.trump, seat, kind: decision.kind, order: decision.order };
+    newBid.sig = decision.sig || (decision.kind === 'nt' ? 'nt' : decision.kind === 'ns' ? (decision.plus === true ? 'nosreply' : 'nos')
+      : (decision.order === 'reverse' ? (state.currentBid && state.currentBid.trump === decision.trump && decision.plus !== false ? 'revplus' : 'rev')
+        : (state.currentBid && state.currentBid.trump === decision.trump && decision.plus !== false ? 'plus' : 'straight')));
     if (decision.kind === 'suit' && state.currentBid && state.currentBid.trump === decision.trump && decision.plus !== false) {
       newBid.increment = decision.value - state.currentBid.value;
     } else if (decision.kind === 'ns' && decision.plus === true && state.currentBid) {
@@ -6390,7 +6393,7 @@ io.on('connection', (socket) => {
     l56ScheduleNext(code);
   });
 
-  socket.on('l56_placeBid', ({ code, value, trump, kind, order, note, inc }) => {
+  socket.on('l56_placeBid', ({ code, value, trump, kind, order, note, inc, sig }) => {
     const seatInfo = l56SeatFor(socket, code);
     if (!seatInfo) return;
     const { r, pos } = seatInfo;
@@ -6403,6 +6406,8 @@ io.on('connection', (socket) => {
     if (kind === 'suit' && !l56Engine.SUITS.includes(trump)) return;
 
     const newBid = { value, trump: kind === 'suit' ? trump : null, seat: pos, kind, order: kind === 'suit' ? order : null };
+    // What the call tells the partner (quick-bid buttons): plus / straight / rev / revplus / nt / nos / nosreply / nosrest. Bots read it.
+    if (typeof sig === 'string' && /^[a-z]{2,12}$/.test(sig)) newBid.sig = sig;
     // "+N" is shown only when the player really used "Increase by" (inc === true). "Set to" is a plain call: 28 ♠, never +1 ♠.
     // (Old clients that don't send the flag keep the previous automatic behaviour.)
     if (inc === true) {
@@ -6418,7 +6423,8 @@ io.on('connection', (socket) => {
     if (kind === 'ns' && inc === true && state.currentBid) newBid.increment = value - state.currentBid.value;   // "+N NOS"
     if (kind === 'ns') Object.assign(newBid, l56NosInfo(state, inc === true && !!state.currentBid));
     if (!state.currentBid) { state.openerSeat = pos; state.openerSuit = newBid.trump; }
-    if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = state.currentBid ? state.currentBid.trump : true; }
+    if (kind === 'ns' && newBid.sig === 'nosrest') { state.restVoidBySeat = state.restVoidBySeat || {}; state.restVoidBySeat[pos] = true; }   // "+ NOS": none of the suits my partners have not called
+    else if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = state.currentBid ? state.currentBid.trump : true; }
     if (kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[pos + '-' + trump] = order; }
     if (kind === 'suit') { state.teamSuitOpen = state.teamSuitOpen || {}; const k = l56Engine.TEAM_OF(pos) + '-' + trump; if (state.teamSuitOpen[k] === undefined) state.teamSuitOpen[k] = value; }
     if (state.openerSeat === pos && state.openerSuit && trump === state.openerSuit && state.currentBid) {
@@ -6440,7 +6446,7 @@ io.on('connection', (socket) => {
     l56ScheduleNext(code);
   });
 
-  socket.on('l56_pass', ({ code, note }) => {
+  socket.on('l56_pass', ({ code, note, num }) => {
     const seatInfo = l56SeatFor(socket, code);
     if (!seatInfo) return;
     const { r, pos } = seatInfo;
@@ -6454,11 +6460,14 @@ io.on('connection', (socket) => {
       return;
     }
     if (!state.passedSeats.includes(pos)) state.passedSeats.push(pos);
+    // "29 Pass": a pass that carries a number = no trump; the last partner on this team is expected to open his strongest suit.
+    const passNum = (typeof num === 'number' && num >= 28 && num <= 56) ? Math.floor(num) : null;
+    if (passNum !== null) { state.numPassBySeat = state.numPassBySeat || {}; state.numPassBySeat[pos] = { num: passNum, hand: state.handNumber || 1 }; }
     state.lastActionBySeat = state.lastActionBySeat || {};
-    state.lastActionBySeat[pos] = 'Pass';
+    state.lastActionBySeat[pos] = passNum !== null ? `${passNum} Pass` : 'Pass';
     const noteText = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
     if (noteText) state.lastNote = { seat: pos, text: noteText, ts: Date.now() };
-    l56Engine.addLog(state, `${state.seats[pos].name} passed.${noteText ? ' — "' + noteText + '"' : ''}`, pos);
+    l56Engine.addLog(state, `${state.seats[pos].name} passed${passNum !== null ? ' with ' + passNum + ' (no trump)' : ''}.${noteText ? ' — "' + noteText + '"' : ''}`, pos);
     if (!state.currentBid && state.passedSeats.length >= 6) {
       l56Engine.autoNoTrump(state);
     } else if (state.currentBid && state.passedSeats.length >= 5) {
