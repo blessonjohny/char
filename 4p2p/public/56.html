@@ -3503,37 +3503,63 @@ function getSeatBidSummary(state, seatIdx){
   return mine.map(m => `${m.order}${ordinalSuffix(m.order)}: ${m.action}`).join(' → ') + wonTag;
 }
 
-const QB_GROUPS = [['S','suit'],['H','suit'],['D','suit'],['C','suit'],['NT','nt'],['NS','ns']];
-function qbName(g){ return g==='NT' ? 'No Trump' : g==='NS' ? 'NOS' : SUIT_SYM[g]; }
-// Every button of one group as [{label, value, inc, order, kind, trump, red}]. Numbers are free (28-56); "+" buttons raise by N over the bid on the table.
+const QB_GROUPS = [['S','suit'],['H','suit'],['D','suit'],['C','suit'],['X','other']];
+const QB_SUITNAME = {S:'Spades',H:'Hearts',D:'Diamonds',C:'Clubs'};
+function qbName(g){ return g==='X' ? 'NT · NOS · Pass' : SUIT_SYM[g]; }
+// Every button of one group. "+" buttons raise the bid on the table by N and show the number they make; plain numbers are free (28-56).
+// sig = what the call tells your partner (bots read it):
+//   plus    "+ ♠" / "+2 ♠" ...  I hold the Jack ("+" = just the Jack, "+2" = Jack and 1 more support, "+3" = Jack and 2 more ...)
+//   straight "28 ♠"             straight call: 5 trump with a Jack
+//   rev      "♠ 28"             suit first: no Jack, 4+ trump
+//   revplus  "♠ +" / "♠ +2"     I have 2 trump (a bigger + = stronger value cards)
+//   nt       "29 NT"            number + No Trump
+//   nos      "29 NOS"           number + NOS
+//   nosreply "+1 NOS"           answer to a partner's NOS
+//   nosrest  "+ NOS"            I have none of the suits my partners have not called yet (any round)
+//   numpass  "29 Pass"          a pass with a number: no trump, my last partner must open his strongest suit
 function qbDefs(g, kind, cb, minVal, num){
-  const sym = qbName(g), red = kind==='suit' && SUIT_RED[g];
-  const trump = kind==='suit' ? g : null;
   const base = cb ? cb.value : 27;
-  const mk = (label, value, inc, order, section) => ({label, value, inc, order, kind, trump, red, section, ok: value >= minVal && value <= 56});
   const out = [];
-  out.push(mk(kind==='suit' ? `${sym} ${({S:'Spades',H:'Hearts',D:'Diamonds',C:'Clubs'})[g]}` : sym, minVal, false, kind==='suit' ? 'forward' : null, 'set'));
-  out.push(mk(`${num} ${sym}`, num, false, kind==='suit' ? 'forward' : null, 'set'));
-  for(let n=1;n<=7;n++) out.push(mk(`+${n} ${sym}`, base+n, true, kind==='suit' ? 'forward' : null, 'plus'));
   if(kind==='suit'){
-    out.push(mk(`${sym} ${minVal}`, minVal, false, 'reverse', 'rev'));
-    out.push(mk(`${sym} ${num}`, num, false, 'reverse', 'rev'));
-    for(let n=1;n<=7;n++) out.push(mk(`${sym} +${n}`, base+n, true, 'reverse', 'revplus'));
+    const sym = SUIT_SYM[g], red = SUIT_RED[g];
+    const mk = (label, value, inc, order, sig, section, tip) => ({label, value, inc, order, sig, section, tip, kind:'suit', trump:g, red, ok: value >= minVal && value <= 56});
+    for(let n=1;n<=7;n++) out.push(mk(n===1 ? `+ ${sym} → ${base+n}` : `+${n} ${sym} → ${base+n}`, base+n, true, 'forward', 'plus', 'plus',
+      n===1 ? 'Just the Jack of '+QB_SUITNAME[g] : `The Jack and ${n-1} more support`));
+    out.push(mk(`${num} ${sym}`, num, false, 'forward', 'straight', 'straight', 'Straight call: 5 trump with the Jack'));
+    out.push(mk(`${sym} ${num}`, num, false, 'reverse', 'rev', 'rev', 'Suit first: no Jack, 4 or more trump'));
+    for(let n=1;n<=7;n++) out.push(mk(n===1 ? `${sym} + → ${base+n}` : `${sym} +${n} → ${base+n}`, base+n, true, 'reverse', 'revplus', 'revplus',
+      n===1 ? '2 trump' : '2 trump, stronger value cards'));
+  } else {
+    const mk = (label, kind2, value, inc, sig, section, tip) => ({label, value, inc, order:null, sig, section, tip, kind:kind2, trump:null, red:false, ok: value >= minVal && value <= 56});
+    out.push(mk(`${num} NT`, 'nt', num, false, 'nt', 'nt', 'Number + No Trump'));
+    out.push(mk(`${num} NOS`, 'ns', num, false, 'nos', 'nos', 'Number + NOS: nothing in the suit'));
+    out.push(mk(`+ NOS → ${base+1}`, 'ns', base+1, true, 'nosrest', 'nosplus', 'I have none of the suits my partners have not called yet (any round)'));
+    out.push(mk(`+1 NOS → ${base+1}`, 'ns', base+1, true, 'nosreply', 'nosplus', 'Answer to my partner’s NOS: I have nothing in it too'));
+    out.push(mk(`+2 NOS → ${base+2}`, 'ns', base+2, true, 'nosreply', 'nosplus', 'Answer to my partner’s NOS, stronger'));
+    out.push({label:`${num} Pass`, value:num, inc:false, order:null, sig:'numpass', section:'numpass', tip:'A pass with a number: no trump — my last partner must open his strongest suit', kind:'pass', trump:null, red:false, ok:true});
   }
   return out;
 }
-const QB_SECTION_CAP = {set:'Set to a number', plus:'Plus (raise by)', rev:'Suit first (no Jack, 4+ cards)', revplus:'Suit first, plus'};
+const QB_SECTION_CAP = {
+  plus:'Plus — raise the bid (+ = the Jack, each step = one more support)',
+  straight:'Straight call — 5 trump with the Jack', rev:'Suit first — no Jack, 4+ trump',
+  revplus:'Suit first, plus — 2 trump (bigger + = stronger cards)',
+  nt:'Number + No Trump', nos:'Number + NOS', nosplus:'Plus NOS', numpass:'Pass with a number (no trump — last partner opens his strongest)'
+};
 function qbButtonsHtml(defs, tag){
   let html = '', last = null;
   defs.forEach((d, i) => {
-    if(d.section !== last){ if(last !== null) html += '</div>'; html += `<div class="qb-row"><div class="qb-cap">${QB_SECTION_CAP[d.section]}</div>`; last = d.section; }
-    html += `<button type="button" class="qb${d.red?' red':''}" data-q="${tag}:${i}" ${d.ok?'':'disabled'}>${d.label}</button>`;
+    const sec = d.section;
+    const newRow = (sec !== last) && !((sec==='straight'||sec==='rev') && (last==='straight'||last==='rev')) && !((sec==='nt'||sec==='nos') && (last==='nt'||last==='nos'));
+    if(newRow){ if(last !== null) html += '</div>'; html += `<div class="qb-row"><div class="qb-cap">${QB_SECTION_CAP[sec]}</div>`; }
+    last = sec;
+    html += `<button type="button" class="qb${d.red?' red':''}" title="${(d.tip||'').replace(/"/g,'&quot;')}" data-q="${tag}:${i}" ${d.ok?'':'disabled'}>${d.label}</button>`;
   });
   return html + '</div>';
 }
 function renderQuickBids(cb, minVal){
   if(quickNum < minVal || quickNum > 56) quickNum = Math.min(56, Math.max(minVal, quickNum));
-  const stepper = `<div class="qb-step">Number <button type="button" data-qn="-1">−</button><input id="qbNum" type="text" inputmode="numeric" value="${quickNum}"><button type="button" data-qn="1">+</button><span style="opacity:.55">for the “${quickNum} ♠” and “♠ ${quickNum}” buttons</span></div>`;
+  const stepper = `<div class="qb-step">Number <button type="button" data-qn="-1">−</button><input id="qbNum" type="text" inputmode="numeric" value="${quickNum}"><button type="button" data-qn="1">+</button><span style="opacity:.55">used by the “${quickNum} ♠”, “♠ ${quickNum}”, NT, NOS and Pass buttons</span></div>`;
   let body = '';
   const defsByTag = {};
   if(quickView === 'grouped'){
@@ -3546,24 +3572,31 @@ function renderQuickBids(cb, minVal){
     body += '<div class="qb-list">' + QB_GROUPS.map(([g, kind]) => {
       const defs = qbDefs(g, kind, cb, minVal, quickNum);
       defsByTag[g] = defs;
-      return `<div style="font-weight:800;margin:8px 0 4px;${SUIT_RED[g]?'color:#ff8a8a':''}">${qbName(g)}</div>` + qbButtonsHtml(defs, g);
+      return `<div style="font-weight:800;margin:8px 0 4px;${SUIT_RED[g]?'color:#ff8a8a':''}">${g==='X' ? 'No Trump · NOS · Pass' : SUIT_SYM[g]+' '+QB_SUITNAME[g]}</div>` + qbButtonsHtml(defs, g);
     }).join('') + '</div>';
   }
   window.__qbDefs = defsByTag;
   return `<div class="qb-wrap">
-    <div class="qb-head"><b>Quick bids</b>
+    <div class="qb-head"><b>Bid buttons</b>
       <span class="segmented" id="qbViewSeg"><button type="button" data-qv="grouped" class="${quickView==='grouped'?'sel':''}">Grouped</button><button type="button" data-qv="list" class="${quickView==='list'?'sel':''}">One list</button></span></div>
     ${stepper}${body}
-    <div style="font-size:11px;opacity:.55;margin-top:4px">One tap places that bid. Number-first = you hold the Jack; suit-first = no Jack, 4+ cards; “+N” = raise by N (the size of the jump is your signal). Use Pass below to pass.</div>
+    <div style="font-size:11px;opacity:.55;margin-top:4px">One tap places that call. The number after → is the bid it makes. Tap and hold (or hover) a button to see what it tells your partner.</div>
   </div>`;
 }
 function submitQuick(def){
+  if(!def) return;
   const cb = latestState ? latestState.currentBid : null;
-  const minAllowed = cb ? cb.value + 1 : 28;
-  if(!def || def.value < minAllowed || def.value > 56){ showToast(`Your bid must be at least ${minAllowed}.`, 2500); return; }
   const note = noteDraft.trim();
+  if(def.kind === 'pass'){
+    if(latestState && latestState.forcedSeat === mySeat && !cb){ showToast("You must open the bidding — you can't pass.", 2500); return; }
+    noteDraft = '';
+    syncSocket.emit('l56_pass', {code: roomCode, note, num: def.value});
+    return;
+  }
+  const minAllowed = cb ? cb.value + 1 : 28;
+  if(def.value < minAllowed || def.value > 56){ showToast(`Your bid must be at least ${minAllowed}.`, 2500); return; }
   noteDraft = '';
-  syncSocket.emit('l56_placeBid', {code: roomCode, value: def.value, trump: def.trump, kind: def.kind, order: def.kind==='suit' ? def.order : null, inc: !!def.inc, note});
+  syncSocket.emit('l56_placeBid', {code: roomCode, value: def.value, trump: def.trump, kind: def.kind, order: def.kind==='suit' ? def.order : null, inc: !!def.inc, sig: def.sig, note});
 }
 
 function renderBidPanel(state){
