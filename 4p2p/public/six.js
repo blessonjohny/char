@@ -3138,7 +3138,14 @@ let lastKnownIsBotPerPos = [null, null, null, null, null, null]; // tracks each 
 // happened to match or not in this particular browser. Deliberately mirrors the CSS values
 // exactly rather than replacing them - this is a safety net for browsers where the CSS
 // condition misfires, not a new source of truth.
+// Rotating the phone: the wide (landscape) layout is switched on/off by width, but that class used to update only on a
+// 500ms timer -- so on the way back to portrait the big landscape avatar sizes were applied once more and then left behind.
+function syncInGameClass6p() {
+  const gs = document.getElementById('gameScreen');
+  document.body.classList.toggle('k28-in-game', !!gs && !gs.classList.contains('hidden') && window.innerWidth >= 521);
+}
 function enforceSeatAvatarSizing6p() {
+  syncInGameClass6p();
   const isPortraitish = window.innerHeight >= window.innerWidth || window.innerWidth >= 521;
   if (!isPortraitish) return;
   // Real, confirmed root cause found per explicit live report: this
@@ -3184,9 +3191,14 @@ function enforceSeatAvatarSizing6p() {
     5: { w: 150, h: 193, fs: 4.13 },
   };
   for (const slot in sizes) {
-    if (window.K28Stage && !document.body.classList.contains('k28-in-game')) break;   /* the table picture module sizes avatars through a stylesheet (so the layout editors can override it) */
     const av = document.getElementById('av' + slot);
     if (!av) continue;
+    if (window.K28Stage && !document.body.classList.contains('k28-in-game')) {
+      /* the table picture module sizes avatars through a stylesheet (so the layout editors can override it):
+         drop any inline size left over from the wide layout so the stylesheet is in charge again */
+      av.style.removeProperty('width'); av.style.removeProperty('height'); av.style.removeProperty('font-size');
+      continue;
+    }
     const s = sizes[slot];
     av.style.setProperty('width', s.w + 'px', 'important');
     av.style.setProperty('height', s.h + 'px', 'important');
@@ -3208,6 +3220,8 @@ function placeTable6p() {
 }
 if (window.K28Stage) K28Stage.onChange(placeTable6p);
 window.addEventListener('resize', enforceSeatAvatarSizing6p);
+// Phones report the new size a moment after 'orientationchange'; re-run a few times so it always settles on the right layout.
+window.addEventListener('orientationchange', () => { [80, 300, 800].forEach(ms => setTimeout(enforceSeatAvatarSizing6p, ms)); });
 
 function renderSeats(state) {
   // No two players at this table may show the same face (see table-faces.js): a bot whose usual face is
