@@ -524,6 +524,19 @@
   .current-bid-display{font-family:'Fraunces',serif;font-size:20px;color:var(--gold-soft);}
 
   .mini-hand{display:flex;flex-wrap:wrap;gap:5px;}
+  .qb-wrap{margin:14px 0 4px;padding:10px;border:1px solid rgba(255,255,255,0.14);border-radius:10px;background:rgba(0,0,0,0.18)}
+  .qb-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .qb-head b{font-size:12px;text-transform:uppercase;letter-spacing:.5px;opacity:.8}
+  .qb-tabs,.qb-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+  .qb-cap{font-size:10px;text-transform:uppercase;letter-spacing:.5px;opacity:.55;margin:6px 0 4px;width:100%}
+  .qb{min-width:44px;padding:7px 9px;border-radius:8px;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.07);color:inherit;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  .qb.red{color:#ff8a8a}
+  .qb.sel{background:rgba(244,196,48,0.22);border-color:#f4c430}
+  .qb:disabled{opacity:.28;cursor:not-allowed}
+  .qb-list{max-height:260px;overflow-y:auto;padding-right:2px}
+  .qb-step{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px}
+  .qb-step button{width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.07);color:inherit;font-size:16px;cursor:pointer}
+  .qb-step input{width:46px;text-align:center;padding:5px;border-radius:8px;border:1px solid rgba(255,255,255,0.22);background:rgba(0,0,0,0.25);color:inherit;font:inherit}
   .seating-box{
     background:rgba(201,162,39,0.08);border:1px solid var(--line);border-radius:8px;
     padding:10px 12px;margin-bottom:14px;font-size:12.5px;line-height:1.5;
@@ -3408,6 +3421,10 @@ async function startNewMatch(prevState){
 }
 
 // ---------- bidding UI state ----------
+// ---- Quick bids: one-tap buttons for every kind of call (set / +N / suit-first, for each suit, No Trump and NOS) ----
+let quickView = 'grouped'; try { quickView = localStorage.getItem('k56_quickview') === 'list' ? 'list' : 'grouped'; } catch(e) {}
+let quickTab = 'S';       // grouped view: which suit / NT / NOS group is open
+let quickNum = 28;        // the number used by the "28 ♠" / "♠ 28" style buttons
 let bidMode = 'set'; // 'set' | 'inc'
 let bidNumber = 28;
 let bidTrumpKind = 'suit'; // 'suit' | 'nt' | 'ns'
@@ -3486,6 +3503,69 @@ function getSeatBidSummary(state, seatIdx){
   return mine.map(m => `${m.order}${ordinalSuffix(m.order)}: ${m.action}`).join(' → ') + wonTag;
 }
 
+const QB_GROUPS = [['S','suit'],['H','suit'],['D','suit'],['C','suit'],['NT','nt'],['NS','ns']];
+function qbName(g){ return g==='NT' ? 'No Trump' : g==='NS' ? 'NOS' : SUIT_SYM[g]; }
+// Every button of one group as [{label, value, inc, order, kind, trump, red}]. Numbers are free (28-56); "+" buttons raise by N over the bid on the table.
+function qbDefs(g, kind, cb, minVal, num){
+  const sym = qbName(g), red = kind==='suit' && SUIT_RED[g];
+  const trump = kind==='suit' ? g : null;
+  const base = cb ? cb.value : 27;
+  const mk = (label, value, inc, order, section) => ({label, value, inc, order, kind, trump, red, section, ok: value >= minVal && value <= 56});
+  const out = [];
+  out.push(mk(kind==='suit' ? `${sym} ${({S:'Spades',H:'Hearts',D:'Diamonds',C:'Clubs'})[g]}` : sym, minVal, false, kind==='suit' ? 'forward' : null, 'set'));
+  out.push(mk(`${num} ${sym}`, num, false, kind==='suit' ? 'forward' : null, 'set'));
+  for(let n=1;n<=7;n++) out.push(mk(`+${n} ${sym}`, base+n, true, kind==='suit' ? 'forward' : null, 'plus'));
+  if(kind==='suit'){
+    out.push(mk(`${sym} ${minVal}`, minVal, false, 'reverse', 'rev'));
+    out.push(mk(`${sym} ${num}`, num, false, 'reverse', 'rev'));
+    for(let n=1;n<=7;n++) out.push(mk(`${sym} +${n}`, base+n, true, 'reverse', 'revplus'));
+  }
+  return out;
+}
+const QB_SECTION_CAP = {set:'Set to a number', plus:'Plus (raise by)', rev:'Suit first (no Jack, 4+ cards)', revplus:'Suit first, plus'};
+function qbButtonsHtml(defs, tag){
+  let html = '', last = null;
+  defs.forEach((d, i) => {
+    if(d.section !== last){ if(last !== null) html += '</div>'; html += `<div class="qb-row"><div class="qb-cap">${QB_SECTION_CAP[d.section]}</div>`; last = d.section; }
+    html += `<button type="button" class="qb${d.red?' red':''}" data-q="${tag}:${i}" ${d.ok?'':'disabled'}>${d.label}</button>`;
+  });
+  return html + '</div>';
+}
+function renderQuickBids(cb, minVal){
+  if(quickNum < minVal || quickNum > 56) quickNum = Math.min(56, Math.max(minVal, quickNum));
+  const stepper = `<div class="qb-step">Number <button type="button" data-qn="-1">−</button><input id="qbNum" type="text" inputmode="numeric" value="${quickNum}"><button type="button" data-qn="1">+</button><span style="opacity:.55">for the “${quickNum} ♠” and “♠ ${quickNum}” buttons</span></div>`;
+  let body = '';
+  const defsByTag = {};
+  if(quickView === 'grouped'){
+    body += `<div class="qb-tabs">${QB_GROUPS.map(([g]) => `<button type="button" class="qb${SUIT_RED[g]?' red':''}${quickTab===g?' sel':''}" data-qt="${g}">${qbName(g)}</button>`).join('')}</div>`;
+    const g = QB_GROUPS.find(x => x[0]===quickTab) || QB_GROUPS[0];
+    const defs = qbDefs(g[0], g[1], cb, minVal, quickNum);
+    defsByTag[g[0]] = defs;
+    body += qbButtonsHtml(defs, g[0]);
+  } else {
+    body += '<div class="qb-list">' + QB_GROUPS.map(([g, kind]) => {
+      const defs = qbDefs(g, kind, cb, minVal, quickNum);
+      defsByTag[g] = defs;
+      return `<div style="font-weight:800;margin:8px 0 4px;${SUIT_RED[g]?'color:#ff8a8a':''}">${qbName(g)}</div>` + qbButtonsHtml(defs, g);
+    }).join('') + '</div>';
+  }
+  window.__qbDefs = defsByTag;
+  return `<div class="qb-wrap">
+    <div class="qb-head"><b>Quick bids</b>
+      <span class="segmented" id="qbViewSeg"><button type="button" data-qv="grouped" class="${quickView==='grouped'?'sel':''}">Grouped</button><button type="button" data-qv="list" class="${quickView==='list'?'sel':''}">One list</button></span></div>
+    ${stepper}${body}
+    <div style="font-size:11px;opacity:.55;margin-top:4px">One tap places that bid. Number-first = you hold the Jack; suit-first = no Jack, 4+ cards; “+N” = raise by N (the size of the jump is your signal). Use Pass below to pass.</div>
+  </div>`;
+}
+function submitQuick(def){
+  const cb = latestState ? latestState.currentBid : null;
+  const minAllowed = cb ? cb.value + 1 : 28;
+  if(!def || def.value < minAllowed || def.value > 56){ showToast(`Your bid must be at least ${minAllowed}.`, 2500); return; }
+  const note = noteDraft.trim();
+  noteDraft = '';
+  syncSocket.emit('l56_placeBid', {code: roomCode, value: def.value, trump: def.trump, kind: def.kind, order: def.kind==='suit' ? def.order : null, inc: !!def.inc, note});
+}
+
 function renderBidPanel(state){
   const overlayWrap = document.getElementById('bid-panel-overlay');
   const panel = document.getElementById('bid-panel');
@@ -3508,6 +3588,7 @@ function renderBidPanel(state){
   if(bidPanelSignature !== lastBidPanelSignature){
     bidNumber = minVal;
     bidMode = 'set';
+    quickNum = Math.min(56, minVal + 1);
     lastBidPanelSignature = bidPanelSignature;
   }
   if(bidMode==='set' && bidNumber < minVal) bidNumber = Math.min(56, minVal);
@@ -3568,6 +3649,8 @@ function renderBidPanel(state){
       <div class="current-bid-display">${cb ? formatBidLogLabel(cb) : 'No bid yet'}</div>
       <div style="font-size:12px; opacity:0.7;">${cb ? 'held by ' + (state.seats[cb.seat]?state.seats[cb.seat].name:'') : 'opening bid: 28'}</div>
     </div>
+    ${renderQuickBids(cb, minVal)}
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.6; margin:14px 0 6px;">Custom bid</div>
     <div class="row">
       <div class="segmented" id="modeSeg">
         <button data-mode="set" class="${bidMode==='set'?'sel':''}">Set to</button>
@@ -3616,6 +3699,22 @@ function renderBidPanel(state){
     </div>
   `;
 
+  panel.querySelectorAll('.qb[data-q]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const [g, i] = b.dataset.q.split(':');
+      const defs = (window.__qbDefs || {})[g];
+      if(defs && defs[+i]) submitQuick(defs[+i]);
+    });
+  });
+  panel.querySelectorAll('.qb[data-qt]').forEach(b=>{ b.addEventListener('click', ()=>{ quickTab = b.dataset.qt; renderBidPanel(state); }); });
+  panel.querySelectorAll('#qbViewSeg button').forEach(b=>{
+    b.addEventListener('click', ()=>{ quickView = b.dataset.qv; try{ localStorage.setItem('k56_quickview', quickView); }catch(e){} renderBidPanel(state); });
+  });
+  panel.querySelectorAll('.qb-step button[data-qn]').forEach(b=>{
+    b.addEventListener('click', ()=>{ quickNum = Math.min(56, Math.max(minVal, quickNum + parseInt(b.dataset.qn,10))); renderBidPanel(state); });
+  });
+  const qbNumEl = document.getElementById('qbNum');
+  if(qbNumEl) qbNumEl.addEventListener('change', ()=>{ const v = parseInt(qbNumEl.value,10); if(!isNaN(v)) quickNum = Math.min(56, Math.max(minVal, v)); renderBidPanel(state); });
   const orderSeg = panel.querySelector('#orderSeg');
   if(orderSeg){
     orderSeg.querySelectorAll('button').forEach(b=>{
