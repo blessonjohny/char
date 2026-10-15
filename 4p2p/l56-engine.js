@@ -299,6 +299,8 @@ function botDecideBid(state, seat) {
   const minAllowed = cb ? cb.value + 1 : 28;
   const { jacks, nines, count } = suitStats(hand);
   const isForced = state.forcedSeat === seat && !cb;
+  // 3+ jacks spread over 3+ different suits: the "No Trump" hand.
+  const spreadJacks = SUITS.reduce((a, x) => a + (jacks[x] >= 1 ? 1 : 0), 0) >= 3 && SUITS.reduce((a, x) => a + jacks[x], 0) >= 3;
 
   const biddableSuits = SUITS.filter(s => jacks[s] >= 1 && count[s] >= 4);
   const bestOf = (suits) => {
@@ -345,6 +347,7 @@ function botDecideBid(state, seat) {
       const { suit, value } = bestOf(biddableSuits);
       return { action: 'bid', value: Math.min(56, value), trump: suit, kind: 'suit', order: 'forward' };
     }
+    if (spreadJacks && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'nt', order: null };
     if (isForced) {
       const longest = SUITS.reduce((a, b) => count[b] > count[a] ? b : a, SUITS[0]);
       return { action: 'bid', value: 28, trump: longest, kind: 'suit', order: jacks[longest] >= 1 ? 'forward' : 'reverse' };
@@ -358,6 +361,24 @@ function botDecideBid(state, seat) {
     const s = state.nsBySeat[cb.seat];
     const nothing = count[s] === 0 || (count[s] === 1 && jacks[s] + nines[s] === 0 && !hand.some(c => c.s === s && c.r === 'A'));
     if (nothing && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'ns', order: null, plus: true };
+  }
+  // Partner called NO TRUMP = 3+ jacks spread over different suits. I answer with my own jacks as "+N No Trump" (N = jacks I hold),
+  // or pass. A "+N" NT call is already an answer, so it is never answered again (no ping-pong between two bots).
+  if (isPartnerBid && cb.kind === 'nt') {
+    const myJacks = SUITS.reduce((a, x) => a + jacks[x], 0);
+    if (myJacks >= 1 && !cb.increment && cb.value + myJacks <= 56) {
+      return { action: 'bid', value: Math.max(minAllowed, cb.value + myJacks), trump: null, kind: 'nt', order: null, plus: true };
+    }
+    return { action: 'pass' };
+  }
+  // Partner called a suit "suit-first" (reverse) = NO Jack of it but 4+ cards. The Jack is what he lacks, so I only back it with a Jack of my own:
+  // "+N" (honors only) when I am short in it, a plain number when I also have length.
+  if (isPartnerBid && cb.trump && cb.order === 'reverse') {
+    const s = cb.trump;
+    if (jacks[s] >= 1 && !(state.suitBidBySeat && state.suitBidBySeat[seat + '-' + s])) {
+      const value = Math.min(56, cb.value + jacks[s] + nines[s]);
+      if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward', plus: count[s] < SUPPORT_LEN };
+    }
   }
   if (isPartnerBid && cb.trump) {
     const s = cb.trump;
@@ -413,6 +434,7 @@ function botDecideBid(state, seat) {
       return { action: 'bid', value, trump: suit, kind: 'suit', order: jacks[suit] >= 1 ? 'forward' : 'reverse' };
     }
   }
+  if (!isPartnerBid && spreadJacks && cb.value <= 30 && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'nt', order: null };
   return { action: 'pass' };
 }
 

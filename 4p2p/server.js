@@ -5807,7 +5807,8 @@ function l56RunBotBid(state, seat) {
     if (decision.kind === 'suit' && state.currentBid && state.currentBid.trump === decision.trump && decision.plus !== false) {
       newBid.increment = decision.value - state.currentBid.value;
     } else if (decision.kind === 'ns' && decision.plus === true && state.currentBid) {
-      newBid.increment = decision.value - state.currentBid.value;   // "+1 NOS"
+      newBid.increment = decision.value - state.currentBid.value;   // "+1 NOS"    } else if (decision.kind === 'nt' && decision.plus === true && state.currentBid) {
+      newBid.increment = decision.value - state.currentBid.value;   // "+N No Trump"
     }
     if (decision.kind === 'ns') Object.assign(newBid, l56NosInfo(state, decision.plus === true && !!state.currentBid));
     if (!state.currentBid) { state.openerSeat = seat; state.openerSuit = decision.trump; }
