@@ -76,10 +76,11 @@ function formatBidLabel(cb) {
 function formatBidLogLabel(cb) {
   if (!cb) return '';
   if (cb.kind === 'nt' && cb.increment) return `+${cb.increment} No Trump (${cb.value})`;
+  if (cb.kind === 'ns' && cb.sig === 'nosrest') return `+ NOS (${cb.value})`;
   if (cb.kind === 'nt' || cb.kind === 'ns') return formatBidLabel(cb);
   if (cb.increment) {
     const sym = SUIT_SYM[cb.trump];
-    const inc = cb.order === 'reverse' ? `${sym} +${cb.increment}` : `+${cb.increment} ${sym}`;
+    const inc = cb.order === 'reverse' ? `${sym} +${cb.increment === 1 ? '' : cb.increment}` : `+${cb.increment === 1 ? '' : cb.increment} ${sym}`;
     return `${inc} (${cb.value})`;
   }
   return formatBidLabel(cb);
