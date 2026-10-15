@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=33">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=34">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -369,6 +369,29 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   }
   /* ---- confirmation: every call is shown first and only sent after Confirm ---- */
   var pendingAct = null;
+  window.__k56Label = function (sp, cb, st) { lastState = st; return callLabel(sp, cb); };
+  /* The exact wording the table will show for a call (mirrors l56-engine formatBidLogLabel + the server's increment rules). */
+  function callLabel(sp, cb) {
+    var v = sp.value, inc = sp.inc === true, n = inc ? v - (cb ? cb.value : 27) : 0, nn = n === 1 ? '' : String(n);
+    if (sp.kind === 'pass') return sp.value ? sp.value + ' Pass' : 'Pass';
+    if (sp.kind === 'nt') return inc ? '+' + n + ' No Trump (' + v + ')' : v + ' No Trump';
+    if (sp.kind === 'ns') {
+      if (sp.sig === 'nosrest') return '+ NOS (' + v + ')';
+      if (inc && cb) { var ns = cb.trump || (cb.kind === 'ns' && lastState.nsBySeat && typeof lastState.nsBySeat[cb.seat] === 'string' ? lastState.nsBySeat[cb.seat] : null); return '+' + (v - cb.value) + ' NOS ' + v + (ns ? ' ' + SYM[ns] : ''); }
+      return v + ' NOS';
+    }
+    var sym = SYM[sp.trump];
+    if (inc) return (sp.order === 'reverse' ? sym + ' +' + nn : '+' + nn + ' ' + sym) + ' (' + v + ')';
+    return sp.order === 'reverse' ? sym + ' ' + v : v + ' ' + sym;
+  }
+  function callMeaning(sp) {
+    if (sp.tip) return sp.tip;
+    if (sp.kind === 'nt') return 'No Trump: 3+ Jacks spread across different suits';
+    if (sp.kind === 'ns') return sp.inc ? 'Plus NOS: nothing in the suit either' : 'NOS: nothing in the suit just bid';
+    if (sp.order === 'reverse') return sp.inc ? 'Suit first, plus: 2 trump' : 'Suit first: no Jack, 4 or more trump';
+    if (sp.inc) { var n = sp.value - (lastState && lastState.currentBid ? lastState.currentBid.value : 27); return n <= 1 ? 'Just the Jack of ' + SUITNAME[sp.trump] : 'The Jack of ' + SUITNAME[sp.trump] + ' and ' + (n - 1) + ' more support'; }
+    return 'Number first: the Jack of ' + SUITNAME[sp.trump];
+  }
   function askConfirm(big, red, sub, fn) {
     pendingAct = fn;
     var cf = $('b56Cf');
@@ -382,18 +405,17 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (a === 'yes' && fn) { vib(15); fn(); }
   }
   function quickAsk(d) {
-    var st = lastState, cb = st.currentBid;
-    var big = d.label.replace(/\s*→.*$/, ''), made = d.kind === 'pass' ? 'Pass with ' + d.value + ' — no trump' : 'Makes the bid ' + d.value;
-    if (d.kind === 'pass') big = d.value + ' Pass';
-    var red = !!d.red;
-    var note = bid.note.trim();
-    askConfirm(big, red, made + (d.tip ? ' · ' + d.tip : '') + (note ? ' · “' + note + '”' : ''), function () { quickSubmit(d); });
+    var st = lastState, cb = st.currentBid, note = bid.note.trim();
+    var big = callLabel(d, cb), nm = note ? ' · “' + note + '”' : '';
+    var sub = d.kind === 'pass' ? 'Pass with ' + d.value + ' — no trump. ' + (d.tip || '') : 'Bid goes to ' + d.value + '. ' + callMeaning(d);
+    askConfirm(big, !!d.red, sub + nm, function () { quickSubmit(d); });
   }
   function submitAsk() {
     var st = lastState, cb = st.currentBid, value = previewValue(cb), minAllowed = cb ? cb.value + 1 : 28;
     if (value < minAllowed) { msg('Your bid must be at least ' + minAllowed + '.'); return; }
-    var txt = $('b56Go').textContent.replace(/^Bid\s*/, '');
-    askConfirm(txt, bid.kind === 'suit' && RED[bid.suit], 'Makes the bid ' + value + (bid.mode === 'inc' ? ' (+' + bid.num + ' on the table)' : ''), submit);
+    var sp = { kind: bid.kind, trump: bid.kind === 'suit' ? bid.suit : null, order: bid.kind === 'suit' ? bid.order : null, inc: bid.mode === 'inc', value: value };
+    var note = bid.note.trim();
+    askConfirm(callLabel(sp, cb), sp.kind === 'suit' && !!RED[sp.trump], 'Bid goes to ' + value + '. ' + callMeaning(sp) + (note ? ' · “' + note + '”' : ''), submit);
   }
   function passAsk() {
     var st = lastState;
@@ -471,9 +493,9 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var sym = SYM[bid.suit], red = RED[bid.suit] ? ' red' : '';
     var nsS = cb && (cb.trump || (cb.kind === 'ns' && st.nsBySeat && typeof st.nsBySeat[cb.seat] === 'string' ? st.nsBySeat[cb.seat] : null)), nsSym = nsS ? SYM[nsS] : '';
     var incPre = (bid.mode === 'inc' && cb) ? '<span class="pre">' + esc((st.seats[cb.seat] || {}).name || '') + ' bid ' + esc(ctx.formatBid(cb)) + '</span>' : '';
-    $('b56Order').innerHTML = bid.kind === 'ns' ? '<button data-order="nos" class="sel nos">' + incPre + '<span class="pv">' + (bid.mode === 'inc' ? '+' + bid.num + ' NOS' : 'NOS') + '</span><span class="lb">' + (bid.mode === 'inc' ? pv + (nsSym ? ' ' + nsSym : '') : 'Nothing in your suit') + '</span></button>' : bid.kind !== 'suit' ? '' :
-      '<button data-order="forward" class="' + (bid.order === 'forward' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? '+' + bid.num + ' ' + sym : pv + ' ' + sym) + '</span><span class="lb">Have the Jack</span></button>' +
-      '<button data-order="reverse" class="' + (bid.order === 'reverse' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? sym + ' +' + bid.num : sym + ' ' + pv) + '</span><span class="lb">No Jack, 4+ cards</span></button>';
+    $('b56Order').innerHTML = bid.kind === 'ns' ? '<button data-order="nos" class="sel nos">' + incPre + '<span class="pv">' + (bid.mode === 'inc' ? '+' + (bid.num === 1 ? '' : bid.num) + ' NOS' : 'NOS') + '</span><span class="lb">' + (bid.mode === 'inc' ? pv + (nsSym ? ' ' + nsSym : '') : 'Nothing in your suit') + '</span></button>' : bid.kind !== 'suit' ? '' :
+      '<button data-order="forward" class="' + (bid.order === 'forward' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? '+' + (bid.num === 1 ? '' : bid.num) + ' ' + sym : pv + ' ' + sym) + '</span><span class="lb">Have the Jack</span></button>' +
+      '<button data-order="reverse" class="' + (bid.order === 'reverse' ? 'sel' : '') + '">' + incPre + '<span class="pv' + red + '">' + (bid.mode === 'inc' ? sym + ' +' + (bid.num === 1 ? '' : bid.num) : sym + ' ' + pv) + '</span><span class="lb">No Jack, 4+ cards</span></button>';
     var ex = '';
     if (bid.kind === 'nt') ex = 'No Trump — signals 3+ Jacks spread across different suits. If it wins, the hand is played with no trump.';
     else if (bid.kind === 'ns') ex = bid.mode === 'inc' ? '+N NOS — a plus call: you hold nothing in the suit either (your partner already said NOS). If it wins it plays like No Trump.' : 'NOS (No Suit) — you hold nothing in the suit just bid. If it wins it plays like No Trump.';
@@ -484,7 +506,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     $('b56Explain').textContent = ex;
     show($('b56Forced'), forced);
     var go = $('b56Go');
-    go.textContent = 'Bid ' + (bid.kind === 'nt' ? pv + ' No Trump' : bid.kind === 'ns' ? (bid.mode === 'inc' ? '+' + bid.num + ' NOS ' + pv + (nsSym ? ' ' + nsSym : '') : pv + ' NOS') : (bid.order === 'reverse' ? sym + ' ' + pv : pv + ' ' + sym));
+    go.textContent = 'Bid ' + callLabel({ kind: bid.kind, trump: bid.kind === 'suit' ? bid.suit : null, order: bid.kind === 'suit' ? bid.order : null, inc: bid.mode === 'inc', value: pv }, cb);
     show($('b56Pass'), !forced, 'block'); setText($('b56Pass'), st.finalChance ? 'Finalize bid' : 'Pass');
     var d = $('b56Dbl'); show(d, canDbl || canRe, 'block'); d.textContent = canRe ? 'Redouble' : 'Double';
   }
