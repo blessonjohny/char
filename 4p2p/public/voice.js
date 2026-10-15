@@ -466,7 +466,11 @@
       try { socket.emit('voiceStats', { sent: Math.round(dSent), recv: Math.round(dRecv), relaySent: Math.round(dRelSent), relayRecv: Math.round(dRelRecv) }); } catch (e) {}
     }
   }
-  function startStatsReporting() { stopStatsReporting(); statsTimer = setInterval(() => { collectStats(); }, 30000); }
+  function startStatsReporting() { stopStatsReporting(); statsTimer = setInterval(() => { collectStats(); }, 15000); }
+  // A phone that switches app or closes the page never taps "leave", so also report the moment the page is hidden / closing
+  // (otherwise the last stretch of every call that ends that way is lost from the admin voice numbers).
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && inCall) collectStats(); });
+  window.addEventListener('pagehide', () => { if (inCall) collectStats(); });
   function stopStatsReporting() { if (statsTimer) { clearInterval(statsTimer); statsTimer = null; } }
 
   function removePeer(id) {

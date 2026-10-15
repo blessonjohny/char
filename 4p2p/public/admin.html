@@ -3217,6 +3217,9 @@ function renderUsageBreakdown(d) {
     `${usedPct < 0.1 ? 'under 0.1' : usedPct.toFixed(1)}% of the free allowance · ` +
     (q.usedFromReading ? `your typed reading ${dec(q.usedBytes)} plus about ${dec(q.relaySinceAsOf || 0)} reported since` : `from players' reports since tracking began (no typed reading this cycle)`) +
     ` · counts ${egress ? 'relayed audio received by players (what Cloudflare bills)' : 'relayed audio in both directions'}`, usedPct >= 80);
+  { const last = V.lastAt ? Math.max(0, Math.round((Date.now() - V.lastAt) / 60000)) : null;
+    h += ubRow('Voice reports received (this range)', `${(V.reports || 0).toLocaleString()}`, null,
+      `${last == null ? 'none yet — nothing has reported since voice tracking started (players must be on the latest page: ask them to refresh)' : 'last one ' + (last < 1 ? 'just now' : last < 60 ? last + ' min ago' : Math.round(last / 60) + ' h ago')} · total voice ${dec(V.wireBytes)} · of that via the relay ${dec(V.relayBytes)} (the rest went phone to phone and costs nothing at Cloudflare). Only relayed audio counts toward the allowance above.`); }
   if (q.estimatedOverBytes > 0) h += ubRow('Over the free allowance', dec(q.estimatedOverBytes), null, `about ${money(q.estimatedCharge)} at $${Number(q.pricePerGB).toFixed(2)} per GB`, true);
   if (q.note) h += `<div class="ub-row"><div class="note">📋 ${esc(q.note)}</div></div>`;
   if (q.readingIsFromEarlierPeriod) h += `<div class="ub-row" style="border-color:rgba(255,90,90,0.5)"><div class="note" style="color:#ff9a9a">A new billing cycle started after the reading you typed in, so it isn't counted. Type a fresh number below if you have one.</div></div>`;
