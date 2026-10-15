@@ -94,6 +94,15 @@ const geoip = require('geoip-lite');
 const partnerBot = require('./partner-bot');
 const playerStats = require('./player-stats');
 playerStats.load();
+// Stats: remember which signed-in account sits in this seat (read from the sign-in cookie, so it cannot be faked).
+// Module level on purpose: the 4-player and 6-player socket handlers are separate scopes and both call it.
+function stampAcct(socket, seat) {
+  try {
+    if (!seat || seat.isBot) return;
+    const u = accounts.userFromCookieHeader(socket.handshake.headers.cookie);
+    if (u && u.id) seat.acctId = u.id;
+  } catch (e) {}
+}
 // Teach-my-partner key for a socket: account id if signed in, else the browser's guest id. 6-player profiles are
 // kept separate from 4-player ones (different hand size) by the '~6' suffix.
 // Name prefix for a signed-in teacher's bots: the first 3 letters of the name they are PLAYING under at this table
@@ -3511,19 +3520,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Stats: remember which signed-in account sits in this seat (read from the sign-in cookie, so it cannot be faked).
-  function stampAcct(seat) {
-    try {
-      if (!seat || seat.isBot) return;
-      const u = accounts.userFromCookieHeader(socket.handshake.headers.cookie);
-      if (u && u.id) seat.acctId = u.id;
-    } catch (e) {}
-  }
   function withTable(fn) {
     const t = tables[tableId];
     const info = t && t.sockets.get(socket.id);
     if (!t || !info || info.pos < 0) return;
-    stampAcct(t.engine.seats[info.pos]);
+    stampAcct(socket, t.engine.seats[info.pos]);
     fn(t, info.pos);
   }
 
@@ -4799,7 +4800,7 @@ io.on('connection', (socket) => {
     if (!t) return;
     const info = t.sockets.get(socket.id);
     if (!info) return;
-    if (info.pos >= 0) stampAcct(t.engine.seats[info.pos]);
+    if (info.pos >= 0) stampAcct(socket, t.engine.seats[info.pos]);
     fn(t, info.pos);
   }
 
