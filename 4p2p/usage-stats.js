@@ -569,7 +569,7 @@ function createUsageStats(opts) {
     const sent = num(rep.sent), recv = num(rep.recv), relaySent = Math.min(num(rep.relaySent), sent), relayRecv = Math.min(num(rep.relayRecv), recv);
     if (!sent && !recv) return;
     const d = day(t);
-    d.voice.sent += sent; d.voice.recv += recv; d.voice.relaySent += relaySent; d.voice.relayRecv += relayRecv; d.voice.reports += 1;
+    d.voice.sent += sent; d.voice.recv += recv; d.voice.relaySent += relaySent; d.voice.relayRecv += relayRecv; d.voice.reports += 1; d.voice.lastAt = t;
     const g = ctx.game || 'lobby';
     bump(d.voice.byGame, g, 'sent', sent); bump(d.voice.byGame, g, 'recv', recv);
     bump(d.voice.byGame, g, 'relay', relaySent + relayRecv);
@@ -865,7 +865,7 @@ function createUsageStats(opts) {
       for (const [g, ms] of Object.entries((d.time || {}).voice || {})) sum.time.voice[g] = (sum.time.voice[g] || 0) + ms;
       sum.time.page += (d.time || {}).page || 0; sum.time.wander += (d.time || {}).wander || 0; sum.time.sessions += (d.time || {}).sessions || 0;
       const v = d.voice || {};
-      sum.voice.sent += v.sent || 0; sum.voice.recv += v.recv || 0; sum.voice.relaySent += v.relaySent || 0; sum.voice.relayRecv += v.relayRecv || 0; sum.voice.reports += v.reports || 0;
+      sum.voice.sent += v.sent || 0; sum.voice.recv += v.recv || 0; sum.voice.relaySent += v.relaySent || 0; sum.voice.relayRecv += v.relayRecv || 0; sum.voice.reports += v.reports || 0; if ((v.lastAt || 0) > (sum.voice.lastAt || 0)) sum.voice.lastAt = v.lastAt;
       for (const [g, x] of Object.entries(v.byGame || {})) { bump(sum.voice.byGame, g, 'sent', x.sent || 0); bump(sum.voice.byGame, g, 'recv', x.recv || 0); bump(sum.voice.byGame, g, 'relay', x.relay || 0); }
       for (const [key, x] of Object.entries(d.tables || {})) {
         const m = tables[key] || (tables[key] = { key, game: x.game, ms: 0, bytes: 0, joins: 0, voiceSent: 0, chatMsgs: 0 });
