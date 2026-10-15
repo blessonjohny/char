@@ -798,7 +798,7 @@
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
 <script src="table-stage.js?v=5"></script>
-<script src="k56-ui.js?v=38"></script>
+<script src="k56-ui.js?v=39"></script>
 <link rel="stylesheet" href="/scenery.css">
 <script src="/fs-hide.js"></script>
 </head>
@@ -2960,6 +2960,15 @@ function renderSide(state){
   const body = document.getElementById('sideBody');
   body.innerHTML = '';
 
+  if(!reveal56DisabledByAdmin && state.phase !== 'lobby'){
+    const rb = document.createElement('button');
+    rb.className = 'btn btn-ghost btn-small';
+    rb.style.cssText = 'width:100%;margin-bottom:12px;' + (debugRevealAll ? 'background:var(--gold);color:#241a12;' : '');
+    rb.textContent = debugRevealAll ? '👁 All hands revealed (tap to hide)' : '👁 Reveal all cards (admin)';
+    rb.onclick = () => { document.getElementById('revealToggle').click(); };
+    body.appendChild(rb);
+  }
+
   if(isHost && state.phase !== 'lobby'){
     const box = document.createElement('div');
     box.style.cssText = 'margin-bottom:16px;padding:10px 12px;background:rgba(201,162,39,0.1);border:1px solid var(--line);border-radius:8px;';
@@ -3926,6 +3935,7 @@ document.getElementById('revealToggle').addEventListener('click', ()=>{
   btn.classList.toggle('on', debugRevealAll);
   btn.title = debugRevealAll ? 'Hands revealed (tap to hide)' : 'Reveal all hands (testing)';
   if(latestState) render(latestState);
+  if(sideOpen && latestState) renderSide(latestState);
 });
 document.getElementById('sideToggle').addEventListener('click', ()=>{
   sideOpen = !sideOpen;

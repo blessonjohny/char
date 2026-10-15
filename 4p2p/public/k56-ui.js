@@ -15,7 +15,8 @@
   var SPRITE = "<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-hidden=\"true\">\n  <filter id=\"cloudyEdge\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"140%\">\n    <feTurbulence type=\"fractalNoise\" baseFrequency=\"0.018 0.05\" numOctaves=\"2\" seed=\"7\" result=\"cloudNoise\"/>\n    <feDisplacementMap in=\"SourceGraphic\" in2=\"cloudNoise\" scale=\"9\" xChannelSelector=\"R\" yChannelSelector=\"G\"/>\n  </filter>\n</svg>\n<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-hidden=\"true\">\n<defs>\n<symbol id=\"suit-spade\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,8 C35,28 8,48 8,68 C8,85 22,95 37,90 C42,88.5 46,85 48.5,80.5 C47,90 42,98 30,100 L70,100 C58,98 53,90 51.5,80.5 C54,85 58,88.5 63,90 C78,95 92,85 92,68 C92,48 65,28 50,8 Z\"/></symbol>\n<symbol id=\"suit-club\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"34\" r=\"24\" fill=\"currentColor\"/><circle cx=\"27\" cy=\"58\" r=\"24\" fill=\"currentColor\"/><circle cx=\"73\" cy=\"58\" r=\"24\" fill=\"currentColor\"/><path fill=\"currentColor\" d=\"M42,72 C45,85 44,94 34,100 L66,100 C56,94 55,85 58,72 C53,76 47,76 42,72 Z\"/></symbol>\n<symbol id=\"suit-heart\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,92 C50,92 8,62 8,32 C8,12 24,3 38,8 C45,10.5 49,17 50,24 C51,17 55,10.5 62,8 C76,3 92,12 92,32 C92,62 50,92 50,92 Z\"/></symbol>\n<symbol id=\"suit-diamond\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,4 L88,50 L50,96 L12,50 Z\"/></symbol>\n</defs>\n</svg>";
 
   var host = null, root = null, ctx = null, cache = {}, lastState = null;
-  var bid = { mode: 'set', num: 28, kind: 'suit', suit: 'S', order: 'forward', note: '', sig: null };
+  var bid = { mode: 'set', num: 28, kind: 'suit', suit: 'S', order: 'forward', note: '', sig: null, qtab: 'S', qview: 'grouped', qnum: 28 };
+  try { if (localStorage.getItem('k56_quickview') === 'list') bid.qview = 'list'; } catch (e) {}
 function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   if (el._crumple) { try { el._crumple.cancel(); } catch (e) {} }
   fire = fire || 0;
@@ -174,7 +175,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<div class="b56-scroll">' +
     '<div class="b56-sec">Calls so far</div><div class="b56-calls" id="b56Calls"></div>' +
     '<div class="b56-sec">Your hand</div><div class="b56-hand" id="b56Hand"></div>' +
-    '<div class="b56-sec">Your call</div>' +
+    '<div class="b56-sec">Quick calls</div><div id="b56Quick"></div>' +
+    '<div class="b56-sec">Custom call</div>' +
     '<div class="b56-row"><div class="b56-seg" id="b56Mode"></div>' +
     '<div class="b56-step"><button data-d="-1">−</button><input id="b56Num" type="text" inputmode="numeric"><button data-d="1">+</button></div></div>' +
     '<div class="b56-suits" id="b56Suits"></div>' +
@@ -214,7 +216,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=31">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=32">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -268,6 +270,10 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       if (!b) return;
       var st = lastState; if (!st) return;
       var cb = st.currentBid, minVal = cb ? cb.value + 1 : 28;
+      if (b.dataset.qk) { var qd = (quickDefs || {})[b.dataset.qk]; if (qd) { vib(12); quickSubmit(qd); } return; }
+      if (b.dataset.qt) { bid.qtab = b.dataset.qt; renderBid(st, true); return; }
+      if (b.dataset.qv) { bid.qview = b.dataset.qv; try { localStorage.setItem('k56_quickview', bid.qview); } catch (e) {} renderBid(st, true); return; }
+      if (b.dataset.qn) { bid.qnum = Math.min(56, Math.max(minVal, bid.qnum + parseInt(b.dataset.qn, 10))); renderBid(st, true); return; }
       if (b.dataset.mode) {
         if (b.dataset.mode !== bid.mode) { bid.mode = b.dataset.mode; bid.num = bid.mode === 'inc' ? 1 : minVal; }
       } else if (b.dataset.d) {
@@ -288,6 +294,87 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       if (lastState) renderBid(lastState, true);
     });
     $('b56Note').addEventListener('input', function () { bid.note = this.value; });
+    $('b56Quick').addEventListener('change', function (ev) {
+      var t = ev.target; if (!t || t.id !== 'b56QNum') return;
+      var v = parseInt(t.value, 10), mv = lastState && lastState.currentBid ? lastState.currentBid.value + 1 : 28;
+      if (!isNaN(v)) bid.qnum = Math.min(56, Math.max(mv, v));
+      if (lastState) renderBid(lastState, true);
+    });
+  }
+
+  /* ---------------- quick calls: one tap per call ---------------- */
+  // sig = what the call tells the partner (bots read it):
+  //   plus "+ ♠"/"+2 ♠"..  the Jack ("+" = just the Jack, "+2" = Jack and 1 more support, ...)   straight "28 ♠"  5 trump with the Jack
+  //   rev "♠ 28"  no Jack, 4+ trump        revplus "♠ +"/"♠ +2"  2 trump (bigger + = stronger cards)
+  //   nt "29 NT"   nos "29 NOS"   nosreply "+1 NOS" (answer to a partner's NOS)   nosrest "+ NOS" (none of the suits my partners have not called, any round)
+  //   numpass "29 Pass"  a pass with a number: no trump, my last partner must open his strongest suit
+  var quickDefs = {};
+  var SUITNAME = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' };
+  var QCAP = { plus: 'Plus — raise the bid (+ = the Jack, each step = one more support)', straight: 'Straight call — 5 trump with the Jack', rev: 'Suit first — no Jack, 4+ trump',
+    revplus: 'Suit first, plus — 2 trump (bigger + = stronger cards)', nt: 'Number + No Trump', nos: 'Number + NOS', nosplus: 'Plus NOS', numpass: 'Pass with a number (no trump — last partner opens his strongest)' };
+  function qDefs(g, cb, minVal, num) {
+    var base = cb ? cb.value : 27, out = [];
+    if (g !== 'X') {
+      var sym = SYM[g], red = RED[g];
+      var mk = function (label, value, inc, order, sg, section, tip) { return { label: label, value: value, inc: inc, order: order, sig: sg, section: section, tip: tip, kind: 'suit', trump: g, red: red, ok: value >= minVal && value <= 56 }; };
+      for (var n = 1; n <= 7; n++) out.push(mk(n === 1 ? '+ ' + sym + ' → ' + (base + n) : '+' + n + ' ' + sym + ' → ' + (base + n), base + n, true, 'forward', 'plus', 'plus', n === 1 ? 'Just the Jack of ' + SUITNAME[g] : 'The Jack and ' + (n - 1) + ' more support'));
+      out.push(mk(num + ' ' + sym, num, false, 'forward', 'straight', 'straight', 'Straight call: 5 trump with the Jack'));
+      out.push(mk(sym + ' ' + num, num, false, 'reverse', 'rev', 'rev', 'Suit first: no Jack, 4 or more trump'));
+      for (var m = 1; m <= 7; m++) out.push(mk(m === 1 ? sym + ' + → ' + (base + m) : sym + ' +' + m + ' → ' + (base + m), base + m, true, 'reverse', 'revplus', 'revplus', m === 1 ? '2 trump' : '2 trump, stronger value cards'));
+    } else {
+      var mk2 = function (label, kind, value, inc, sg, section, tip) { return { label: label, value: value, inc: inc, order: null, sig: sg, section: section, tip: tip, kind: kind, trump: null, red: false, ok: value >= minVal && value <= 56 }; };
+      out.push(mk2(num + ' NT', 'nt', num, false, 'nt', 'nt', 'Number + No Trump'));
+      out.push(mk2(num + ' NOS', 'ns', num, false, 'nos', 'nos', 'Number + NOS: nothing in the suit'));
+      out.push(mk2('+ NOS → ' + (base + 1), 'ns', base + 1, true, 'nosrest', 'nosplus', 'I have none of the suits my partners have not called yet (any round)'));
+      out.push(mk2('+1 NOS → ' + (base + 1), 'ns', base + 1, true, 'nosreply', 'nosplus', 'Answer to my partner\u2019s NOS: nothing in it either'));
+      out.push(mk2('+2 NOS → ' + (base + 2), 'ns', base + 2, true, 'nosreply', 'nosplus', 'Answer to my partner\u2019s NOS, stronger'));
+      out.push({ label: num + ' Pass', value: num, inc: false, order: null, sig: 'numpass', section: 'numpass', tip: 'A pass with a number: no trump \u2014 my last partner must open his strongest suit', kind: 'pass', trump: null, red: false, ok: true });
+    }
+    return out;
+  }
+  function qButtons(defs, tag, store) {
+    var html = '', last = null;
+    defs.forEach(function (d, i) {
+      var sec = d.section;
+      var newRow = sec !== last && !((sec === 'straight' || sec === 'rev') && (last === 'straight' || last === 'rev')) && !((sec === 'nt' || sec === 'nos') && (last === 'nt' || last === 'nos'));
+      if (newRow) { if (last !== null) html += '</div>'; html += '<div class="b56-qrow"><div class="b56-qcap">' + QCAP[sec] + '</div>'; }
+      last = sec;
+      var id = tag + ':' + i; store[id] = d;
+      html += '<button type="button" class="b56-q' + (d.red ? ' red' : '') + '" title="' + esc(d.tip || '') + '" data-qk="' + id + '"' + (d.ok ? '' : ' disabled') + '>' + esc(d.label) + '</button>';
+    });
+    return html + '</div>';
+  }
+  function renderQuick(cb, minVal) {
+    if (bid.qnum < minVal || bid.qnum > 56) bid.qnum = Math.min(56, Math.max(minVal, bid.qnum));
+    var store = {}, body = '';
+    var groups = ['S', 'H', 'D', 'C', 'X'];
+    var tabName = function (g) { return g === 'X' ? 'NT · NOS · Pass' : SYM[g]; };
+    if (bid.qview === 'grouped') {
+      body += '<div class="b56-qtabs">' + groups.map(function (g) { return '<button type="button" class="b56-q' + (RED[g] ? ' red' : '') + (bid.qtab === g ? ' sel' : '') + '" data-qt="' + g + '">' + tabName(g) + '</button>'; }).join('') + '</div>';
+      var g0 = groups.indexOf(bid.qtab) >= 0 ? bid.qtab : 'S';
+      body += qButtons(qDefs(g0, cb, minVal, bid.qnum), g0, store);
+    } else {
+      body += '<div class="b56-qlist">' + groups.map(function (g) {
+        return '<div class="b56-qgrp' + (RED[g] ? ' red' : '') + '">' + (g === 'X' ? 'No Trump · NOS · Pass' : SYM[g] + ' ' + SUITNAME[g]) + '</div>' + qButtons(qDefs(g, cb, minVal, bid.qnum), g, store);
+      }).join('') + '</div>';
+    }
+    quickDefs = store;
+    var qi = $('b56QNum'), keepFocus = qi && root.activeElement === qi;
+    $('b56Quick').innerHTML = '<div class="b56-qhead"><span class="b56-qnum">Number <button type="button" data-qn="-1">−</button><input id="b56QNum" type="text" inputmode="numeric" value="' + bid.qnum + '"><button type="button" data-qn="1">+</button></span>' +
+      '<span class="b56-seg"><button type="button" data-qv="grouped" class="' + (bid.qview === 'grouped' ? 'sel' : '') + '">Grouped</button><button type="button" data-qv="list" class="' + (bid.qview === 'list' ? 'sel' : '') + '">One list</button></span></div>' +
+      body + '<div class="b56-qhint">One tap places that call. The number after → is the bid it makes. Press and hold a button to see what it tells your partner.</div>';
+    if (keepFocus) { var n2 = $('b56QNum'); if (n2) n2.focus(); }
+  }
+  function quickSubmit(d) {
+    var st = lastState, cb = st.currentBid, note = bid.note.trim();
+    if (d.kind === 'pass') {
+      if (st.forcedSeat === ctx.mySeat() && !cb) { msg('You must open the bidding.'); return; }
+      afterAct(); ctx.send('l56_pass', { note: note, num: d.value }); return;
+    }
+    var minAllowed = cb ? cb.value + 1 : 28;
+    if (d.value < minAllowed || d.value > 56) { msg('Your bid must be at least ' + minAllowed + '.'); return; }
+    afterAct();
+    ctx.send('l56_placeBid', { value: d.value, trump: d.trump, kind: d.kind, order: d.kind === 'suit' ? d.order : null, inc: !!d.inc, sig: d.sig, note: note });
   }
 
   /* ---------------- bidding ---------------- */
@@ -319,7 +406,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (!myTurn) { cache.bidSheet = null; return; }
     var cb = st.currentBid, minVal = cb ? cb.value + 1 : 28;
     var sig = st.handNumber + ':' + (cb ? cb.seat + '-' + cb.value : 'none');
-    if (sig !== bid.sig) { bid.sig = sig; bid.num = minVal; bid.mode = 'set'; msg(''); }
+    if (sig !== bid.sig) { bid.sig = sig; bid.num = minVal; bid.mode = 'set'; bid.qnum = Math.min(56, minVal + 1); msg(''); }
     if (bid.mode === 'set' && bid.num < minVal) bid.num = Math.min(56, minVal);
     var pv = previewValue(cb);
     var oppose = cb && team(cb.seat) !== team(ms), mine = cb && team(cb.seat) === team(ms);
@@ -336,6 +423,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     }).join('') : '<span class="b56-chip none">No calls yet — you speak first</span>';
     var cs = $('b56Calls'); cs.scrollLeft = cs.scrollWidth;
     $('b56Hand').innerHTML = sortHand(st.hands[ms] || []).map(function (c) { return '<span class="b56-mc' + (RED[c.s] ? ' red' : '') + '"><i>' + c.r + '</i><b>' + SYM[c.s] + '</b></span>'; }).join('');
+    renderQuick(cb, minVal);
     $('b56Mode').innerHTML = '<button data-mode="set" class="' + (bid.mode === 'set' ? 'sel' : '') + '">Set to</button><button data-mode="inc" class="' + (bid.mode === 'inc' ? 'sel' : '') + '">Increase by</button>';
     var ni = $('b56Num'); if (root.activeElement !== ni) ni.value = bid.num;
     $('b56Suits').innerHTML = ['S', 'H', 'D', 'C'].map(function (s) {

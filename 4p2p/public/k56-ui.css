@@ -1986,3 +1986,19 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @media (max-height:700px){.b56-panel{height:calc(100vh - 70px);height:calc(100dvh - 70px)}.b56-head{padding:10px 16px 8px}.b56-title{font-size:1.2rem}.b56-suits button{height:48px}.b56-ord button{min-height:70px}.b56-ord .pv{font-size:1.4rem}.b56-actions button{height:50px}.b56-sec{margin:6px 0 4px}}
 .b56-scroll>*{flex-shrink:0}
 #btnInvite{left:8px !important;right:auto !important;top:77px !important;transform:none !important;bottom:auto !important}
+
+/* ---- 56 bid sheet: quick calls ---- */
+#b56Quick{margin-bottom:4px}
+.b56-qhead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.b56-qnum{display:flex;align-items:center;gap:4px;font-size:.74rem;color:#cdd8e6}
+.b56-qnum button{width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:1.1rem;font-weight:800}
+.b56-qnum input{width:46px;height:30px;text-align:center;font-weight:800;border-radius:8px;border:1.5px solid #f4c430;background:rgba(0,0,0,.4);color:#fff;font-family:inherit}
+.b56-qtabs,.b56-qrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.b56-qcap{width:100%;font-size:.6rem;text-transform:uppercase;letter-spacing:.9px;color:#8696aa;margin-top:4px}
+.b56-q{min-width:46px;padding:9px 10px;border-radius:10px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-weight:800;font-size:.85rem;font-family:inherit}
+.b56-q.red{color:#ff8f8f}
+.b56-q.sel{border-color:#f4c430;background:rgba(244,196,48,.2);box-shadow:0 0 10px rgba(244,196,48,.45)}
+.b56-q:disabled{opacity:.28}
+.b56-qlist{max-height:260px;overflow-y:auto;padding-right:2px}
+.b56-qgrp{font-weight:800;margin:8px 0 4px;font-size:.85rem}.b56-qgrp.red{color:#ff8f8f}
+.b56-qhint{font-size:.66rem;color:#8696aa;margin-top:4px;line-height:1.35}
