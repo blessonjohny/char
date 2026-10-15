@@ -3315,7 +3315,8 @@ function renderVisitorLog(entries, summary) {
     const h = Math.round(m / 60); if (h < 24) return h + ' h ago';
     return Math.round(h / 24) + ' d ago';
   };
-  const locOf = (e) => [e.city, e.regionName || e.region, e.country].filter(Boolean).join(', ') || 'Unknown location';
+  const locOf = (e) => [e.city, e.regionName || e.region, e.zip, e.countryName || e.country].filter(Boolean).join(', ') || 'Unknown location';
+  const netOf = (e) => [e.isp || e.org, e.asn].filter(Boolean).join(' · ');
   const devOf = (e) => [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
   listEl.innerHTML = ordered.map(([ip, visits]) => {
     const e = visits[0];                       // latest visit = the card's headline
@@ -3342,6 +3343,9 @@ function renderVisitorLog(entries, summary) {
           <div>
             <div class="who">${esc(ip)}</div>
             <div class="where">📍 ${esc(locOf(e))}${mapLink}</div>
+            ${netOf(e) ? `<div class="where">🏢 ${esc(netOf(e))}${e.org && e.org !== e.isp ? ' (' + esc(e.org) + ')' : ''}</div>` : ''}
+            ${e.hostname ? `<div class="where">🔎 ${esc(e.hostname)}</div>` : ''}
+            ${(e.bot || e.mobile || e.proxy || e.hosting) ? `<div class="where">${[e.bot ? '🤖 ' + esc(e.bot) : '', e.mobile ? '📶 mobile network' : '', e.proxy ? '🛡️ VPN / proxy' : '', e.hosting && !e.bot ? '🖥️ data-center / hosting' : ''].filter(Boolean).join(' · ')}</div>` : ''}
             <div class="where">📱 ${esc(devOf(e))}${e.language ? ' · 🌐 ' + esc(e.language) : ''}</div>
             <div class="where">${durText(e)}${e.referrer ? ' · ↪️ from ' + esc(e.referrer) : ''}</div>
             <div class="where" style="margin-top:5px">${badges}</div>
