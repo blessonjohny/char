@@ -798,7 +798,7 @@
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
 <script src="table-stage.js?v=5"></script>
-<script src="k56-ui.js?v=41"></script>
+<script src="k56-ui.js?v=42"></script>
 <link rel="stylesheet" href="/scenery.css">
 <script src="/fs-hide.js"></script>
 </head>
@@ -2464,6 +2464,13 @@ const K56_CTX = {
     if(card) playCard(card);
   },
   chat: () => openChat56(),
+  canReveal: () => !reveal56DisabledByAdmin,
+  revealOn: () => debugRevealAll,
+  reveal: () => {
+    document.getElementById('revealToggle').click();
+    if(debugRevealAll){ sideOpen = true; document.getElementById('side').classList.add('open'); }
+    if(latestState){ if(sideOpen) renderSide(latestState); render(latestState); }
+  },
   menu: () => { sideOpen = true; document.getElementById('side').classList.add('open'); if(latestState) renderSide(latestState); },
   leave: () => exitToHome(),
   invite: () => shareInviteLink56(),

@@ -149,6 +149,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<span style="opacity:0.5;font-size:0.7rem">—</span>' +
     '<div class="score-box" id="scoreBoxOpp" style="padding:2px 5px;min-width:0"><span class="slabel">OPP</span><span class="sval" id="scoreB">12</span></div></div>' +
     '<div style="display:flex;gap:2px;align-items:center;flex-shrink:0">' +
+    '<button class="btn-outline" id="btnReveal" title="Reveal all cards (admin)" style="display:none;padding:3px 7px;border-radius:7px;font-size:0.8rem">👁</button>' +
     '<button class="btn-outline" id="btnHostMenu" style="padding:3px 9px;border-radius:7px;font-size:0.68rem;white-space:nowrap;font-weight:800">Menu</button>' +
     '<button class="btn-outline" id="btnChat" title="Chat" style="padding:3px 7px;border-radius:7px;font-size:0.68rem;position:relative">💬<span class="chat-badge" id="chatBadge"></span></button>' +
     '<button class="btn-outline" id="btnFullscreen" title="Full Screen" style="padding:3px 8px;border-radius:6px;font-size:0.85rem">⛶</button>' +
@@ -173,16 +174,14 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<div class="overlay b56-ov" id="b56ov"><div class="panel b56-panel">' +
     '<div class="b56-head"><div class="b56-title">Your bid</div><div class="b56-status" id="b56Status"></div></div>' +
     '<div class="b56-scroll">' +
-    '<div class="b56-sec">Calls so far</div><div class="b56-calls" id="b56Calls"></div>' +
     '<div class="b56-sec">Your hand</div><div class="b56-hand" id="b56Hand"></div>' +
-    '<div class="b56-sec">Quick calls</div><div id="b56Quick"></div>' +
-    '<div class="b56-sec">Custom call</div>' +
     '<div class="b56-row"><div class="b56-seg" id="b56Mode"></div>' +
     '<div class="b56-step"><button data-d="-1">−</button><input id="b56Num" type="text" inputmode="numeric"><button data-d="1">+</button></div></div>' +
     '<div class="b56-suits" id="b56Suits"></div>' +
     '<div class="b56-ord" id="b56Order"></div>' +
+    '<div class="b56-sec">Quick calls</div><div id="b56Quick"></div>' +
+    '<div class="b56-sec">Calls so far</div><div class="b56-calls" id="b56Calls"></div>' +
     '<div class="b56-explain" id="b56Explain"></div>' +
-    '<input class="b56-note-in" id="b56Note" placeholder="Note to the table (optional)" maxlength="60">' +
     '<div class="b56-forced" id="b56Forced" style="display:none">Everyone else passed — you must open the bidding. You can\'t pass.</div>' +
     '<div class="b56-note" id="b56Msg"></div>' +
     '</div>' +
@@ -217,7 +216,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=34">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=35">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -251,6 +250,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   function wire() {
     $('btnChat').onclick = function () { ctx.chat(); };
     $('btnHostMenu').onclick = function () { ctx.menu(); };
+    $('btnReveal').onclick = function () { if (ctx.reveal) ctx.reveal(); };
     $('btnGameHome').onclick = function () { ctx.leave(); };
     $('btnInvite').onclick = function () { ctx.invite(); };
     var tgl = function () { var e = !$('lastTrickPanel').classList.contains('enlarged'); $('lastTrickPanel').classList.toggle('enlarged', e); $('ltrickBackdrop').classList.toggle('on', e); };
@@ -295,7 +295,6 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var v = parseInt(this.value, 10); if (!isNaN(v)) bid.num = v;
       if (lastState) renderBid(lastState, true);
     });
-    $('b56Note').addEventListener('input', function () { bid.note = this.value; });
     $('b56Quick').addEventListener('change', function (ev) {
       var t = ev.target; if (!t || t.id !== 'b56QNum') return;
       var v = parseInt(t.value, 10), mv = lastState && lastState.currentBid ? lastState.currentBid.value + 1 : 28;
@@ -444,7 +443,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     return Math.min(56, v);
   }
   function msg(t) { var m = $('b56Msg'); if (m) { m.textContent = t || ''; m.style.color = t ? '#ff8f8f' : ''; } }
-  function afterAct() { bid.note = ''; var n = $('b56Note'); if (n) n.value = ''; }
+  function afterAct() { bid.note = ''; }
   function submit() {
     var st = lastState, cb = st.currentBid, value = previewValue(cb), minAllowed = cb ? cb.value + 1 : 28;
     if (value < minAllowed) { msg('Your bid must be at least ' + minAllowed + '.'); return; }
@@ -810,6 +809,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     lastState = st;
     if (host.hidden) host.hidden = false;
     sizeClass(); applySizes();
+    var rb = $('btnReveal'); if (rb) { var cr = !!(ctx.canReveal && ctx.canReveal()); rb.style.display = cr ? '' : 'none'; rb.style.background = cr && ctx.revealOn && ctx.revealOn() ? '#f4c430' : ''; rb.style.color = cr && ctx.revealOn && ctx.revealOn() ? '#241a12' : ''; }
     renderTop(st); renderSeats(st); renderTrick(st); renderHand(st); renderBanners(st); renderBid(st, false); renderResult(st);
   }
   function hide() { if (host && !host.hidden) { host.hidden = true; cache = {}; winnerKey = null; resultKey = null; } }
