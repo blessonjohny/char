@@ -1387,6 +1387,19 @@ function fullRegionName(countryCode, regionCode) {
   return (table && table[regionCode]) || regionCode;
 }
 
+const ipIntel = require('./ip-intel').create({ file: path.join(DATA_DIR, 'ip-intel.json') });
+const ipIntelApply = require('./ip-intel').applyTo;
+// Fills one log entry with the detailed online lookup (city, zip, ISP, org, reverse-DNS, crawler flag) as soon as it is available.
+function enrichVisitorEntry(entry) {
+  if (!entry || !entry.ip || entry.intel) return;
+  ipIntel.lookup(entry.ip, (info) => { let n = 0; if (ipIntelApply(entry, info)) n++; if (info) for (const e of visitorLog) { if (e !== entry && e.ip === entry.ip && !e.intel && ipIntelApply(e, info)) n++; } try { const sl = socketLocations.get(entry.socketId); if (sl && info) { sl.city = entry.city; sl.region = entry.regionName || entry.region; sl.country = entry.country; } } catch (e) {} if (n) { visitorLogDirty = true; try { markVisitorLogDirtyForGithub(); } catch (e) {} } });
+}
+// On start: slowly fill the entries already in the log (newest first, one IP at a time) so old visits get the same detail.
+function backfillVisitorIntel() {
+  const seen = new Set();
+  for (const e of visitorLog) { if (e.ip && !e.intel && !seen.has(e.ip)) { if (seen.size >= 400) break; seen.add(e.ip); enrichVisitorEntry(e); } }
+}
+setTimeout(() => { try { backfillVisitorIntel(); } catch (e) { console.log('[ip-intel] backfill failed', e.message); } }, 20 * 1000);
 function logVisitor(socket) {
   const ip = clientIpFor(socket);
   const geo = ip ? geoip.lookup(ip) : null;
@@ -1420,6 +1433,7 @@ function logVisitor(socket) {
     socketId: socket.id
   };
   visitorLog.unshift(entry);
+  enrichVisitorEntry(entry);
   const cutoff = Date.now() - VISITOR_LOG_MAX_AGE_MS;
   visitorLog = visitorLog.filter(e => e.ts >= cutoff);
   if (visitorLog.length > VISITOR_LOG_MAX) visitorLog.length = VISITOR_LOG_MAX;
