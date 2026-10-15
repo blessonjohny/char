@@ -187,6 +187,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<div class="b56-note" id="b56Msg"></div>' +
     '</div>' +
     '<div class="b56-actions"><button class="b56-pass" id="b56Pass">Pass</button><button class="b56-go" id="b56Go">Bid</button><button class="b56-dbl" id="b56Dbl" style="display:none">Double</button></div>' +
+    '<div class="b56-cf" id="b56Cf"></div>' +
     '</div></div>' +
     /* hand result */
     '<div class="overlay r56-ov" id="res56" style="align-items:center;padding:20px"><div class="r56-box" id="res56Box"></div></div>' +
@@ -216,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=32">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=33">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -270,7 +271,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       if (!b) return;
       var st = lastState; if (!st) return;
       var cb = st.currentBid, minVal = cb ? cb.value + 1 : 28;
-      if (b.dataset.qk) { var qd = (quickDefs || {})[b.dataset.qk]; if (qd) { vib(12); quickSubmit(qd); } return; }
+      if (b.dataset.qk) { var qd = (quickDefs || {})[b.dataset.qk]; if (qd) { vib(12); quickAsk(qd); } return; }
       if (b.dataset.qt) { bid.qtab = b.dataset.qt; renderBid(st, true); return; }
       if (b.dataset.qv) { bid.qview = b.dataset.qv; try { localStorage.setItem('k56_quickview', bid.qview); } catch (e) {} renderBid(st, true); return; }
       if (b.dataset.qn) { bid.qnum = Math.min(56, Math.max(minVal, bid.qnum + parseInt(b.dataset.qn, 10))); renderBid(st, true); return; }
@@ -283,9 +284,10 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
         if (v === 'NT') bid.kind = 'nt'; else if (v === 'NS') bid.kind = 'ns'; else { bid.kind = 'suit'; bid.suit = v; }
       } else if (b.dataset.order) {
         bid.order = b.dataset.order;
-      } else if (b.id === 'b56Go') { vib(12); return submit(); }
-      else if (b.id === 'b56Pass') { vib(12); return doPass(); }
-      else if (b.id === 'b56Dbl') { vib([20, 30, 20]); return doDouble(); }
+      } else if (b.dataset.cf) { return cfAnswer(b.dataset.cf); }
+      else if (b.id === 'b56Go') { vib(12); return submitAsk(); }
+      else if (b.id === 'b56Pass') { vib(12); return passAsk(); }
+      else if (b.id === 'b56Dbl') { vib([20, 30, 20]); return dblAsk(); }
       else return;
       renderBid(st, true);
     });
@@ -365,6 +367,43 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       body + '<div class="b56-qhint">One tap places that call. The number after → is the bid it makes. Press and hold a button to see what it tells your partner.</div>';
     if (keepFocus) { var n2 = $('b56QNum'); if (n2) n2.focus(); }
   }
+  /* ---- confirmation: every call is shown first and only sent after Confirm ---- */
+  var pendingAct = null;
+  function askConfirm(big, red, sub, fn) {
+    pendingAct = fn;
+    var cf = $('b56Cf');
+    cf.innerHTML = '<div class="b56-cfbox"><div class="b56-cfq">Confirm your call</div><div class="b56-cfbig' + (red ? ' red' : '') + '">' + esc(big) + '</div>' +
+      '<div class="b56-cfsub">' + esc(sub) + '</div><div class="b56-cfall">Everyone at the table will see this call.</div>' +
+      '<div class="b56-cfbtns"><button type="button" data-cf="no" class="b56-cfno">Cancel</button><button type="button" data-cf="yes" class="b56-cfyes">Confirm</button></div></div>';
+    cf.classList.add('on');
+  }
+  function cfAnswer(a) {
+    var fn = pendingAct; pendingAct = null; $('b56Cf').classList.remove('on');
+    if (a === 'yes' && fn) { vib(15); fn(); }
+  }
+  function quickAsk(d) {
+    var st = lastState, cb = st.currentBid;
+    var big = d.label.replace(/\s*→.*$/, ''), made = d.kind === 'pass' ? 'Pass with ' + d.value + ' — no trump' : 'Makes the bid ' + d.value;
+    if (d.kind === 'pass') big = d.value + ' Pass';
+    var red = !!d.red;
+    var note = bid.note.trim();
+    askConfirm(big, red, made + (d.tip ? ' · ' + d.tip : '') + (note ? ' · “' + note + '”' : ''), function () { quickSubmit(d); });
+  }
+  function submitAsk() {
+    var st = lastState, cb = st.currentBid, value = previewValue(cb), minAllowed = cb ? cb.value + 1 : 28;
+    if (value < minAllowed) { msg('Your bid must be at least ' + minAllowed + '.'); return; }
+    var txt = $('b56Go').textContent.replace(/^Bid\s*/, '');
+    askConfirm(txt, bid.kind === 'suit' && RED[bid.suit], 'Makes the bid ' + value + (bid.mode === 'inc' ? ' (+' + bid.num + ' on the table)' : ''), submit);
+  }
+  function passAsk() {
+    var st = lastState;
+    if (st.forcedSeat === ctx.mySeat() && !st.currentBid) { msg('You must open the bidding.'); return; }
+    askConfirm(st.finalChance ? 'Finalize bid' : 'Pass', false, st.finalChance ? 'Your bid stands and the bidding ends.' : 'You are out of this round of bidding.', doPass);
+  }
+  function dblAsk() {
+    var st = lastState;
+    askConfirm(st.doubled === 1 ? 'Redouble' : 'Double', false, st.doubled === 1 ? 'Doubles the stakes again.' : 'Doubles the stakes against their bid.', doDouble);
+  }
   function quickSubmit(d) {
     var st = lastState, cb = st.currentBid, note = bid.note.trim();
     if (d.kind === 'pass') {
@@ -403,7 +442,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var ov = $('b56ov'), ms = ctx.mySeat();
     var myTurn = st.phase === 'bidding' && ms != null && st.turn === ms;
     tog(ov, 'on', myTurn);
-    if (!myTurn) { cache.bidSheet = null; return; }
+    if (!myTurn) { cache.bidSheet = null; pendingAct = null; var _cf = $('b56Cf'); if (_cf) _cf.classList.remove('on'); return; }
     var cb = st.currentBid, minVal = cb ? cb.value + 1 : 28;
     var sig = st.handNumber + ':' + (cb ? cb.seat + '-' + cb.value : 'none');
     if (sig !== bid.sig) { bid.sig = sig; bid.num = minVal; bid.mode = 'set'; bid.qnum = Math.min(56, minVal + 1); msg(''); }
@@ -535,7 +574,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var la = showCalls && st.lastActionBySeat ? st.lastActionBySeat[seat] : null;
       var callEl = wrap.querySelector('.call-badge');
       if (la) {
-        var isPass = /^pass/i.test(la);
+        var isPass = /pass/i.test(la);
         var cls = 'call-badge' + (isPass ? ' call-badge-pass' : '') + ' call-badge-' + CALL_DIR[slot];
         if (!callEl) { callEl = document.createElement('div'); wrap.appendChild(callEl); }
         if (callEl.dataset.cls !== cls) { callEl.dataset.cls = cls; callEl.className = cls; }

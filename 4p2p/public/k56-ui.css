@@ -2002,3 +2002,18 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .b56-qlist{max-height:260px;overflow-y:auto;padding-right:2px}
 .b56-qgrp{font-weight:800;margin:8px 0 4px;font-size:.85rem}.b56-qgrp.red{color:#ff8f8f}
 .b56-qhint{font-size:.66rem;color:#8696aa;margin-top:4px;line-height:1.35}
+
+/* ---- bid confirmation card ---- */
+.b56-panel{position:relative}
+.b56-cf{display:none;position:absolute;inset:0;z-index:20;background:rgba(6,10,20,.82);align-items:center;justify-content:center;padding:18px;border-radius:inherit}
+.b56-cf.on{display:flex}
+.b56-cfbox{width:100%;max-width:340px;background:linear-gradient(180deg,#14213d,#0b1426);border:1.5px solid rgba(244,196,48,.6);border-radius:18px;padding:18px 16px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.b56-cfq{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:#e8d9a8;font-weight:800}
+.b56-cfbig{font-family:'Cinzel','Playfair Display',serif;font-size:2.1rem;font-weight:900;color:#f4c430;margin:8px 0 6px;line-height:1.1}
+.b56-cfbig.red{color:#ff7b7b}
+.b56-cfsub{font-size:.82rem;color:#d9d2bd;line-height:1.35}
+.b56-cfall{font-size:.72rem;color:#9fb0cc;margin-top:8px}
+.b56-cfbtns{display:flex;gap:10px;margin-top:14px}
+.b56-cfbtns button{flex:1;padding:12px 0;border-radius:12px;font-weight:900;font-size:1rem;border:1.5px solid transparent;cursor:pointer}
+.b56-cfno{background:#1c2a47;color:#e8d9a8;border-color:rgba(255,255,255,.2)!important}
+.b56-cfyes{background:linear-gradient(180deg,#ffe27a,#e0a916);color:#241a12}
