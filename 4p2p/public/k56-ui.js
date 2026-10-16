@@ -15,7 +15,7 @@
   var SPRITE = "<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-hidden=\"true\">\n  <filter id=\"cloudyEdge\" x=\"-20%\" y=\"-20%\" width=\"140%\" height=\"140%\">\n    <feTurbulence type=\"fractalNoise\" baseFrequency=\"0.018 0.05\" numOctaves=\"2\" seed=\"7\" result=\"cloudNoise\"/>\n    <feDisplacementMap in=\"SourceGraphic\" in2=\"cloudNoise\" scale=\"9\" xChannelSelector=\"R\" yChannelSelector=\"G\"/>\n  </filter>\n</svg>\n<svg width=\"0\" height=\"0\" style=\"position:absolute\" aria-hidden=\"true\">\n<defs>\n<symbol id=\"suit-spade\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,8 C35,28 8,48 8,68 C8,85 22,95 37,90 C42,88.5 46,85 48.5,80.5 C47,90 42,98 30,100 L70,100 C58,98 53,90 51.5,80.5 C54,85 58,88.5 63,90 C78,95 92,85 92,68 C92,48 65,28 50,8 Z\"/></symbol>\n<symbol id=\"suit-club\" viewBox=\"0 0 100 100\"><circle cx=\"50\" cy=\"34\" r=\"24\" fill=\"currentColor\"/><circle cx=\"27\" cy=\"58\" r=\"24\" fill=\"currentColor\"/><circle cx=\"73\" cy=\"58\" r=\"24\" fill=\"currentColor\"/><path fill=\"currentColor\" d=\"M42,72 C45,85 44,94 34,100 L66,100 C56,94 55,85 58,72 C53,76 47,76 42,72 Z\"/></symbol>\n<symbol id=\"suit-heart\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,92 C50,92 8,62 8,32 C8,12 24,3 38,8 C45,10.5 49,17 50,24 C51,17 55,10.5 62,8 C76,3 92,12 92,32 C92,62 50,92 50,92 Z\"/></symbol>\n<symbol id=\"suit-diamond\" viewBox=\"0 0 100 100\"><path fill=\"currentColor\" d=\"M50,4 L88,50 L50,96 L12,50 Z\"/></symbol>\n</defs>\n</svg>";
 
   var host = null, root = null, ctx = null, cache = {}, lastState = null;
-  var bid = { mode: 'set', num: 28, kind: 'suit', suit: 'S', order: 'forward', note: '', sig: null, qtab: 'S', qview: 'grouped', qnum: 28 };
+  var bid = { mode: 'set', num: 28, kind: 'suit', suit: 'S', order: 'forward', note: '', sig: null, qtab: 'S', qview: 'grouped', qnum: 28, ctab: 'all', cdd: false };
   try { if (localStorage.getItem('k56_quickview') === 'list') bid.qview = 'list'; } catch (e) {}
 function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   if (el._crumple) { try { el._crumple.cancel(); } catch (e) {} }
@@ -172,7 +172,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '</div>' +
     /* bid sheet */
     '<div class="overlay b56-ov" id="b56ov"><div class="panel b56-panel">' +
-    '<div class="b56-head"><div class="b56-title">Your bid</div><div class="b56-status" id="b56Status"></div></div>' +
+    '<div class="b56-head"><button type="button" class="b56-title b56-callsbtn" id="b56CallsBtn" data-cdd="toggle">Calls so far <span class="b56-cn" id="b56Cn"></span> <span class="b56-car">▾</span></button><div class="b56-status" id="b56Status"></div></div>' +
+    '<div class="b56-dd" id="b56Dd"></div>' +
     '<div class="b56-scroll">' +
     '<div class="b56-sec">Your hand</div><div class="b56-hand" id="b56Hand"></div>' +
     '<div class="b56-row"><div class="b56-seg" id="b56Mode"></div>' +
@@ -180,7 +181,6 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<div class="b56-suits" id="b56Suits"></div>' +
     '<div class="b56-ord" id="b56Order"></div>' +
     '<div class="b56-sec">Quick calls</div><div id="b56Quick"></div>' +
-    '<div class="b56-sec">Calls so far</div><div class="b56-calls" id="b56Calls"></div>' +
     '<div class="b56-explain" id="b56Explain"></div>' +
     '<div class="b56-forced" id="b56Forced" style="display:none">Everyone else passed — you must open the bidding. You can\'t pass.</div>' +
     '<div class="b56-note" id="b56Msg"></div>' +
@@ -216,7 +216,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=37">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=39">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -271,6 +271,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       if (!b) return;
       var st = lastState; if (!st) return;
       var cb = st.currentBid, minVal = cb ? cb.value + 1 : 28;
+      if (b.dataset.cdd) { bid.cdd = !bid.cdd; renderBid(st, true); return; }
+      if (b.dataset.ct) { bid.ctab = b.dataset.ct; renderBid(st, true); return; }
       if (b.dataset.qk) { var qd = (quickDefs || {})[b.dataset.qk]; if (qd) { vib(12); quickAsk(qd); } return; }
       if (b.dataset.qt) { bid.qtab = b.dataset.qt; renderBid(st, true); return; }
       if (b.dataset.qv) { bid.qview = b.dataset.qv; try { localStorage.setItem('k56_quickview', bid.qview); } catch (e) {} renderBid(st, true); return; }
@@ -466,7 +468,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (!myTurn) { cache.bidSheet = null; pendingAct = null; var _cf = $('b56Cf'); if (_cf) _cf.classList.remove('on'); return; }
     var cb = st.currentBid, minVal = cb ? cb.value + 1 : 28;
     var sig = st.handNumber + ':' + (cb ? cb.seat + '-' + cb.value : 'none');
-    if (sig !== bid.sig) { bid.sig = sig; bid.num = minVal; bid.mode = 'set'; bid.qnum = Math.min(56, minVal + 1); msg(''); }
+    if (sig !== bid.sig) { bid.sig = sig; bid.num = minVal; bid.mode = 'set'; bid.qnum = Math.min(56, minVal + 1); bid.cdd = false; msg(''); }
     if (bid.mode === 'set' && bid.num < minVal) bid.num = Math.min(56, minVal);
     var pv = previewValue(cb);
     var oppose = cb && team(cb.seat) !== team(ms), mine = cb && team(cb.seat) === team(ms);
@@ -477,11 +479,25 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (!force && cache.bidSheet === key) return;
     cache.bidSheet = key;
     $('b56Status').innerHTML = cb ? '<b>' + esc(ctx.formatBid(cb)) + '</b> held by ' + esc((st.seats[cb.seat] || {}).name) + (st.doubled ? ' · ' + (st.doubled === 2 ? 'Redoubled' : 'Doubled') : '') : 'Opening bid: <b>28</b>';
-    $('b56Calls').innerHTML = log.length ? log.map(function (l) {
-      var cls = l.seat == null ? '' : (team(l.seat) === team(ms) ? ' me' : ' opp');
-      return '<span class="b56-chip' + cls + '">' + esc(l.text) + '</span>';
-    }).join('') : '<span class="b56-chip none">No calls yet — you speak first</span>';
-    var cs = $('b56Calls'); cs.scrollLeft = cs.scrollWidth;
+    var mineT = team(ms);
+    var rows = log.map(function (l) {
+      var mate = l.seat != null && team(l.seat) === mineT, who = l.seat != null ? (st.seats[l.seat] || {}).name || '' : '';
+      var txt = who && l.text.indexOf(who) === 0 ? l.text.slice(who.length).replace(/^\s+/, '') : l.text;
+      return { mate: mate, you: l.seat === ms, who: l.seat === ms ? 'You' : who, txt: txt };
+    });
+    var shown = rows.filter(function (r) { return bid.ctab === 'all' || (bid.ctab === 'partner' ? r.mate : !r.mate); });
+    var cnt = function (f) { return rows.filter(f).length; };
+    $('b56Cn').textContent = rows.length ? '(' + rows.length + ')' : '';
+    var dd = $('b56Dd');
+    tog(dd, 'on', !!bid.cdd);
+    $('b56CallsBtn').classList.toggle('open', !!bid.cdd);
+    dd.innerHTML = '<div class="b56-ddtabs">' +
+      '<button type="button" data-ct="all" class="' + (bid.ctab === 'all' ? 'sel' : '') + '">All (' + rows.length + ')</button>' +
+      '<button type="button" data-ct="partner" class="' + (bid.ctab === 'partner' ? 'sel' : '') + '">Partner (' + cnt(function (r) { return r.mate; }) + ')</button>' +
+      '<button type="button" data-ct="opp" class="' + (bid.ctab === 'opp' ? 'sel' : '') + '">Opponent (' + cnt(function (r) { return !r.mate; }) + ')</button></div>' +
+      '<div class="b56-ddlist">' + (shown.length ? shown.map(function (r) {
+        return '<div class="b56-ddrow ' + (r.mate ? 'me' : 'opp') + '"><b>' + esc(r.who) + '</b><span>' + esc(r.txt) + '</span></div>';
+      }).join('') : '<div class="b56-ddrow none">' + (rows.length ? 'Nothing here yet' : 'No calls yet — you speak first') + '</div>') + '</div>';
     $('b56Hand').innerHTML = sortHand(st.hands[ms] || []).map(function (c) { return '<span class="b56-mc' + (RED[c.s] ? ' red' : '') + '"><i>' + c.r + '</i><b>' + SYM[c.s] + '</b></span>'; }).join('');
     renderQuick(cb, minVal);
     $('b56Mode').innerHTML = '<button data-mode="set" class="' + (bid.mode === 'set' ? 'sel' : '') + '">Set to</button><button data-mode="inc" class="' + (bid.mode === 'inc' ? 'sel' : '') + '">Increase by</button>';

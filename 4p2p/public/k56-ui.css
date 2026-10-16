@@ -2017,3 +2017,21 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .b56-cfbtns button{flex:1;padding:12px 0;border-radius:12px;font-weight:900;font-size:1rem;border:1.5px solid transparent;cursor:pointer}
 .b56-cfno{background:#1c2a47;color:#e8d9a8;border-color:rgba(255,255,255,.2)!important}
 .b56-cfyes{background:linear-gradient(180deg,#ffe27a,#e0a916);color:#241a12}
+
+/* ---- "Calls so far" menu in the bid header ---- */
+.b56-callsbtn{background:rgba(244,196,48,.12);border:1.5px solid rgba(244,196,48,.5);border-radius:12px;padding:8px 12px;cursor:pointer;font-size:1.05rem!important;letter-spacing:.5px!important;text-shadow:none!important;white-space:nowrap;line-height:1.1}
+.b56-callsbtn .b56-cn{font-family:'Roboto',system-ui,sans-serif;font-size:.8rem;color:#e8d9a8}
+.b56-callsbtn .b56-car{display:inline-block;transition:transform .15s;margin-left:2px}
+.b56-callsbtn.open .b56-car{transform:rotate(180deg)}
+.b56-panel{position:relative}
+.b56-dd{display:none;position:absolute;left:12px;right:12px;top:68px;z-index:15;max-height:55%;flex-direction:column;background:linear-gradient(180deg,#14213d,#0b1426);border:1.5px solid rgba(244,196,48,.6);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.65);overflow:hidden}
+.b56-dd.on{display:flex}
+.b56-ddtabs{display:flex;gap:6px;padding:8px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.1)}
+.b56-ddtabs button{flex:1;padding:8px 4px;border-radius:9px;border:1.5px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;font-weight:800;font-size:.78rem;font-family:inherit}
+.b56-ddtabs button.sel{border-color:#f4c430;background:rgba(244,196,48,.22);color:#ffe27a}
+.b56-ddlist{overflow-y:auto;padding:6px 10px 8px;-webkit-overflow-scrolling:touch}
+.b56-ddrow{display:flex;gap:8px;align-items:baseline;padding:7px 8px;margin:3px 0;border-radius:9px;border-left:4px solid #3ddc84;background:rgba(255,255,255,.05);font-size:.9rem}
+.b56-ddrow.opp{border-left-color:#ef6b6b}
+.b56-ddrow.none{border-left-color:transparent;opacity:.65}
+.b56-ddrow b{flex:0 0 auto;color:#e8d9a8}
+.b56-ddrow span{flex:1;text-align:right;font-weight:700}
