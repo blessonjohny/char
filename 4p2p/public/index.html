@@ -4256,15 +4256,16 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .gd-i:active,.gd-i:hover{background:rgba(233,185,73,.1);border-left-color:var(--c,#e9b949)}
 .gd-g{width:34px;text-align:center;font-family:'Cinzel','Playfair Display',serif;font-weight:800;font-size:1.25rem;color:var(--c,#e9b949)}
 #welcomeScreen .welcome-subbtn-row{display:none!important}
-/* orbiting game buttons: positioned by JS on an ellipse around the can */
-.gs{isolation:isolate}
+/* orbiting game buttons: your original button colours, every chip the same size */
 .gs-ring{position:absolute;inset:0;pointer-events:none}
-.gs-video{z-index:5}
-.gs-glow{z-index:0}
-.gs-track{position:absolute;border:1.5px solid rgba(233,185,73,.22);border-radius:50%;pointer-events:none;z-index:0;box-shadow:0 0 22px rgba(233,185,73,.10),inset 0 0 22px rgba(233,185,73,.06);transform:perspective(1px)}
-.gs-ring .gs-chip{position:absolute;left:0;top:0;width:92px;height:70px;max-height:none;flex:none;margin:0!important;pointer-events:auto;animation:none;will-change:transform,opacity;backface-visibility:hidden;transition:box-shadow .3s,border-color .3s,background .3s}
-.gs-ring .gs-chip.on{transform:none}
-.gs-ring .gs-chip:active{transform:none}
+.gs-ring .gs-chip{position:absolute;left:0;top:0;width:124px;height:82px;box-sizing:border-box;flex:none;margin:0!important;padding:6px 8px;border-radius:14px;border:1.5px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;text-decoration:none;pointer-events:auto;overflow:hidden;
+  box-shadow:0 6px 18px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.2);backdrop-filter:blur(2px);-webkit-tap-highlight-color:transparent;will-change:transform,opacity;backface-visibility:hidden;animation:none;transition:box-shadow .3s}
+.gs-ring .gs-chip .btn28-badge,.gs-ring .gs-chip .btn28-modelabel{white-space:nowrap}
+.gs-ring .gs-chip .btn28-modelabel{font-size:.8rem;margin-top:0}
+.gs-ring .gs-chip.inv .btn28-badge,.gs-ring .gs-chip.inv .btn28-modelabel{background:linear-gradient(180deg,#a8443a 0%,#781c18 45%,#4a1410 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 2px 10px rgba(120,28,24,.25);filter:drop-shadow(0 1px 3px rgba(0,0,0,.25))}
+.gs-sub{display:block;font-size:.56rem;font-weight:600;line-height:1.15;opacity:.95;text-shadow:0 1px 2px rgba(0,0,0,.5);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-ring .gs-chip.inv .gs-sub{text-shadow:0 1px 1px rgba(255,255,255,.3)}
+.gs-ring .gs-chip.on{box-shadow:0 0 0 2px #ffd54a,0 0 24px rgba(255,213,74,.6),0 8px 22px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.25)}
 </style>
 </head>
 <body>
@@ -4457,9 +4458,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   <div class="gs-top"><button type="button" id="gdOpen" aria-label="Open games menu" aria-expanded="false"><i></i><i></i><i></i></button><span class="gs-brand">28GULAN.COM</span></div>
   <section class="gs" id="gStage" aria-label="Choose a game" style="--k:#e0b878">
     <div class="gs-glow"></div>
-    <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.mp4?v=3" type="video/mp4"><source src="/video/gulan-hero.webm?v=3" type="video/webm"></video></div>
+    <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.mp4?v=4" type="video/mp4"><source src="/video/gulan-hero.webm?v=4" type="video/webm"></video></div>
     <div class="gs-track" id="gsTrack"></div>
-    <div class="gs-ring" id="gsRing"><a class="gs-chip" href="/play6.html" data-i="0" style="--c:#e0b878" aria-label="28 · 6 Player"><span class="gs-g">28</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/" data-i="1" style="--c:#d4574a" aria-label="28 · 4 Player"><span class="gs-g">28</span><span class="gs-l">4 Player</span></a><a class="gs-chip" href="/56.html" data-i="2" style="--c:#2a9d8f" aria-label="56 · Ampathiaaru"><span class="gs-g">56</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/holdem.html" data-i="3" style="--c:#1fa463" aria-label="Texas Hold'em"><span class="gs-g">🃏</span><span class="gs-l">Hold'em</span></a><a class="gs-chip" href="/spades.html" data-i="4" style="--c:#4b86e0" aria-label="Spades"><span class="gs-g">♠</span><span class="gs-l">Spades</span></a><a class="gs-chip" href="/carrom.html" data-i="5" style="--c:#c28a43" aria-label="Carrom"><span class="gs-g">🎯</span><span class="gs-l">Carrom</span></a><a class="gs-chip" href="/pool.html" data-i="6" style="--c:#1aa88f" aria-label="8-Ball Pool"><span class="gs-g">🎱</span><span class="gs-l">Pool</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" style="--c:#8a63d2" aria-label="Logic Puzzles"><span class="gs-g">🧩</span><span class="gs-l">Puzzles</span></a></div>
+    <div class="gs-ring" id="gsRing"><a class="gs-chip inv" href="/play6.html" data-i="0" aria-label="28 · 6 Player" style="background:linear-gradient(160deg,rgba(224,184,120,0.85) 0%,rgba(207,161,96,0.82) 55%,rgba(166,122,62,0.78) 100%);border-color:#781c18;color:#4a1410"><span class="btn28-badge" style="font-size:1.7rem">28</span><span class="btn28-modelabel">6 Player</span><span class="gs-sub" style="color:#5c1410">🎙️ 2 teams of 3</span></a><a class="gs-chip" href="/" data-i="1" aria-label="28 · 4 Player" style="background:linear-gradient(160deg,rgba(138,34,28,0.78) 0%,rgba(92,21,15,0.75) 55%,rgba(43,6,3,0.72) 100%);border-color:#cfa160;color:#f0cf94"><span class="btn28-badge" style="font-size:1.7rem">28</span><span class="btn28-modelabel">4 Player</span><span class="gs-sub" style="color:#f0d9a8">🎙️ live voice chat</span></a><a class="gs-chip" href="/56.html" data-i="2" aria-label="56 · Ampathiaaru" style="background:linear-gradient(135deg,rgba(42,157,143,0.75),rgba(29,111,101,0.72));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.7rem">56</span><span class="gs-sub" style="color:#f0d9a8">bid 28 to 56, doubling</span></a><a class="gs-chip" href="/holdem.html" data-i="3" aria-label="Texas Hold'em" style="background:linear-gradient(135deg,rgba(11,107,58,0.75),rgba(8,77,42,0.72));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Hold'em</span><span class="gs-sub" style="color:#f0d9a8">9-player, cash/tourney</span></a><a class="gs-chip" href="/spades.html" data-i="4" aria-label="Spades" style="background:linear-gradient(135deg,rgba(26,58,110,0.78),rgba(15,36,71,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Spades</span><span class="gs-sub" style="color:#f0d9a8">300 to win, nil, bags</span></a><a class="gs-chip" href="/carrom.html" data-i="5" aria-label="Carrom" style="background:linear-gradient(135deg,rgba(138,106,60,0.78),rgba(94,71,38,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Carrom</span><span class="gs-sub" style="color:#f0d9a8">1v1 or 2v2 teams</span></a><a class="gs-chip" href="/pool.html" data-i="6" aria-label="8-Ball Pool" style="background:linear-gradient(135deg,rgba(13,92,77,0.78),rgba(8,61,51,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.35rem">Pool</span><span class="gs-sub" style="color:#f0d9a8">1v1, 8-ball</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" aria-label="Logic Puzzles" style="background:linear-gradient(135deg,rgba(87,60,130,0.78),rgba(56,38,86,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.1rem">🧩 Puzzles</span><span class="gs-sub" style="color:#f0d9a8">100 puzzles & riddles</span></a></div>
   </section>
   <div class="gs-feature" id="gsFeature">
     <button type="button" class="gs-arr" id="gsPrev" aria-label="Previous game">‹</button>
@@ -4478,7 +4479,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   var chips=[].slice.call(st.querySelectorAll('.gs-chip')), ftxt=document.getElementById('gsFtxt'),
       T=document.getElementById('gsT'), S=document.getElementById('gsS'), P=document.getElementById('gsPlay'),
       dots=document.getElementById('gsDots'), hint=document.querySelector('.gs-hint'), vid=st.querySelector('.gs-video'),
-      N=G.length, sel=0, cur=0, hold=Date.now()+7000, anim=null, drag=null, moved=false, calm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+      N=G.length, sel=0, cur=0, hold=Date.now()+7000, drag=null, moved=false, calm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   G.forEach(function(){var d=document.createElement('i');dots.appendChild(d);});
 
   /* ---------- selection (text, colour, dots) ---------- */
@@ -4493,34 +4494,41 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   function nearest(x){ return ((Math.round(x)%N)+N)%N; }
   function settle(){ var n=nearest(cur); if(n!==sel){ var d=n>sel?1:-1; if(Math.abs(n-sel)>N/2) d=-d; sel=n; paint(d); } }
 
-  /* ---------- silky motion: time-based tween, quintic ease, one rAF loop ---------- */
-  function ease(t){ return t<.5 ? 16*t*t*t*t*t : 1-Math.pow(-2*t+2,5)/2; }
-  function tweenTo(target,ms){
-    if(calm){ cur=target; settle(); layout(); return; }
-    anim={from:cur,to:target,t0:performance.now(),ms:ms||(650+Math.min(900,Math.abs(target-cur)*160))};
-  }
+  /* ---------- physics: flick = fast spin that eases off, can be caught or reversed, then settles on a button ---------- */
+  var mode='idle', vel=0, tgt=0, last=0, caught=false;
+  var FRICTION=1.55, MAXV=16, OMEGA=8.5;            // FRICTION: spin slows naturally; OMEGA: stiffness of the final settle
+  function springTo(t){ if(calm){ cur=t; mode='idle'; vel=0; settle(); layout(); return; } tgt=t; mode='spring'; }
   function go(n,dir,auto){
     var nn=((n%N)+N)%N, d=nn-nearest(cur); if(d>N/2) d-=N; if(d<-N/2) d+=N;
-    tweenTo(Math.round(cur)+d); if(hint) hint.style.opacity='0';
+    vel=0; springTo(Math.round(cur)+d); if(hint) hint.style.opacity='0';
     if(!auto) hold=Date.now()+14000;
   }
-
+  function step(dt){
+    if(mode==='fling'){
+      cur+=vel*dt; vel*=Math.exp(-FRICTION*dt);
+      if(Math.abs(vel)<1.25){ tgt=Math.round(cur+Math.sign(vel)*0.0); mode='spring'; }   // slow enough: hand over to the settle spring (velocity carries over, so no jolt)
+    } else if(mode==='spring'){
+      var x=cur-tgt, acc=-OMEGA*OMEGA*x-2*OMEGA*vel;   // critically damped spring
+      vel+=acc*dt; cur+=vel*dt;
+      if(Math.abs(x)<0.0008&&Math.abs(vel)<0.01){ cur=tgt; vel=0; mode='idle'; }
+    }
+  }
   /* ---------- orbit layout: buttons on a tilted ellipse around the can ---------- */
   var trk=document.getElementById('gsTrack');
   function layout(){
     var w=st.clientWidth, h=st.clientHeight;
-    var rx=Math.min(w/2-46,200), ry=Math.max(48,h*0.115), cy=h*0.77, cx=w/2;
-    var vw=vid?vid.offsetWidth:w*.4, band=vw*0.2;                 // half-width of the can: buttons passing behind it are cut off
+    var rx=Math.min(w/2-70,190), ry=Math.max(46,h*0.1), cy=h*0.8, cx=w/2;
+    var vw=vid?vid.offsetWidth:w*.4, band=vw*0.085;                 // half-width of the can: buttons passing behind it are cut off
     if(trk){ trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; trk.style.transform='translate3d('+(cx-rx)+'px,'+(cy-ry)+'px,0)'; }
     for(var k=0;k<chips.length;k++){
       var c=chips[k], i=+c.dataset.i, a=(i-cur)*(2*Math.PI/N), sn=Math.sin(a), cs=Math.cos(a), dp=(cs+1)/2;   // dp 1 = front, 0 = back
-      var sc=0.5+0.56*dp, x=cx+sn*rx, y=cy+cs*ry-(1-dp)*h*0.05;
-      c.style.transform='translate3d('+(x-46).toFixed(2)+'px,'+(y-35).toFixed(2)+'px,0) scale('+sc.toFixed(4)+')';
+      var sc=0.5+0.54*dp, x=cx+sn*rx, y=cy+cs*ry-(1-dp)*h*0.05;
+      c.style.transform='translate3d('+(x-62).toFixed(2)+'px,'+(y-41).toFixed(2)+'px,0) scale('+sc.toFixed(4)+')';
       c.style.opacity=(0.3+0.7*dp).toFixed(3);
       c.style.zIndex=dp>0.5?String(10+Math.round(dp*20)):'1';
       var clip='none';
       if(dp<0.5){                                                 // behind the can: hide whatever the can would cover
-        var half=46*sc, l=x-half, r=x+half, bl=cx-band, br=cx+band;
+        var half=62*sc, l=x-half, r=x+half, bl=cx-band, br=cx+band;
         if(r>bl&&l<br){
           var cutL=Math.max(0,bl-l), cutR=Math.max(0,r-br);
           if(l>=bl&&r<=br) clip='inset(0 50% 0 50%)';
@@ -4534,34 +4542,40 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     }
   }
   function frame(now){
-    if(anim){
-      var t=Math.min(1,(now-anim.t0)/anim.ms); cur=anim.from+(anim.to-anim.from)*ease(t);
-      if(t>=1){ cur=anim.to; anim=null; }
-      settle();
-    }
-    layout(); requestAnimationFrame(frame);
+    var dt=last?Math.min(0.034,(now-last)/1000):0.016; last=now;
+    if(!drag) step(dt);
+    settle(); layout(); requestAnimationFrame(frame);
   }
   window.addEventListener('resize',layout);
   setInterval(function(){                       // gentle auto-orbit while the home screen is showing and untouched
     var w=document.getElementById('welcomeScreen'), dr=document.getElementById('gDrawer');
-    if(calm||document.hidden||drag||anim||Date.now()<hold||!w||getComputedStyle(w).display==='none'||(dr&&dr.classList.contains('on'))) return;
+    if(calm||document.hidden||drag||mode!=='idle'||Date.now()<hold||!w||getComputedStyle(w).display==='none'||(dr&&dr.classList.contains('on'))) return;
     go(sel+1,1,true);
   },4800);
 
   /* ---------- finger / mouse follows the ring, then glides to the nearest button ---------- */
-  var STEP=84;                                   // px of drag per button
-  function pdown(e){ if(e.button>0) return; drag={x:e.clientX,y:e.clientY,base:cur,t:performance.now(),lx:e.clientX,lt:performance.now(),v:0,lock:null}; anim=null; hold=Date.now()+14000; moved=false; }
+  var STEP=96;                                   // px of finger travel per button
+  function pdown(e){ if(e.button>0) return;
+    caught=(mode==='fling')||(mode==='spring'&&Math.abs(tgt-cur)>0.2);
+    drag={x:e.clientX,base:cur,lx:e.clientX,lt:performance.now(),lock:null,y:e.clientY,v:0}; mode='idle'; vel=0; hold=Date.now()+14000; moved=false; }
   function pmove(e){
     if(!drag) return; var dx=e.clientX-drag.x, dy=e.clientY-drag.y;
-    if(drag.lock===null && (Math.abs(dx)>7||Math.abs(dy)>7)) drag.lock=Math.abs(dx)>Math.abs(dy)*1.2?'h':'v';
+    if(drag.lock===null && (Math.abs(dx)>6||Math.abs(dy)>6)) drag.lock=Math.abs(dx)>Math.abs(dy)*1.15?'h':'v';
     if(drag.lock!=='h') return;
-    moved=true; var now=performance.now(); drag.v=0.8*drag.v+0.2*((e.clientX-drag.lx)/Math.max(1,now-drag.lt)); drag.lx=e.clientX; drag.lt=now;
-    cur=drag.base-dx/STEP; settle(); if(hint) hint.style.opacity='0'; e.cancelable&&e.preventDefault();
+    moved=true; var now=performance.now(), dtm=Math.max(1,now-drag.lt);
+    var inst=-((e.clientX-drag.lx)/dtm)*1000/STEP;             // items per second
+    drag.v=0.6*drag.v+0.4*inst; drag.lx=e.clientX; drag.lt=now;
+    cur=drag.base-dx/STEP; if(hint) hint.style.opacity='0'; e.cancelable&&e.preventDefault();
   }
   function pup(){
     if(!drag) return; var d=drag; drag=null;
-    if(d.lock==='h'){ var tgt=Math.round(cur - d.v*1.2); if(tgt===Math.round(d.base)&&Math.abs(cur-d.base)>.25) tgt+=cur<d.base?-1:1; tweenTo(tgt); }
-    setTimeout(function(){moved=false;},0);
+    if(d.lock==='h'){
+      var stale=performance.now()-d.lt>90;                      // finger paused before lifting: no fling
+      var v=stale?0:Math.max(-MAXV,Math.min(MAXV,d.v*1.15));
+      if(Math.abs(v)>1.6){ vel=v; mode='fling'; }               // a real flick: spin freely
+      else { vel=v*0.4; tgt=Math.round(cur+(Math.abs(cur-d.base)>0.3?Math.sign(cur-d.base)*0:0)); mode='spring'; }
+    } else if(caught){ tgt=Math.round(cur); mode='spring'; }
+    last=0; setTimeout(function(){moved=false;},0);
   }
   st.addEventListener('pointerdown',pdown); window.addEventListener('pointermove',pmove,{passive:false}); window.addEventListener('pointerup',pup); window.addEventListener('pointercancel',pup);
   st.style.touchAction='pan-y';
@@ -4572,7 +4586,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   /* ---------- launching ---------- */
   function launch(i){ var g=G[i]; if(g.c){var b=document.getElementById(g.c); if(b){b.click();return;}} location.href=g.h; }
   chips.forEach(function(c){c.addEventListener('click',function(e){
-    if(e.metaKey||e.ctrlKey||e.shiftKey) return; e.preventDefault(); if(moved) return; launch(+c.dataset.i);
+    if(e.metaKey||e.ctrlKey||e.shiftKey) return; e.preventDefault(); if(moved||caught){caught=false;return;} launch(+c.dataset.i);
   });});
   P.addEventListener('click',function(e){ if(e.metaKey||e.ctrlKey||e.shiftKey) return; e.preventDefault(); launch(sel); });
   document.getElementById('gsPrev').addEventListener('click',function(){go(sel-1,-1);});
@@ -20659,7 +20673,7 @@ function serverBotPlayForMe() {
     videoSaverOn = true;
     if (!v.getAttribute('src')) {
       var mp4 = v.canPlayType && v.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
-      v.src = mp4 ? '/video/gulan-saver.mp4?v=3' : '/video/gulan-saver.webm?v=3';
+      v.src = mp4 ? '/video/gulan-saver.mp4?v=4' : '/video/gulan-saver.webm?v=4';
     }
     var snd = document.getElementById('gsSaverSnd'), tip = document.getElementById('gsSaverTap');
     v.muted = saverMuted; snd.textContent = saverMuted ? '🔇' : '🔊'; tip.style.display = 'none';
