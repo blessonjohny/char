@@ -66,7 +66,9 @@
     btn.type = 'button'; btn.id = 'k28MyBotsBtn'; btn.textContent = '🧠 My bots';
     btn.style.cssText = 'position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:900;display:none;padding:6px 10px;border-radius:999px;border:1.5px solid rgba(196,181,253,.7);background:rgba(30,12,60,.88);color:#e9ddff;font:800 .72rem system-ui,sans-serif;cursor:pointer';
     btn.addEventListener('click', openPanel);
-    document.body.appendChild(btn);
+    // 6-player table: sit in the turn row (left of the turn label, level with the Help button); elsewhere stay a floating pill
+    var row = document.getElementById('turnRow6p');
+    if (row) { btn.dataset.inrow = '1'; row.insertBefore(btn, row.firstChild); } else document.body.appendChild(btn);
     return btn;
   }
   function openPanel() {
@@ -114,7 +116,7 @@
   }
   function tick() {
     try { syncScope(); } catch (e) {}
-    try { ensureBtn().style.display = inGame() ? 'block' : 'none'; } catch (e) {}
+    try { var b0 = ensureBtn(); b0.style.display = inGame() ? (b0.dataset.inrow ? 'inline-flex' : 'block') : 'none'; } catch (e) {}
   }
   setInterval(tick, 700);
   window.K28MyBots = { open: openPanel };

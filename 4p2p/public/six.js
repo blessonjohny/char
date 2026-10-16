@@ -4161,14 +4161,14 @@ function sixpToggleBotMode() {
   const label = document.getElementById('sixpBotLabel');
   if (sixpBotModeActive) {
     btn.classList.add('on');
-    label.textContent = 'ON';
+    label.textContent = 'Stop';
     showToast('🤖 Bot Mode ON — Auto-playing');
     if (latestState && latestState.phase === 'play' && latestState.currentPlayer === MY_POS) {
       setTimeout(() => sixpBotPlayForMe(), 400);
     }
   } else {
     btn.classList.remove('on');
-    label.textContent = 'BOT';
+    label.textContent = 'Play auto';
     showToast('🎮 Manual Mode — You control');
   }
 }
