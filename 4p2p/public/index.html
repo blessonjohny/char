@@ -4197,9 +4197,9 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <style id="gs-css">
 /* ===== Home stage: can video centre, games around it ===== */
 #welcomeScreen > .welcome-btn-wrap.welcome-btn-grid,#welcomeScreen > .w-old-puz{display:none!important}
-.gs{--k:#e0b878;position:relative;width:100%;max-width:560px;height:clamp(380px,60vh,540px);margin:0 auto;flex-shrink:0;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.gs{--k:#e0b878;position:relative;width:100%;max-width:560px;height:clamp(430px,66vh,600px);margin:0 auto;flex-shrink:0;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .gs-glow{position:absolute;left:50%;top:50%;width:92%;height:78%;transform:translate(-50%,-50%);background:radial-gradient(closest-side,color-mix(in srgb,var(--k) 38%,transparent),transparent 72%);filter:blur(18px);transition:background .6s ease;animation:gsBreathe 5s ease-in-out infinite}
-.gs-video{position:absolute;left:50%;top:0;height:100%;aspect-ratio:1/2;transform:translateX(-50%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 26%,#000 74%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 7%,#000 90%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 26%,#000 74%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 7%,#000 90%,transparent 100%);mask-composite:intersect}
+.gs-video{position:absolute;left:50%;top:0;height:100%;aspect-ratio:640/1392;transform:translateX(-50%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 26%,#000 74%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 7%,#000 90%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 26%,#000 74%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 7%,#000 90%,transparent 100%);mask-composite:intersect}
 .gs-video video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
 .gs-col{position:absolute;top:2%;bottom:2%;width:clamp(86px,25vw,124px);display:flex;flex-direction:column;justify-content:space-between;gap:8px;z-index:2}
 .gs-cl{left:6px}.gs-cr{right:6px}
@@ -4259,10 +4259,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 /* orbiting game buttons: positioned by JS on an ellipse around the can */
 .gs{isolation:isolate}
 .gs-ring{position:absolute;inset:0;pointer-events:none}
-.gs-video{z-index:5;mix-blend-mode:screen}
+.gs-video{z-index:5}
 .gs-glow{z-index:0}
 .gs-track{position:absolute;border:1.5px solid rgba(233,185,73,.22);border-radius:50%;pointer-events:none;z-index:0;box-shadow:0 0 22px rgba(233,185,73,.10),inset 0 0 22px rgba(233,185,73,.06);transform:perspective(1px)}
-.gs-ring .gs-chip{position:absolute;left:0;top:0;width:92px;height:70px;max-height:none;flex:none;margin:0!important;pointer-events:auto;animation:none;will-change:transform,opacity;transition:box-shadow .3s,border-color .3s,background .3s}
+.gs-ring .gs-chip{position:absolute;left:0;top:0;width:92px;height:70px;max-height:none;flex:none;margin:0!important;pointer-events:auto;animation:none;will-change:transform,opacity;backface-visibility:hidden;transition:box-shadow .3s,border-color .3s,background .3s}
 .gs-ring .gs-chip.on{transform:none}
 .gs-ring .gs-chip:active{transform:none}
 </style>
@@ -4457,7 +4457,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   <div class="gs-top"><button type="button" id="gdOpen" aria-label="Open games menu" aria-expanded="false"><i></i><i></i><i></i></button><span class="gs-brand">28GULAN.COM</span></div>
   <section class="gs" id="gStage" aria-label="Choose a game" style="--k:#e0b878">
     <div class="gs-glow"></div>
-    <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.webm?v=2" type="video/webm"><source src="/video/gulan-hero.mp4?v=2" type="video/mp4"></video></div>
+    <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.mp4?v=3" type="video/mp4"><source src="/video/gulan-hero.webm?v=3" type="video/webm"></video></div>
     <div class="gs-track" id="gsTrack"></div>
     <div class="gs-ring" id="gsRing"><a class="gs-chip" href="/play6.html" data-i="0" style="--c:#e0b878" aria-label="28 · 6 Player"><span class="gs-g">28</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/" data-i="1" style="--c:#d4574a" aria-label="28 · 4 Player"><span class="gs-g">28</span><span class="gs-l">4 Player</span></a><a class="gs-chip" href="/56.html" data-i="2" style="--c:#2a9d8f" aria-label="56 · Ampathiaaru"><span class="gs-g">56</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/holdem.html" data-i="3" style="--c:#1fa463" aria-label="Texas Hold'em"><span class="gs-g">🃏</span><span class="gs-l">Hold'em</span></a><a class="gs-chip" href="/spades.html" data-i="4" style="--c:#4b86e0" aria-label="Spades"><span class="gs-g">♠</span><span class="gs-l">Spades</span></a><a class="gs-chip" href="/carrom.html" data-i="5" style="--c:#c28a43" aria-label="Carrom"><span class="gs-g">🎯</span><span class="gs-l">Carrom</span></a><a class="gs-chip" href="/pool.html" data-i="6" style="--c:#1aa88f" aria-label="8-Ball Pool"><span class="gs-g">🎱</span><span class="gs-l">Pool</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" style="--c:#8a63d2" aria-label="Logic Puzzles"><span class="gs-g">🧩</span><span class="gs-l">Puzzles</span></a></div>
   </section>
@@ -4477,8 +4477,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   var st=document.getElementById('gStage'); if(!st) return;
   var chips=[].slice.call(st.querySelectorAll('.gs-chip')), ftxt=document.getElementById('gsFtxt'),
       T=document.getElementById('gsT'), S=document.getElementById('gsS'), P=document.getElementById('gsPlay'),
-      dots=document.getElementById('gsDots'), hint=document.querySelector('.gs-hint'), sel=0;
+      dots=document.getElementById('gsDots'), hint=document.querySelector('.gs-hint'), vid=st.querySelector('.gs-video'),
+      N=G.length, sel=0, cur=0, hold=Date.now()+7000, anim=null, drag=null, moved=false, calm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   G.forEach(function(){var d=document.createElement('i');dots.appendChild(d);});
+
+  /* ---------- selection (text, colour, dots) ---------- */
   function paint(dir){
     var g=G[sel];
     chips.forEach(function(c){c.classList.toggle('on',+c.dataset.i===sel);});
@@ -4487,82 +4490,111 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     T.textContent=g.t; S.textContent=g.s; P.href=g.h;
     ftxt.classList.remove('go-l','go-r'); void ftxt.offsetWidth; if(dir) ftxt.classList.add(dir>0?'go-l':'go-r');
   }
-  var dragged=false;
-  function go(n,dir,fromAuto){
-    var N=G.length, nn=(n%N+N)%N, d=((nn-sel+N+N/2)%N)-N/2; if(d>=N/2) d-=N;
-    sel=nn; tgt+=Math.round(d); paint(dir||(d>0?1:d<0?-1:0)); if(hint) hint.style.opacity='0';
-    if(!fromAuto) holdUntil=Date.now()+14000;   // user is playing with it: stop auto-turning for a while
+  function nearest(x){ return ((Math.round(x)%N)+N)%N; }
+  function settle(){ var n=nearest(cur); if(n!==sel){ var d=n>sel?1:-1; if(Math.abs(n-sel)>N/2) d=-d; sel=n; paint(d); } }
+
+  /* ---------- silky motion: time-based tween, quintic ease, one rAF loop ---------- */
+  function ease(t){ return t<.5 ? 16*t*t*t*t*t : 1-Math.pow(-2*t+2,5)/2; }
+  function tweenTo(target,ms){
+    if(calm){ cur=target; settle(); layout(); return; }
+    anim={from:cur,to:target,t0:performance.now(),ms:ms||(650+Math.min(900,Math.abs(target-cur)*160))};
   }
-  function launch(i){
-    var g=G[i]; if(g.c){var b=document.getElementById(g.c); if(b){b.click();return;}}
-    location.href=g.h;
+  function go(n,dir,auto){
+    var nn=((n%N)+N)%N, d=nn-nearest(cur); if(d>N/2) d-=N; if(d<-N/2) d+=N;
+    tweenTo(Math.round(cur)+d); if(hint) hint.style.opacity='0';
+    if(!auto) hold=Date.now()+14000;
   }
+
+  /* ---------- orbit layout: buttons on a tilted ellipse around the can ---------- */
+  var trk=document.getElementById('gsTrack');
+  function layout(){
+    var w=st.clientWidth, h=st.clientHeight;
+    var rx=Math.min(w/2-46,200), ry=Math.max(48,h*0.115), cy=h*0.77, cx=w/2;
+    var vw=vid?vid.offsetWidth:w*.4, band=vw*0.2;                 // half-width of the can: buttons passing behind it are cut off
+    if(trk){ trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; trk.style.transform='translate3d('+(cx-rx)+'px,'+(cy-ry)+'px,0)'; }
+    for(var k=0;k<chips.length;k++){
+      var c=chips[k], i=+c.dataset.i, a=(i-cur)*(2*Math.PI/N), sn=Math.sin(a), cs=Math.cos(a), dp=(cs+1)/2;   // dp 1 = front, 0 = back
+      var sc=0.5+0.56*dp, x=cx+sn*rx, y=cy+cs*ry-(1-dp)*h*0.05;
+      c.style.transform='translate3d('+(x-46).toFixed(2)+'px,'+(y-35).toFixed(2)+'px,0) scale('+sc.toFixed(4)+')';
+      c.style.opacity=(0.3+0.7*dp).toFixed(3);
+      c.style.zIndex=dp>0.5?String(10+Math.round(dp*20)):'1';
+      var clip='none';
+      if(dp<0.5){                                                 // behind the can: hide whatever the can would cover
+        var half=46*sc, l=x-half, r=x+half, bl=cx-band, br=cx+band;
+        if(r>bl&&l<br){
+          var cutL=Math.max(0,bl-l), cutR=Math.max(0,r-br);
+          if(l>=bl&&r<=br) clip='inset(0 50% 0 50%)';
+          else if(l<bl&&r>br) clip='none';
+          else if(l<bl) clip='inset(0 '+((r-bl)/(2*half)*100).toFixed(2)+'% 0 0)';
+          else clip='inset(0 0 0 '+((br-l)/(2*half)*100).toFixed(2)+'%)';
+        }
+      }
+      c.style.clipPath=clip;
+      c.style.pointerEvents=dp<0.45?'none':'auto';
+    }
+  }
+  function frame(now){
+    if(anim){
+      var t=Math.min(1,(now-anim.t0)/anim.ms); cur=anim.from+(anim.to-anim.from)*ease(t);
+      if(t>=1){ cur=anim.to; anim=null; }
+      settle();
+    }
+    layout(); requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize',layout);
+  setInterval(function(){                       // gentle auto-orbit while the home screen is showing and untouched
+    var w=document.getElementById('welcomeScreen'), dr=document.getElementById('gDrawer');
+    if(calm||document.hidden||drag||anim||Date.now()<hold||!w||getComputedStyle(w).display==='none'||(dr&&dr.classList.contains('on'))) return;
+    go(sel+1,1,true);
+  },4800);
+
+  /* ---------- finger / mouse follows the ring, then glides to the nearest button ---------- */
+  var STEP=84;                                   // px of drag per button
+  function pdown(e){ if(e.button>0) return; drag={x:e.clientX,y:e.clientY,base:cur,t:performance.now(),lx:e.clientX,lt:performance.now(),v:0,lock:null}; anim=null; hold=Date.now()+14000; moved=false; }
+  function pmove(e){
+    if(!drag) return; var dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+    if(drag.lock===null && (Math.abs(dx)>7||Math.abs(dy)>7)) drag.lock=Math.abs(dx)>Math.abs(dy)*1.2?'h':'v';
+    if(drag.lock!=='h') return;
+    moved=true; var now=performance.now(); drag.v=0.8*drag.v+0.2*((e.clientX-drag.lx)/Math.max(1,now-drag.lt)); drag.lx=e.clientX; drag.lt=now;
+    cur=drag.base-dx/STEP; settle(); if(hint) hint.style.opacity='0'; e.cancelable&&e.preventDefault();
+  }
+  function pup(){
+    if(!drag) return; var d=drag; drag=null;
+    if(d.lock==='h'){ var tgt=Math.round(cur - d.v*1.2); if(tgt===Math.round(d.base)&&Math.abs(cur-d.base)>.25) tgt+=cur<d.base?-1:1; tweenTo(tgt); }
+    setTimeout(function(){moved=false;},0);
+  }
+  st.addEventListener('pointerdown',pdown); window.addEventListener('pointermove',pmove,{passive:false}); window.addEventListener('pointerup',pup); window.addEventListener('pointercancel',pup);
+  st.style.touchAction='pan-y';
+  var fe=document.getElementById('gsFeature');
+  var fx=null; fe.addEventListener('touchstart',function(e){fx=e.touches[0].clientX;},{passive:true});
+  fe.addEventListener('touchend',function(e){ if(fx===null) return; var dx=e.changedTouches[0].clientX-fx; fx=null; if(Math.abs(dx)>40) go(sel+(dx<0?1:-1),dx<0?1:-1); },{passive:true});
+
+  /* ---------- launching ---------- */
+  function launch(i){ var g=G[i]; if(g.c){var b=document.getElementById(g.c); if(b){b.click();return;}} location.href=g.h; }
   chips.forEach(function(c){c.addEventListener('click',function(e){
-    if(e.metaKey||e.ctrlKey||e.shiftKey) return;
-    e.preventDefault(); if(dragged){dragged=false;return;} launch(+c.dataset.i);
+    if(e.metaKey||e.ctrlKey||e.shiftKey) return; e.preventDefault(); if(moved) return; launch(+c.dataset.i);
   });});
   P.addEventListener('click',function(e){ if(e.metaKey||e.ctrlKey||e.shiftKey) return; e.preventDefault(); launch(sel); });
   document.getElementById('gsPrev').addEventListener('click',function(){go(sel-1,-1);});
   document.getElementById('gsNext').addEventListener('click',function(){go(sel+1,1);});
-  // swipe anywhere on the stage or the title row
-  var x0=null,y0=null;
-  function down(e){var t=e.touches?e.touches[0]:e; x0=t.clientX; y0=t.clientY;}
-  function up(e){ if(x0===null) return; var t=e.changedTouches?e.changedTouches[0]:e, dx=t.clientX-x0, dy=t.clientY-y0; x0=null;
-    if(Math.abs(dx)>42 && Math.abs(dx)>Math.abs(dy)*1.5){ if(dx<0) go(sel+1,1); else go(sel-1,-1); e.preventDefault&&e.cancelable&&e.preventDefault(); } }
-  [st,document.getElementById('gsFeature')].forEach(function(el){
-    el.addEventListener('touchstart',down,{passive:true}); el.addEventListener('touchend',up,{passive:false});
-    el.addEventListener('mousedown',down); el.addEventListener('mouseup',up);
-  });
   document.addEventListener('keydown',function(e){
     var w=document.getElementById('welcomeScreen'); if(!w||getComputedStyle(w).display==='none') return;
     if(/INPUT|TEXTAREA|SELECT/.test((e.target.tagName||''))) return;
     if(e.key==='ArrowRight') go(sel+1,1); else if(e.key==='ArrowLeft') go(sel-1,-1);
   });
-  // Learn shortcut -> the original Learn button
   var L=document.getElementById('btnLearnShortcut'); if(L) L.addEventListener('click',function(){var b=document.getElementById('btnPlayLocal'); if(b) b.click();});
-  // video: play only when visible, never on reduced-motion / data-saver
+
+  /* ---------- hero video: plays once, rests on the final frame (king with the sword) ---------- */
   var v=document.getElementById('gsVideo');
-  var calm=(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)||(navigator.connection&&navigator.connection.saveData);
-  if(v&&!calm){
-    var vis=true;
-    var done=false; v.addEventListener('ended',function(){done=true;});   // plays ONCE per page load, then rests on the can; a refresh plays it again
+  var saveData=(navigator.connection&&navigator.connection.saveData);
+  if(v&&!calm&&!saveData){
+    var vis=true, done=false; v.addEventListener('ended',function(){done=true;});
     function sync(){ if(done) return; if(vis&&!document.hidden){var p=v.play(); if(p&&p.catch)p.catch(function(){});} else v.pause(); }
     if('IntersectionObserver' in window) new IntersectionObserver(function(en){vis=en[0].isIntersecting;sync();},{threshold:.15}).observe(st);
     document.addEventListener('visibilitychange',sync); sync();
-  } else if(v){ v.removeAttribute('autoplay'); }
-  // ---- orbit engine: buttons travel on an ellipse around the can; front = selected game ----
-  var tgt=0, cur=0, holdUntil=Date.now()+7000, calmMotion=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var trk=document.getElementById('gsTrack');
-  function layout(){
-    var w=st.clientWidth, h=st.clientHeight, N=G.length;
-    var rx=Math.min(w/2-44, 210), ry=Math.max(56,h*0.17), cy=h*0.69, cx=w/2;
-    if(trk){ trk.style.left=(cx-rx)+'px'; trk.style.top=(cy-ry)+'px'; trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; }
-    chips.forEach(function(c){
-      var i=+c.dataset.i, a=(i-cur)*(2*Math.PI/N), sn=Math.sin(a), cs=Math.cos(a), dp=(cs+1)/2;   // dp: 1 = front, 0 = back
-      var sc=0.46+0.62*dp, x=cx+sn*rx*(0.9+0.1*dp), y=cy+cs*ry-(1-dp)*h*0.07;                      // back end rises
-      c.style.transform='translate('+(x-46)+'px,'+(y-35)+'px) scale('+sc.toFixed(3)+')';
-      c.style.opacity=(0.28+0.72*Math.pow(dp,0.8)).toFixed(3);
-      c.style.filter=dp<0.5?'blur('+((0.5-dp)*3).toFixed(2)+'px) brightness('+(0.6+0.8*dp).toFixed(2)+')':'none';
-      c.style.zIndex=dp>0.55?String(10+Math.round(dp*20)):'1';                                   // back half sits behind the can, front half in front
-      c.style.pointerEvents=dp<0.4?'none':'auto';
-    });
-  }
-  function tick(){
-    var d=tgt-cur;
-    if(calmMotion||Math.abs(d)<0.002){ cur=tgt; } else cur+=d*0.12;
-    layout(); requestAnimationFrame(tick);
-  }
-  window.addEventListener('resize',layout);
-  setInterval(function(){                       // gentle auto-orbit: one step every few seconds, only while the home screen is showing
-    var w=document.getElementById('welcomeScreen');
-    if(calmMotion||document.hidden||Date.now()<holdUntil||!w||getComputedStyle(w).display==='none'||dr.classList.contains('on')) return;
-    go(sel+1,1,true);
-  },4200);
-  ['touchstart','mousedown','keydown'].forEach(function(ev){ st.addEventListener(ev,function(){ holdUntil=Date.now()+14000; },{passive:true}); });
-  var mdx=null; st.addEventListener('mousedown',function(e){mdx=e.clientX;}); st.addEventListener('mousemove',function(e){ if(mdx!==null&&Math.abs(e.clientX-mdx)>8) dragged=true; });
-  st.addEventListener('mouseup',function(){ mdx=null; setTimeout(function(){dragged=false;},0); });
-  requestAnimationFrame(tick);
-  // side menu
+  } else if(v){ v.addEventListener('loadedmetadata',function(){ try{ v.currentTime=Math.max(0,v.duration-0.05); }catch(e){} }); v.preload='auto'; }
+
+  /* ---------- side menu ---------- */
   var dr=document.getElementById('gDrawer'), sc=document.getElementById('gdScrim'), ob=document.getElementById('gdOpen');
   function menu(on){ dr.classList.toggle('on',on); sc.classList.toggle('on',on); dr.setAttribute('aria-hidden',on?'false':'true'); ob.setAttribute('aria-expanded',on?'true':'false'); }
   ob.addEventListener('click',function(){menu(true);}); sc.addEventListener('click',function(){menu(false);}); document.getElementById('gdClose').addEventListener('click',function(){menu(false);});
@@ -4573,7 +4605,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   [].forEach.call(dr.querySelectorAll('button[data-go]'),function(b){
     b.addEventListener('click',function(){ menu(false); var t=document.getElementById(b.getAttribute('data-go')); if(t) setTimeout(function(){t.click();},120); });
   });
-  paint(0);
+  paint(0); requestAnimationFrame(frame);
 })();
 </script>
   <div class="welcome-stats-bar">
@@ -20627,7 +20659,7 @@ function serverBotPlayForMe() {
     videoSaverOn = true;
     if (!v.getAttribute('src')) {
       var mp4 = v.canPlayType && v.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
-      v.src = mp4 ? '/video/gulan-saver.mp4?v=2' : '/video/gulan-saver.webm?v=2';
+      v.src = mp4 ? '/video/gulan-saver.mp4?v=3' : '/video/gulan-saver.webm?v=3';
     }
     var snd = document.getElementById('gsSaverSnd'), tip = document.getElementById('gsSaverTap');
     v.muted = saverMuted; snd.textContent = saverMuted ? '🔇' : '🔊'; tip.style.display = 'none';
