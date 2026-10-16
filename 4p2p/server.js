@@ -787,7 +787,7 @@ setInterval(() => { try { usage.sampleMemory(); } catch (e) {} }, 15 * 1000);   
 // unreliable-on-restart behavior as before) rather than crashing.
 const fs2 = require('fs');
 const VISITOR_LOG_FILE = path.join(DATA_DIR, 'visitor-log-data.json');
-const VISITOR_LOG_MAX = 500;
+const VISITOR_LOG_MAX = 2000;   // detailed visit cards kept (the counts above them come from the daily totals below, which never lose a day)
 const VISITOR_LOG_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const GITHUB_REPO = process.env.GITHUB_REPO || '';
@@ -1399,6 +1399,28 @@ function fullRegionName(countryCode, regionCode) {
   return (table && table[regionCode]) || regionCode;
 }
 
+// ---- Exact visit counts per day (small, kept ~13 months): the detailed list above is capped, but these totals are not ----
+const VISITOR_DAILY_FILE = path.join(DATA_DIR, 'visitor-daily.json');
+let visitorDaily = {}, visitorDailyDirty = false, visitorDailyFresh = true;
+try { visitorDaily = JSON.parse(fs2.readFileSync(VISITOR_DAILY_FILE, 'utf8')) || {}; visitorDailyFresh = false; } catch (e) { visitorDaily = {}; }
+const vdKey = (ms) => new Date(ms).toISOString().slice(0, 10);
+const vdHash = (id) => require('crypto').createHash('sha1').update(String(id)).digest('hex').slice(0, 10);
+function recordVisitorDaily(entry) {
+  try {
+    const k = vdKey(entry.ts), d = visitorDaily[k] || (visitorDaily[k] = { v: 0, u: [] });
+    d.v++; const h = vdHash(entry.vid || entry.ip || 'unknown'); if (!d.u.includes(h)) d.u.push(h);
+    visitorDailyDirty = true;
+    const keys = Object.keys(visitorDaily); if (keys.length > 400) keys.sort().slice(0, keys.length - 400).forEach(x => delete visitorDaily[x]);
+  } catch (e) {}
+}
+setInterval(() => { if (!visitorDailyDirty) return; try { fs2.writeFileSync(VISITOR_DAILY_FILE, JSON.stringify(visitorDaily)); visitorDailyDirty = false; } catch (e) {} }, 20 * 1000);
+// first run only: seed the totals from whatever detailed visits are already in the log
+setTimeout(() => { if (!visitorDailyFresh) return; visitorDaily = {}; for (const e of visitorLog) { if (e && e.ts) { const k = vdKey(e.ts), d = visitorDaily[k] || (visitorDaily[k] = { v: 0, u: [] }); d.v++; const h = vdHash(e.vid || e.ip || 'unknown'); if (!d.u.includes(h)) d.u.push(h); } } visitorDailyDirty = true; visitorDailyFresh = false; }, 30 * 1000);
+function visitorDailySummary(days) {   // days = number of most recent UTC days (null = all)
+  const keys = Object.keys(visitorDaily).sort(); const use = days ? keys.slice(-days) : keys;
+  const u = new Set(); let v = 0; for (const k of use) { v += visitorDaily[k].v; visitorDaily[k].u.forEach(x => u.add(x)); }
+  return { visits: v, unique: u.size };
+}
 const ipIntel = require('./ip-intel').create({ file: path.join(DATA_DIR, 'ip-intel.json') });
 const ipIntelApply = require('./ip-intel').applyTo;
 // Fills one log entry with the detailed online lookup (city, zip, ISP, org, reverse-DNS, crawler flag) as soon as it is available.
@@ -1448,6 +1470,7 @@ function logVisitor(socket) {
     socketId: socket.id
   };
   visitorLog.unshift(entry);
+  recordVisitorDaily(entry);
   enrichVisitorEntry(entry);
   const cutoff = Date.now() - VISITOR_LOG_MAX_AGE_MS;
   visitorLog = visitorLog.filter(e => e.ts >= cutoff);
@@ -1487,14 +1510,18 @@ function visitorLogFilteredAndSummary(filter) {
     return b.ts - a.ts;
   });
   const bucket = (c) => visitorLog.filter(e => e.ts >= c);
-  const summarize = (list) => ({ visits: list.length, unique: uniqueIpCount(list) });
+  const idOf = (e) => e.vid || e.ip;
+  const uniq = (list) => { const x = new Set(); for (const e of list) { const i = idOf(e); if (i) x.add(i); } return x.size; };
+  const today = { visits: bucket(cutoffs.today).length, unique: uniq(bucket(cutoffs.today)) };
+  const atLeast = (r) => ({ visits: Math.max(r.visits, today.visits), unique: Math.max(r.unique, today.unique) });
   const summary = {
-    today: summarize(bucket(cutoffs.today)),
-    week: summarize(bucket(cutoffs.week)),
-    month: summarize(bucket(cutoffs.month)),
-    all: summarize(visitorLog)
+    today,
+    week: atLeast(visitorDailySummary(7)),
+    month: atLeast(visitorDailySummary(30)),
+    all: atLeast(visitorDailySummary(null))
   };
-  return { entries, summary };
+  const oldestTs = visitorLog.length ? visitorLog[visitorLog.length - 1].ts : null;
+  return { entries, summary, oldestTs, stored: visitorLog.length };
 }
 
 io.on('connection', (socket) => {
@@ -1539,8 +1566,8 @@ io.on('connection', (socket) => {
   socket.on('adminGetVisitorLog', ({ adminPassword, filter }) => {
     const auth = checkAdminAuthSocket(socket, adminPassword);
     if (!auth.ok) { socket.emit('adminActionResult', { ok: false, action: 'visitorLog', reason: auth.reason }); return; }
-    const { entries, summary } = visitorLogFilteredAndSummary(filter || 'all');
-    socket.emit('adminVisitorLog', { entries, summary, filter: filter || 'all' });
+    const { entries, summary, oldestTs, stored } = visitorLogFilteredAndSummary(filter || 'all');
+    socket.emit('adminVisitorLog', { entries, summary, oldestTs, stored, filter: filter || 'all' });
   });
 });
 
@@ -1865,8 +1892,8 @@ app.get('/api/table-history', (req, res) => {
 // calls.
 app.get('/api/visitor-log', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
-  const { entries, summary } = visitorLogFilteredAndSummary(req.query.filter || 'all');
-  res.json({ ok: true, entries, summary });
+  const { entries, summary, oldestTs, stored } = visitorLogFilteredAndSummary(req.query.filter || 'all');
+  res.json({ ok: true, entries, summary, oldestTs, stored });
 });
 
 // Admin: network usage (see the NETWORK USAGE TRACKING section above for
