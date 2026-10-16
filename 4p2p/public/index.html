@@ -4457,7 +4457,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   <div class="gs-top"><button type="button" id="gdOpen" aria-label="Open games menu" aria-expanded="false"><i></i><i></i><i></i></button><span class="gs-brand">28GULAN.COM</span></div>
   <section class="gs" id="gStage" aria-label="Choose a game" style="--k:#e0b878">
     <div class="gs-glow"></div>
-    <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.webm" type="video/webm"><source src="/video/gulan-hero.mp4" type="video/mp4"></video></div>
+    <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.webm?v=2" type="video/webm"><source src="/video/gulan-hero.mp4?v=2" type="video/mp4"></video></div>
     <div class="gs-track" id="gsTrack"></div>
     <div class="gs-ring" id="gsRing"><a class="gs-chip" href="/play6.html" data-i="0" style="--c:#e0b878" aria-label="28 · 6 Player"><span class="gs-g">28</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/" data-i="1" style="--c:#d4574a" aria-label="28 · 4 Player"><span class="gs-g">28</span><span class="gs-l">4 Player</span></a><a class="gs-chip" href="/56.html" data-i="2" style="--c:#2a9d8f" aria-label="56 · Ampathiaaru"><span class="gs-g">56</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/holdem.html" data-i="3" style="--c:#1fa463" aria-label="Texas Hold'em"><span class="gs-g">🃏</span><span class="gs-l">Hold'em</span></a><a class="gs-chip" href="/spades.html" data-i="4" style="--c:#4b86e0" aria-label="Spades"><span class="gs-g">♠</span><span class="gs-l">Spades</span></a><a class="gs-chip" href="/carrom.html" data-i="5" style="--c:#c28a43" aria-label="Carrom"><span class="gs-g">🎯</span><span class="gs-l">Carrom</span></a><a class="gs-chip" href="/pool.html" data-i="6" style="--c:#1aa88f" aria-label="8-Ball Pool"><span class="gs-g">🎱</span><span class="gs-l">Pool</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" style="--c:#8a63d2" aria-label="Logic Puzzles"><span class="gs-g">🧩</span><span class="gs-l">Puzzles</span></a></div>
   </section>
@@ -20627,7 +20627,7 @@ function serverBotPlayForMe() {
     videoSaverOn = true;
     if (!v.getAttribute('src')) {
       var mp4 = v.canPlayType && v.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
-      v.src = mp4 ? '/video/gulan-saver.mp4' : '/video/gulan-saver.webm';
+      v.src = mp4 ? '/video/gulan-saver.mp4?v=2' : '/video/gulan-saver.webm?v=2';
     }
     var snd = document.getElementById('gsSaverSnd'), tip = document.getElementById('gsSaverTap');
     v.muted = saverMuted; snd.textContent = saverMuted ? '🔇' : '🔊'; tip.style.display = 'none';
