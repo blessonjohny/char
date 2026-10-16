@@ -3299,7 +3299,7 @@ function renderVisitorLog(entries, summary) {
   const isLive = (e) => e.sessionMs == null && !e.endedByRestart;
   const groups = new Map();
   [...entries].sort((x, y) => (y.ts || 0) - (x.ts || 0)).forEach(e => {
-    const key = e.ip || 'unknown IP';
+    const key = e.vid ? 'dev:' + e.vid : (e.ip || 'unknown IP');
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(e);               // already newest-first within each group
   });
@@ -3321,8 +3321,12 @@ function renderVisitorLog(entries, summary) {
   const locOf = (e) => [e.city, e.regionName || e.region, e.zip, e.countryName || e.country].filter(Boolean).join(', ') || 'Unknown location';
   const netOf = (e) => [e.isp || e.org, e.asn].filter(Boolean).join(' · ');
   const devOf = (e) => [e.device, e.os, e.browser].filter(Boolean).join(' · ') || 'Unknown device';
-  listEl.innerHTML = ordered.map(([ip, visits]) => {
+  listEl.innerHTML = ordered.map(([gkey, visits]) => {
     const e = visits[0];                       // latest visit = the card's headline
+    const ip = e.ip || gkey;
+    const ipList = [...new Set(visits.map(v => v.ip).filter(Boolean))];
+    const sameNet = (a, b) => (a.isp || a.org) && (a.isp || a.org) === (b.isp || b.org) && a.device === b.device && a.browser === b.browser && (a.language || '') === (b.language || '') && (a.regionName || a.region) === (b.regionName || b.region);
+    const lookalikes = e.vid ? [] : ordered.filter(([k2, v2]) => k2 !== gkey && sameNet(e, v2[0])).map(([k2, v2]) => v2[0].ip).filter(Boolean).slice(0, 3);
     const earlier = visits.slice(1);
     const live = visits.some(isLive);
     const heavy = visits.length >= 10;         // same IP 10+ times in this view: worth a look (refreshing / a bot)
@@ -3336,15 +3340,19 @@ function renderVisitorLog(entries, summary) {
     ].filter(Boolean).join('');
     const subs = earlier.map(v => {
       const sameLoc = locOf(v) === locOf(e), sameDev = devOf(v) === devOf(e);
-      const diff = [sameLoc ? '' : '📍 ' + esc(locOf(v)), sameDev ? '' : '📱 ' + esc(devOf(v))].filter(Boolean).join(' · ');
+      const diff = [v.ip && v.ip !== e.ip ? '🔀 ' + esc(v.ip) : '', sameLoc ? '' : '📍 ' + esc(locOf(v)), sameDev ? '' : '📱 ' + esc(devOf(v))].filter(Boolean).join(' · ');
       return `<div class="vsub"><div>${durText(v)}${v.referrer ? ' · ↪️ ' + esc(v.referrer) : ''}${diff ? '<br>' + diff : ''}</div><div class="vwhen">${esc(fmtTime(v.ts))}</div></div>`;
     }).join('');
-    const open = visitorOpenIps.has(ip) ? ' open' : '';
+    const open = visitorOpenIps.has(gkey) ? ' open' : '';
     return `
       <div class="vgroup${live ? ' live' : ''}${heavy ? ' heavy' : ''}">
         <div class="vtop">
           <div>
             <div class="who">${esc(ip)}</div>
+            ${e.acctName ? `<div class="where">👤 signed in as <b>${esc(e.acctName)}</b></div>` : ''}
+            ${ipList.length > 1 ? `<div class="where">🔀 same device, ${ipList.length} IPs: ${ipList.map(esc).join(' · ')}</div>` : ''}
+            ${e.vid ? `<div class="where" style="opacity:.6">🪪 device ${esc(e.vid.slice(0, 6))}</div>` : ''}
+            ${lookalikes.length ? `<div class="where" style="opacity:.8">🤝 may be the same person as ${lookalikes.map(esc).join(', ')} (same network, device, area)</div>` : ''}
             <div class="where">📍 ${esc(locOf(e))}${mapLink}</div>
             ${netOf(e) ? `<div class="where">🏢 ${esc(netOf(e))}${e.org && e.org !== e.isp ? ' (' + esc(e.org) + ')' : ''}</div>` : ''}
             ${e.hostname ? `<div class="where">🔎 ${esc(e.hostname)}</div>` : ''}
@@ -3355,7 +3363,7 @@ function renderVisitorLog(entries, summary) {
           </div>
           <div class="vtime">${esc(fmtTime(e.ts))}<span class="ago">${esc(ago(e.ts))}</span></div>
         </div>
-        ${earlier.length ? `<details data-ip="${esc(ip)}"${open}><summary>Earlier visits (${earlier.length})</summary>${subs}</details>` : ''}
+        ${earlier.length ? `<details data-ip="${esc(gkey)}"${open}><summary>Earlier visits (${earlier.length})</summary>${subs}</details>` : ''}
       </div>`;
   }).join('');
   // remember which groups the admin expanded, so an auto-refresh doesn't snap them shut
