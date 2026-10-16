@@ -538,6 +538,18 @@ app.get('/api/turn-credentials', async (req, res) => {
 // ============================================================
 app.use(express.json({ limit: '32kb' }));
 
+// Anonymous device id: a first-party cookie handed out on the first page load. It lets the admin visitor log recognise the SAME browser
+// even when its IP changes (Wi-Fi <-> mobile data). Random, carries no personal data, and is never shown to other players.
+app.use((req, res, next) => {
+  try {
+    if (!/(?:^|;\s*)k28vid=/.test(req.headers.cookie || '') && (req.method === 'GET') && /\.html?$|\/$/.test(req.path)) {
+      const id = require('crypto').randomBytes(9).toString('hex');
+      res.append('Set-Cookie', 'k28vid=' + id + '; Max-Age=' + (2 * 365 * 86400) + '; Path=/; SameSite=Lax' + (req.secure || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : ''));
+    }
+  } catch (e) {}
+  next();
+});
+
 const COMMENTS_FILE = path.join(DATA_DIR, 'comments-data.json');
 const GITHUB_COMMENTS_PATH = '4p2p/data/comments.json';
 let comments = [];
@@ -1411,7 +1423,8 @@ function logVisitor(socket) {
   // whatever's currently in the (capped, 90-day) log, not literally
   // forever. Good enough to eyeball "is this a new person or someone
   // who's been here before" without needing real accounts/cookies.
-  const returning = ip ? visitorLog.some(e => e.ip === ip) : false;
+  const vidNow = ((headers.cookie || '').match(/(?:^|;\s*)k28vid=([a-f0-9]{8,32})/) || [])[1] || null;
+  const returning = vidNow ? visitorLog.some(e => e.vid === vidNow) || (ip ? visitorLog.some(e => e.ip === ip) : false) : (ip ? visitorLog.some(e => e.ip === ip) : false);
   const entry = {
     ip,
     country: geo ? geo.country : null,
@@ -1429,6 +1442,8 @@ function logVisitor(socket) {
     language,
     referrer,
     returning,
+    vid: ((headers.cookie || '').match(/(?:^|;\s*)k28vid=([a-f0-9]{8,32})/) || [])[1] || null,
+    acctName: (() => { try { const u = accounts.userFromCookieHeader(headers.cookie); return u ? (u.playerName || u.name || null) : null; } catch (e) { return null; } })(),
     ts: Date.now(),
     socketId: socket.id
   };
