@@ -4197,7 +4197,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <style id="gs-css">
 /* ===== Home stage: can video centre, games around it ===== */
 #welcomeScreen > .welcome-btn-wrap.welcome-btn-grid,#welcomeScreen > .w-old-puz{display:none!important}
-.gs{--k:#e0b878;position:relative;width:100%;max-width:560px;height:clamp(380px,56vh,520px);margin:52px auto 0;flex-shrink:0;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.gs{--k:#e0b878;position:relative;width:100%;max-width:560px;height:clamp(380px,60vh,540px);margin:0 auto;flex-shrink:0;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .gs-glow{position:absolute;left:50%;top:50%;width:92%;height:78%;transform:translate(-50%,-50%);background:radial-gradient(closest-side,color-mix(in srgb,var(--k) 38%,transparent),transparent 72%);filter:blur(18px);transition:background .6s ease;animation:gsBreathe 5s ease-in-out infinite}
 .gs-video{position:absolute;left:50%;top:0;height:100%;aspect-ratio:1/2;transform:translateX(-50%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 26%,#000 74%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 7%,#000 90%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 26%,#000 74%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 7%,#000 90%,transparent 100%);mask-composite:intersect}
 .gs-video video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
@@ -4239,6 +4239,23 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 @media (max-aspect-ratio:3/5){#gsSaver video{object-fit:cover}}
 #gsSaverSnd{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:14px;width:46px;height:46px;border-radius:50%;border:1.5px solid rgba(233,185,73,.55);background:rgba(0,0,0,.5);color:#f0cf94;font-size:1.3rem;cursor:pointer}
 #gsSaverTap{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);text-align:center;font-size:.72rem;letter-spacing:1.2px;text-transform:uppercase;color:#f0cf94;opacity:.75;text-shadow:0 1px 6px #000;pointer-events:none}
+/* header + side menu */
+.gs-top{position:sticky;top:0;z-index:30;width:100%;box-sizing:border-box;display:flex;align-items:center;gap:12px;padding:10px 12px;background:linear-gradient(180deg,rgba(6,12,22,.88),rgba(6,12,22,0));pointer-events:none}
+.gs-top>*{pointer-events:auto}
+#gdOpen{width:46px;height:46px;border-radius:14px;border:1.5px solid rgba(233,185,73,.5);background:rgba(10,18,32,.72);backdrop-filter:blur(6px);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;cursor:pointer;padding:0}
+#gdOpen i{display:block;width:20px;height:2px;border-radius:2px;background:#e9b949}
+.gs-brand{font-family:'Cinzel','Playfair Display',serif;font-weight:800;letter-spacing:1.5px;font-size:.95rem;color:#e9b949;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+#gdScrim{position:fixed;inset:0;z-index:2290;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .3s}
+#gdScrim.on{opacity:1;pointer-events:auto}
+#gDrawer{position:fixed;top:0;bottom:0;left:0;width:min(82vw,320px);z-index:2300;transform:translateX(-102%);transition:transform .32s cubic-bezier(.3,.9,.3,1);background:linear-gradient(180deg,#0e1a2e,#08111f);border-right:1.5px solid rgba(233,185,73,.4);box-shadow:8px 0 30px rgba(0,0,0,.5);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 0 28px;visibility:hidden}
+#gDrawer.on{transform:none;visibility:visible}
+.gd-head{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px;font-family:'Cinzel','Playfair Display',serif;font-weight:800;letter-spacing:1.5px;color:#e9b949;font-size:1.05rem}
+#gdClose{width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(233,185,73,.4);background:transparent;color:#e9b949;font-size:1.1rem;cursor:pointer}
+.gd-sec{padding:14px 18px 6px;font-size:.66rem;letter-spacing:1.6px;text-transform:uppercase;color:#cdbf9c;opacity:.6}
+.gd-i{display:flex;align-items:center;gap:14px;width:100%;box-sizing:border-box;padding:12px 18px;border:0;border-left:3px solid transparent;background:transparent;color:#f0e3c2;text-decoration:none;font:600 .95rem/1.2 'Inter',system-ui,sans-serif;text-align:left;cursor:pointer}
+.gd-i:active,.gd-i:hover{background:rgba(233,185,73,.1);border-left-color:var(--c,#e9b949)}
+.gd-g{width:34px;text-align:center;font-family:'Cinzel','Playfair Display',serif;font-weight:800;font-size:1.25rem;color:var(--c,#e9b949)}
+#welcomeScreen .welcome-subbtn-row{display:none!important}
 </style>
 </head>
 <body>
@@ -4414,16 +4431,24 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <p>Also play <a href="/56.html" style="color:#ffd700">56 (Ampathiaaru / Ambathiyaaru)</a>, the six-player, two-team cousin of 28. Guides: <a href="/kerala-28-gulan-guide.html" style="color:#ffd700">how to play 28</a> · <a href="/kerala-56-ampathiaaru-guide.html" style="color:#ffd700">how to play 56</a>.</p>
   </div>
 </noscript>
+<div id="gdScrim"></div>
+<nav id="gDrawer" aria-label="Games menu" aria-hidden="true">
+  <div class="gd-head"><span>28 GULAN</span><button type="button" id="gdClose" aria-label="Close menu">✕</button></div>
+  <div class="gd-sec">Play</div><a class="gd-i" href="/play6.html" data-c="" style="--c:#e0b878"><span class="gd-g">28</span><span class="gd-t">6 Player</span></a><a class="gd-i" href="/" data-c="btnPlayOnline" style="--c:#d4574a"><span class="gd-g">28</span><span class="gd-t">4 Player</span></a><a class="gd-i" href="/56.html" data-c="" style="--c:#2a9d8f"><span class="gd-g">56</span><span class="gd-t">56 · Ampathiaaru</span></a><a class="gd-i" href="/holdem.html" data-c="" style="--c:#1fa463"><span class="gd-g">🃏</span><span class="gd-t">Texas Hold'em</span></a><a class="gd-i" href="/spades.html" data-c="" style="--c:#4b86e0"><span class="gd-g">♠</span><span class="gd-t">Spades</span></a><a class="gd-i" href="/carrom.html" data-c="" style="--c:#c28a43"><span class="gd-g">🎯</span><span class="gd-t">Carrom</span></a><a class="gd-i" href="/pool.html" data-c="" style="--c:#1aa88f"><span class="gd-g">🎱</span><span class="gd-t">8-Ball Pool</span></a><a class="gd-i" href="/puzzles.html" data-c="" style="--c:#8a63d2"><span class="gd-g">🧩</span><span class="gd-t">Logic Puzzles</span></a>
+  <div class="gd-sec">More</div><button type="button" class="gd-i gd-b" data-go="btnPlayLocal"><span class="gd-g">🧠</span><span class="gd-t">Learn 28 vs AI</span></button><button type="button" class="gd-i gd-b" data-go="btnRules"><span class="gd-g">📖</span><span class="gd-t">How to Play</span></button><button type="button" class="gd-i gd-b" data-go="btnBrainManager"><span class="gd-g">🧠</span><span class="gd-t">Bot Brain Manager</span></button><button type="button" class="gd-i gd-b" data-go="btnLoadSavedGame"><span class="gd-g">📂</span><span class="gd-t">Load Saved Game</span></button><button type="button" class="gd-i gd-b" data-go="btnLeaveComment"><span class="gd-g">💌</span><span class="gd-t">Leave a Comment</span></button>
+  <div class="gd-sec">Guides</div>
+  <a class="gd-i" href="/kerala-28-gulan-guide.html"><span class="gd-g">📜</span><span class="gd-t">How to play 28</span></a>
+  <a class="gd-i" href="/kerala-56-ampathiaaru-guide.html"><span class="gd-g">📜</span><span class="gd-t">How to play 56</span></a>
+</nav>
 <div id="gsSaver" aria-hidden="true"><video id="gsSaverVid" playsinline loop preload="none"></video><button type="button" id="gsSaverSnd" aria-label="Sound on or off">🔊</button><div id="gsSaverTap">Tap anywhere to play</div></div>
 <div class="welcome-screen" id="welcomeScreen">
   <!-- HOME STAGE: the 28gulan can video in the centre, game buttons around it, swipe left/right to change the
        featured game (default: 28 6-Player). The original button grid below is kept in the page but hidden, so every
        existing click handler (btnPlayOnline, btnPlayLocal...) still works: the stage triggers them. -->
+  <div class="gs-top"><button type="button" id="gdOpen" aria-label="Open games menu" aria-expanded="false"><i></i><i></i><i></i></button><span class="gs-brand">28GULAN.COM</span></div>
   <section class="gs" id="gStage" aria-label="Choose a game" style="--k:#e0b878">
     <div class="gs-glow"></div>
-    <div class="gs-video"><video id="gsVideo" muted loop playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.webm" type="video/webm"><source src="/video/gulan-hero.mp4" type="video/mp4"></video></div>
-    <div class="gs-col gs-cl"><a class="gs-chip" href="/play6.html" data-i="0" style="--c:#e0b878" aria-label="28 · 6 Player"><span class="gs-g">28</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/" data-i="1" style="--c:#d4574a" aria-label="28 · 4 Player"><span class="gs-g">28</span><span class="gs-l">4 Player</span></a><a class="gs-chip" href="/56.html" data-i="2" style="--c:#2a9d8f" aria-label="56 · Ampathiaaru"><span class="gs-g">56</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/holdem.html" data-i="3" style="--c:#1fa463" aria-label="Texas Hold'em"><span class="gs-g">🃏</span><span class="gs-l">Hold'em</span></a></div>
-    <div class="gs-col gs-cr"><a class="gs-chip" href="/spades.html" data-i="4" style="--c:#4b86e0" aria-label="Spades"><span class="gs-g">♠</span><span class="gs-l">Spades</span></a><a class="gs-chip" href="/carrom.html" data-i="5" style="--c:#c28a43" aria-label="Carrom"><span class="gs-g">🎯</span><span class="gs-l">Carrom</span></a><a class="gs-chip" href="/pool.html" data-i="6" style="--c:#1aa88f" aria-label="8-Ball Pool"><span class="gs-g">🎱</span><span class="gs-l">Pool</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" style="--c:#8a63d2" aria-label="Logic Puzzles"><span class="gs-g">🧩</span><span class="gs-l">Puzzles</span></a></div>
+    <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.webm" type="video/webm"><source src="/video/gulan-hero.mp4" type="video/mp4"></video></div>
   </section>
   <div class="gs-feature" id="gsFeature">
     <button type="button" class="gs-arr" id="gsPrev" aria-label="Previous game">‹</button>
@@ -4484,10 +4509,22 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   var calm=(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)||(navigator.connection&&navigator.connection.saveData);
   if(v&&!calm){
     var vis=true;
-    function sync(){ if(vis&&!document.hidden){var p=v.play(); if(p&&p.catch)p.catch(function(){});} else v.pause(); }
+    var done=false; v.addEventListener('ended',function(){done=true;});   // plays ONCE per page load, then rests on the can; a refresh plays it again
+    function sync(){ if(done) return; if(vis&&!document.hidden){var p=v.play(); if(p&&p.catch)p.catch(function(){});} else v.pause(); }
     if('IntersectionObserver' in window) new IntersectionObserver(function(en){vis=en[0].isIntersecting;sync();},{threshold:.15}).observe(st);
     document.addEventListener('visibilitychange',sync); sync();
   } else if(v){ v.removeAttribute('autoplay'); }
+  // side menu
+  var dr=document.getElementById('gDrawer'), sc=document.getElementById('gdScrim'), ob=document.getElementById('gdOpen');
+  function menu(on){ dr.classList.toggle('on',on); sc.classList.toggle('on',on); dr.setAttribute('aria-hidden',on?'false':'true'); ob.setAttribute('aria-expanded',on?'true':'false'); }
+  ob.addEventListener('click',function(){menu(true);}); sc.addEventListener('click',function(){menu(false);}); document.getElementById('gdClose').addEventListener('click',function(){menu(false);});
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') menu(false); });
+  [].forEach.call(dr.querySelectorAll('a.gd-i[data-c]'),function(a){
+    a.addEventListener('click',function(e){ if(e.metaKey||e.ctrlKey||e.shiftKey) return; var id=a.getAttribute('data-c'); menu(false); if(id){ e.preventDefault(); var b=document.getElementById(id); if(b) b.click(); } });
+  });
+  [].forEach.call(dr.querySelectorAll('button[data-go]'),function(b){
+    b.addEventListener('click',function(){ menu(false); var t=document.getElementById(b.getAttribute('data-go')); if(t) setTimeout(function(){t.click();},120); });
+  });
   paint(0);
 })();
 </script>
