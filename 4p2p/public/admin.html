@@ -327,7 +327,7 @@
       <div class="toolbar">
         <button class="btn ghost" id="btnRefreshVisitors">🔄 Refresh</button>
       </div>
-      <div id="visitorSummary" style="display:flex;gap:8px;margin-bottom:12px"></div>
+      <div id="visitorSummary" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
       <div id="visitorFilters" class="tabs" style="margin-bottom:12px">
         <button class="tab on" data-filter="today">Today</button>
         <button class="tab" data-filter="week">This Week</button>
@@ -3317,6 +3317,7 @@ async function refreshVisitorLog() {
   const res = await adminFetch('/api/visitor-log?filter=' + encodeURIComponent(visitorFilter));
   if (!res.ok) return;
   const data = await res.json();
+  window.__vlOldest = data.oldestTs || null;
   renderVisitorLog(data.entries || [], data.summary || {});
 }
 
@@ -3339,7 +3340,9 @@ function renderVisitorLog(entries, summary) {
       <span class="who" style="font-size:1.1rem">${summary.all?.unique ?? 0}</span>
       <span class="where">unique all time (${summary.all?.visits ?? 0} visits)</span>
     </div>
-  `;
+  ` + (window.__vlOldest ? `<div style="flex-basis:100%;font-size:.7rem;color:var(--muted,#8a93a6);margin-top:4px">Totals are exact, counted per day. Detailed cards go back to ${new Date(window.__vlOldest).toLocaleDateString()}.</div>` : '');
+  if (window.__vlOldest) summaryEl.insertAdjacentHTML('beforeend', '');
+  summaryEl.title = 'Counts are exact (kept per day). The cards below list visits back to ' + (window.__vlOldest ? new Date(window.__vlOldest).toLocaleString() : 'the start') + '.';
   const listEl = document.getElementById('visitorList');
   if (!entries.length) { listEl.innerHTML = '<div class="empty">No visits logged for this period.</div>'; return; }
   // GROUPED BY IP: one card per IP address. The card shows that IP's latest visit; every earlier visit from the
