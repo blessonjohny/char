@@ -4256,6 +4256,15 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .gd-i:active,.gd-i:hover{background:rgba(233,185,73,.1);border-left-color:var(--c,#e9b949)}
 .gd-g{width:34px;text-align:center;font-family:'Cinzel','Playfair Display',serif;font-weight:800;font-size:1.25rem;color:var(--c,#e9b949)}
 #welcomeScreen .welcome-subbtn-row{display:none!important}
+/* orbiting game buttons: positioned by JS on an ellipse around the can */
+.gs{isolation:isolate}
+.gs-ring{position:absolute;inset:0;pointer-events:none}
+.gs-video{z-index:5;mix-blend-mode:screen}
+.gs-glow{z-index:0}
+.gs-track{position:absolute;border:1.5px solid rgba(233,185,73,.22);border-radius:50%;pointer-events:none;z-index:0;box-shadow:0 0 22px rgba(233,185,73,.10),inset 0 0 22px rgba(233,185,73,.06);transform:perspective(1px)}
+.gs-ring .gs-chip{position:absolute;left:0;top:0;width:92px;height:70px;max-height:none;flex:none;margin:0!important;pointer-events:auto;animation:none;will-change:transform,opacity;transition:box-shadow .3s,border-color .3s,background .3s}
+.gs-ring .gs-chip.on{transform:none}
+.gs-ring .gs-chip:active{transform:none}
 </style>
 </head>
 <body>
@@ -4449,6 +4458,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   <section class="gs" id="gStage" aria-label="Choose a game" style="--k:#e0b878">
     <div class="gs-glow"></div>
     <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.webm" type="video/webm"><source src="/video/gulan-hero.mp4" type="video/mp4"></video></div>
+    <div class="gs-track" id="gsTrack"></div>
+    <div class="gs-ring" id="gsRing"><a class="gs-chip" href="/play6.html" data-i="0" style="--c:#e0b878" aria-label="28 · 6 Player"><span class="gs-g">28</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/" data-i="1" style="--c:#d4574a" aria-label="28 · 4 Player"><span class="gs-g">28</span><span class="gs-l">4 Player</span></a><a class="gs-chip" href="/56.html" data-i="2" style="--c:#2a9d8f" aria-label="56 · Ampathiaaru"><span class="gs-g">56</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/holdem.html" data-i="3" style="--c:#1fa463" aria-label="Texas Hold'em"><span class="gs-g">🃏</span><span class="gs-l">Hold'em</span></a><a class="gs-chip" href="/spades.html" data-i="4" style="--c:#4b86e0" aria-label="Spades"><span class="gs-g">♠</span><span class="gs-l">Spades</span></a><a class="gs-chip" href="/carrom.html" data-i="5" style="--c:#c28a43" aria-label="Carrom"><span class="gs-g">🎯</span><span class="gs-l">Carrom</span></a><a class="gs-chip" href="/pool.html" data-i="6" style="--c:#1aa88f" aria-label="8-Ball Pool"><span class="gs-g">🎱</span><span class="gs-l">Pool</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" style="--c:#8a63d2" aria-label="Logic Puzzles"><span class="gs-g">🧩</span><span class="gs-l">Puzzles</span></a></div>
   </section>
   <div class="gs-feature" id="gsFeature">
     <button type="button" class="gs-arr" id="gsPrev" aria-label="Previous game">‹</button>
@@ -4476,14 +4487,19 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     T.textContent=g.t; S.textContent=g.s; P.href=g.h;
     ftxt.classList.remove('go-l','go-r'); void ftxt.offsetWidth; if(dir) ftxt.classList.add(dir>0?'go-l':'go-r');
   }
-  function go(n,dir){ sel=(n+G.length)%G.length; paint(dir||(0)); if(hint) hint.style.opacity='0'; }
+  var dragged=false;
+  function go(n,dir,fromAuto){
+    var N=G.length, nn=(n%N+N)%N, d=((nn-sel+N+N/2)%N)-N/2; if(d>=N/2) d-=N;
+    sel=nn; tgt+=Math.round(d); paint(dir||(d>0?1:d<0?-1:0)); if(hint) hint.style.opacity='0';
+    if(!fromAuto) holdUntil=Date.now()+14000;   // user is playing with it: stop auto-turning for a while
+  }
   function launch(i){
     var g=G[i]; if(g.c){var b=document.getElementById(g.c); if(b){b.click();return;}}
     location.href=g.h;
   }
   chips.forEach(function(c){c.addEventListener('click',function(e){
     if(e.metaKey||e.ctrlKey||e.shiftKey) return;
-    e.preventDefault(); var i=+c.dataset.i; if(i===sel) launch(i); else go(i,i>sel?1:-1);
+    e.preventDefault(); if(dragged){dragged=false;return;} launch(+c.dataset.i);
   });});
   P.addEventListener('click',function(e){ if(e.metaKey||e.ctrlKey||e.shiftKey) return; e.preventDefault(); launch(sel); });
   document.getElementById('gsPrev').addEventListener('click',function(){go(sel-1,-1);});
@@ -4514,6 +4530,38 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     if('IntersectionObserver' in window) new IntersectionObserver(function(en){vis=en[0].isIntersecting;sync();},{threshold:.15}).observe(st);
     document.addEventListener('visibilitychange',sync); sync();
   } else if(v){ v.removeAttribute('autoplay'); }
+  // ---- orbit engine: buttons travel on an ellipse around the can; front = selected game ----
+  var tgt=0, cur=0, holdUntil=Date.now()+7000, calmMotion=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var trk=document.getElementById('gsTrack');
+  function layout(){
+    var w=st.clientWidth, h=st.clientHeight, N=G.length;
+    var rx=Math.min(w/2-44, 210), ry=Math.max(56,h*0.17), cy=h*0.69, cx=w/2;
+    if(trk){ trk.style.left=(cx-rx)+'px'; trk.style.top=(cy-ry)+'px'; trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; }
+    chips.forEach(function(c){
+      var i=+c.dataset.i, a=(i-cur)*(2*Math.PI/N), sn=Math.sin(a), cs=Math.cos(a), dp=(cs+1)/2;   // dp: 1 = front, 0 = back
+      var sc=0.46+0.62*dp, x=cx+sn*rx*(0.9+0.1*dp), y=cy+cs*ry-(1-dp)*h*0.07;                      // back end rises
+      c.style.transform='translate('+(x-46)+'px,'+(y-35)+'px) scale('+sc.toFixed(3)+')';
+      c.style.opacity=(0.28+0.72*Math.pow(dp,0.8)).toFixed(3);
+      c.style.filter=dp<0.5?'blur('+((0.5-dp)*3).toFixed(2)+'px) brightness('+(0.6+0.8*dp).toFixed(2)+')':'none';
+      c.style.zIndex=dp>0.55?String(10+Math.round(dp*20)):'1';                                   // back half sits behind the can, front half in front
+      c.style.pointerEvents=dp<0.4?'none':'auto';
+    });
+  }
+  function tick(){
+    var d=tgt-cur;
+    if(calmMotion||Math.abs(d)<0.002){ cur=tgt; } else cur+=d*0.12;
+    layout(); requestAnimationFrame(tick);
+  }
+  window.addEventListener('resize',layout);
+  setInterval(function(){                       // gentle auto-orbit: one step every few seconds, only while the home screen is showing
+    var w=document.getElementById('welcomeScreen');
+    if(calmMotion||document.hidden||Date.now()<holdUntil||!w||getComputedStyle(w).display==='none'||dr.classList.contains('on')) return;
+    go(sel+1,1,true);
+  },4200);
+  ['touchstart','mousedown','keydown'].forEach(function(ev){ st.addEventListener(ev,function(){ holdUntil=Date.now()+14000; },{passive:true}); });
+  var mdx=null; st.addEventListener('mousedown',function(e){mdx=e.clientX;}); st.addEventListener('mousemove',function(e){ if(mdx!==null&&Math.abs(e.clientX-mdx)>8) dragged=true; });
+  st.addEventListener('mouseup',function(){ mdx=null; setTimeout(function(){dragged=false;},0); });
+  requestAnimationFrame(tick);
   // side menu
   var dr=document.getElementById('gDrawer'), sc=document.getElementById('gdScrim'), ob=document.getElementById('gdOpen');
   function menu(on){ dr.classList.toggle('on',on); sc.classList.toggle('on',on); dr.setAttribute('aria-hidden',on?'false':'true'); ob.setAttribute('aria-expanded',on?'true':'false'); }
