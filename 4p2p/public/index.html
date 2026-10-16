@@ -4193,6 +4193,53 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 <script src="lazy-picker.js?v=1"></script>
 <script src="table-faces.js?v=1"></script>
 <link rel="stylesheet" href="/scenery.css">
+<script>window.K28_POPUPS_FROZEN = true; /* leaderboard, What's New and comment-invite popups are paused; set false to restore */</script>
+<style id="gs-css">
+/* ===== Home stage: can video centre, games around it ===== */
+#welcomeScreen > .welcome-btn-wrap.welcome-btn-grid,#welcomeScreen > .w-old-puz{display:none!important}
+.gs{--k:#e0b878;position:relative;width:100%;max-width:560px;height:clamp(380px,56vh,520px);margin:52px auto 0;flex-shrink:0;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.gs-glow{position:absolute;left:50%;top:50%;width:92%;height:78%;transform:translate(-50%,-50%);background:radial-gradient(closest-side,color-mix(in srgb,var(--k) 38%,transparent),transparent 72%);filter:blur(18px);transition:background .6s ease;animation:gsBreathe 5s ease-in-out infinite}
+.gs-video{position:absolute;left:50%;top:0;height:100%;aspect-ratio:1/2;transform:translateX(-50%);-webkit-mask-image:linear-gradient(to right,transparent 0,#000 26%,#000 74%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 7%,#000 90%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 26%,#000 74%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 7%,#000 90%,transparent 100%);mask-composite:intersect}
+.gs-video video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.gs-col{position:absolute;top:2%;bottom:2%;width:clamp(86px,25vw,124px);display:flex;flex-direction:column;justify-content:space-between;gap:8px;z-index:2}
+.gs-cl{left:6px}.gs-cr{right:6px}
+.gs-chip{flex:1;max-height:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:18px;text-decoration:none;color:#f0e3c2;background:linear-gradient(160deg,rgba(14,24,42,.72),rgba(8,14,26,.66));border:1.5px solid color-mix(in srgb,var(--c) 55%,rgba(233,185,73,.25));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.07);transition:transform .35s cubic-bezier(.34,1.56,.64,1),box-shadow .35s,border-color .35s,background .35s;-webkit-tap-highlight-color:transparent;animation:gsFloat 6s ease-in-out infinite}
+/* arc: the two outer chips tuck toward the can, the middle two bow outward */
+.gs-cl .gs-chip:nth-child(1),.gs-cl .gs-chip:nth-child(4){margin-left:14px}.gs-cr .gs-chip:nth-child(1),.gs-cr .gs-chip:nth-child(4){margin-right:14px}
+.gs-chip:nth-child(2){animation-delay:-1.2s}.gs-chip:nth-child(3){animation-delay:-2.4s}.gs-chip:nth-child(4){animation-delay:-3.6s}.gs-cr .gs-chip:nth-child(odd){animation-delay:-.6s}
+.gs-g{font-family:'Cinzel','Playfair Display',serif;font-weight:800;font-size:1.55rem;line-height:1;color:var(--c);text-shadow:0 1px 8px color-mix(in srgb,var(--c) 55%,transparent)}
+.gs-l{font-size:.64rem;font-weight:700;letter-spacing:.4px;text-transform:uppercase;opacity:.9}
+.gs-chip.on{transform:scale(1.07);border-color:var(--c);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 34%,rgba(14,24,42,.8)),rgba(8,14,26,.72));box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 40%,transparent),0 0 22px color-mix(in srgb,var(--c) 55%,transparent),0 8px 22px rgba(0,0,0,.4);animation:none;z-index:3}
+.gs-chip:active{transform:scale(.96)}
+.gs-feature{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;max-width:420px;margin:6px auto 0;padding:0 10px;box-sizing:border-box}
+.gs-ftxt{flex:1;text-align:center;min-height:52px;display:flex;flex-direction:column;justify-content:center}
+.gs-ft{font-family:'Cinzel','Playfair Display',serif;font-weight:800;font-size:1.3rem;color:var(--k,#e0b878);text-shadow:0 2px 10px rgba(0,0,0,.5)}
+.gs-fs{font-size:.78rem;color:#e8dcc0;opacity:.82;margin-top:2px}
+.gs-ftxt.go-l{animation:gsInL .35s ease both}.gs-ftxt.go-r{animation:gsInR .35s ease both}
+.gs-arr{width:38px;height:38px;border-radius:50%;border:1.5px solid rgba(233,185,73,.35);background:rgba(255,255,255,.04);color:#e9b949;font-size:1.5rem;line-height:1;cursor:pointer;padding:0 0 3px}
+.gs-arr:active{transform:scale(.92)}
+.gs-play{display:flex;align-items:center;justify-content:center;width:min(78%,300px);margin:8px auto 0;padding:14px 20px;border-radius:16px;text-decoration:none;font-family:'Cinzel','Playfair Display',serif;font-weight:800;font-size:1.05rem;letter-spacing:1.5px;color:#1b0f06;background:linear-gradient(160deg,color-mix(in srgb,var(--k) 55%,#fff) 0%,var(--k) 55%,color-mix(in srgb,var(--k) 70%,#000) 100%);box-shadow:0 8px 26px color-mix(in srgb,var(--k) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.45);transition:background .5s,box-shadow .5s,transform .2s;position:relative;overflow:hidden;animation:gsPulse 2.6s ease-in-out infinite}
+.gs-play:active{transform:scale(.97)}
+.gs-dots{display:flex;gap:7px;justify-content:center;margin:12px 0 2px}
+.gs-dots i{width:7px;height:7px;border-radius:50%;background:rgba(233,185,73,.28);transition:all .3s}
+.gs-dots i.on{width:20px;border-radius:6px;background:var(--k)}
+.gs-hint{font-size:.66rem;letter-spacing:.8px;text-transform:uppercase;color:#cdbf9c;opacity:.55;text-align:center;margin-top:4px;transition:opacity .6s}
+.gs-h1{font-family:'Cinzel','Playfair Display',serif;font-size:.78rem;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:#e9b949;opacity:.8;margin:14px 16px 6px;text-align:center}
+@keyframes gsFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes gsBreathe{0%,100%{opacity:.75}50%{opacity:1}}
+@keyframes gsPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.12)}}
+@keyframes gsInL{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes gsInR{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.gs-chip,.gs-glow,.gs-play,.gs-ftxt{animation:none!important}}
+@media (min-width:700px){.gs{height:560px}.gs-col{width:140px}}
+/* idle screensaver: the can video, full screen, with its sound */
+#gsSaver{position:fixed;inset:0;z-index:5000;background:#000;display:none;align-items:center;justify-content:center;opacity:0;transition:opacity .5s}
+#gsSaver.on{display:flex}#gsSaver.show{opacity:1}
+#gsSaver video{width:100%;height:100%;object-fit:contain;display:block}
+@media (max-aspect-ratio:3/5){#gsSaver video{object-fit:cover}}
+#gsSaverSnd{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:14px;width:46px;height:46px;border-radius:50%;border:1.5px solid rgba(233,185,73,.55);background:rgba(0,0,0,.5);color:#f0cf94;font-size:1.3rem;cursor:pointer}
+#gsSaverTap{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);text-align:center;font-size:.72rem;letter-spacing:1.2px;text-transform:uppercase;color:#f0cf94;opacity:.75;text-shadow:0 1px 6px #000;pointer-events:none}
+</style>
 </head>
 <body>
 <!-- Real, confirmed feature per explicit follow-up request ("the
@@ -4367,19 +4414,83 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <p>Also play <a href="/56.html" style="color:#ffd700">56 (Ampathiaaru / Ambathiyaaru)</a>, the six-player, two-team cousin of 28. Guides: <a href="/kerala-28-gulan-guide.html" style="color:#ffd700">how to play 28</a> · <a href="/kerala-56-ampathiaaru-guide.html" style="color:#ffd700">how to play 56</a>.</p>
   </div>
 </noscript>
+<div id="gsSaver" aria-hidden="true"><video id="gsSaverVid" playsinline loop preload="none"></video><button type="button" id="gsSaverSnd" aria-label="Sound on or off">🔊</button><div id="gsSaverTap">Tap anywhere to play</div></div>
 <div class="welcome-screen" id="welcomeScreen">
-  <div class="welcome-hero">
-    <div class="welcome-logo-wrap">
-      <div class="welcome-hero-plaque">
-        <img class="welcome-card-badge" src="/images/jack-card.png" alt="Jack of Spades — 28 Kerala Gulan">
-        <div class="welcome-title-gold">28GULAN.COM</div>
-        <div class="welcome-gold-rule"></div>
-      </div>
-      <div class="welcome-sub">Gulan · 56 · Hold'em · Carrom — Play Card &amp; Board Games Online</div>
-      <div class="welcome-tagline">Bid smart. Play smarter. Become the King.</div>
-    </div>
+  <!-- HOME STAGE: the 28gulan can video in the centre, game buttons around it, swipe left/right to change the
+       featured game (default: 28 6-Player). The original button grid below is kept in the page but hidden, so every
+       existing click handler (btnPlayOnline, btnPlayLocal...) still works: the stage triggers them. -->
+  <section class="gs" id="gStage" aria-label="Choose a game" style="--k:#e0b878">
+    <div class="gs-glow"></div>
+    <div class="gs-video"><video id="gsVideo" muted loop playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.webm" type="video/webm"><source src="/video/gulan-hero.mp4" type="video/mp4"></video></div>
+    <div class="gs-col gs-cl"><a class="gs-chip" href="/play6.html" data-i="0" style="--c:#e0b878" aria-label="28 · 6 Player"><span class="gs-g">28</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/" data-i="1" style="--c:#d4574a" aria-label="28 · 4 Player"><span class="gs-g">28</span><span class="gs-l">4 Player</span></a><a class="gs-chip" href="/56.html" data-i="2" style="--c:#2a9d8f" aria-label="56 · Ampathiaaru"><span class="gs-g">56</span><span class="gs-l">6 Player</span></a><a class="gs-chip" href="/holdem.html" data-i="3" style="--c:#1fa463" aria-label="Texas Hold'em"><span class="gs-g">🃏</span><span class="gs-l">Hold'em</span></a></div>
+    <div class="gs-col gs-cr"><a class="gs-chip" href="/spades.html" data-i="4" style="--c:#4b86e0" aria-label="Spades"><span class="gs-g">♠</span><span class="gs-l">Spades</span></a><a class="gs-chip" href="/carrom.html" data-i="5" style="--c:#c28a43" aria-label="Carrom"><span class="gs-g">🎯</span><span class="gs-l">Carrom</span></a><a class="gs-chip" href="/pool.html" data-i="6" style="--c:#1aa88f" aria-label="8-Ball Pool"><span class="gs-g">🎱</span><span class="gs-l">Pool</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" style="--c:#8a63d2" aria-label="Logic Puzzles"><span class="gs-g">🧩</span><span class="gs-l">Puzzles</span></a></div>
+  </section>
+  <div class="gs-feature" id="gsFeature">
+    <button type="button" class="gs-arr" id="gsPrev" aria-label="Previous game">‹</button>
+    <div class="gs-ftxt" id="gsFtxt"><div class="gs-ft" id="gsT">28 · 6 Player</div><div class="gs-fs" id="gsS">2 teams of 3 · 🎙️ live voice chat</div></div>
+    <button type="button" class="gs-arr" id="gsNext" aria-label="Next game">›</button>
   </div>
+  <a class="gs-play" id="gsPlay" href="/play6.html">▶ PLAY</a>
+  <div class="gs-dots" id="gsDots" aria-hidden="true"></div>
+  <div class="gs-hint">Swipe ‹ › to browse games</div>
+  <h1 class="gs-h1">28 Gulan — Play 28 &amp; 56 Online Free</h1>
 
+<script id="gs-js">
+(function(){
+  var G=[{"t": "28 · 6 Player", "s": "2 teams of 3 · 🎙️ live voice chat", "h": "/play6.html", "c": null, "k": "#e0b878"}, {"t": "28 · 4 Player", "s": "Classic Kerala 28 · 🎙️ live voice chat", "h": "/", "c": "btnPlayOnline", "k": "#d4574a"}, {"t": "56 · Ampathiaaru", "s": "Six players · bid 28 to 56, with doubling", "h": "/56.html", "c": null, "k": "#2a9d8f"}, {"t": "Texas Hold'em", "s": "9-player tables · cash or tournament", "h": "/holdem.html", "c": null, "k": "#1fa463"}, {"t": "Spades", "s": "300 to win · nil bids · bags", "h": "/spades.html", "c": null, "k": "#4b86e0"}, {"t": "Carrom", "s": "1v1 or 2v2 teams · real physics", "h": "/carrom.html", "c": null, "k": "#c28a43"}, {"t": "8-Ball Pool", "s": "1v1 · real physics", "h": "/pool.html", "c": null, "k": "#1aa88f"}, {"t": "Logic Puzzles", "s": "100 puzzles & riddles, with clues", "h": "/puzzles.html", "c": null, "k": "#8a63d2"}];
+  var st=document.getElementById('gStage'); if(!st) return;
+  var chips=[].slice.call(st.querySelectorAll('.gs-chip')), ftxt=document.getElementById('gsFtxt'),
+      T=document.getElementById('gsT'), S=document.getElementById('gsS'), P=document.getElementById('gsPlay'),
+      dots=document.getElementById('gsDots'), hint=document.querySelector('.gs-hint'), sel=0;
+  G.forEach(function(){var d=document.createElement('i');dots.appendChild(d);});
+  function paint(dir){
+    var g=G[sel];
+    chips.forEach(function(c){c.classList.toggle('on',+c.dataset.i===sel);});
+    [].forEach.call(dots.children,function(d,i){d.classList.toggle('on',i===sel);});
+    st.style.setProperty('--k',g.k); st.parentNode.style.setProperty('--k',g.k);
+    T.textContent=g.t; S.textContent=g.s; P.href=g.h;
+    ftxt.classList.remove('go-l','go-r'); void ftxt.offsetWidth; if(dir) ftxt.classList.add(dir>0?'go-l':'go-r');
+  }
+  function go(n,dir){ sel=(n+G.length)%G.length; paint(dir||(0)); if(hint) hint.style.opacity='0'; }
+  function launch(i){
+    var g=G[i]; if(g.c){var b=document.getElementById(g.c); if(b){b.click();return;}}
+    location.href=g.h;
+  }
+  chips.forEach(function(c){c.addEventListener('click',function(e){
+    if(e.metaKey||e.ctrlKey||e.shiftKey) return;
+    e.preventDefault(); var i=+c.dataset.i; if(i===sel) launch(i); else go(i,i>sel?1:-1);
+  });});
+  P.addEventListener('click',function(e){ if(e.metaKey||e.ctrlKey||e.shiftKey) return; e.preventDefault(); launch(sel); });
+  document.getElementById('gsPrev').addEventListener('click',function(){go(sel-1,-1);});
+  document.getElementById('gsNext').addEventListener('click',function(){go(sel+1,1);});
+  // swipe anywhere on the stage or the title row
+  var x0=null,y0=null;
+  function down(e){var t=e.touches?e.touches[0]:e; x0=t.clientX; y0=t.clientY;}
+  function up(e){ if(x0===null) return; var t=e.changedTouches?e.changedTouches[0]:e, dx=t.clientX-x0, dy=t.clientY-y0; x0=null;
+    if(Math.abs(dx)>42 && Math.abs(dx)>Math.abs(dy)*1.5){ if(dx<0) go(sel+1,1); else go(sel-1,-1); e.preventDefault&&e.cancelable&&e.preventDefault(); } }
+  [st,document.getElementById('gsFeature')].forEach(function(el){
+    el.addEventListener('touchstart',down,{passive:true}); el.addEventListener('touchend',up,{passive:false});
+    el.addEventListener('mousedown',down); el.addEventListener('mouseup',up);
+  });
+  document.addEventListener('keydown',function(e){
+    var w=document.getElementById('welcomeScreen'); if(!w||getComputedStyle(w).display==='none') return;
+    if(/INPUT|TEXTAREA|SELECT/.test((e.target.tagName||''))) return;
+    if(e.key==='ArrowRight') go(sel+1,1); else if(e.key==='ArrowLeft') go(sel-1,-1);
+  });
+  // Learn shortcut -> the original Learn button
+  var L=document.getElementById('btnLearnShortcut'); if(L) L.addEventListener('click',function(){var b=document.getElementById('btnPlayLocal'); if(b) b.click();});
+  // video: play only when visible, never on reduced-motion / data-saver
+  var v=document.getElementById('gsVideo');
+  var calm=(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)||(navigator.connection&&navigator.connection.saveData);
+  if(v&&!calm){
+    var vis=true;
+    function sync(){ if(vis&&!document.hidden){var p=v.play(); if(p&&p.catch)p.catch(function(){});} else v.pause(); }
+    if('IntersectionObserver' in window) new IntersectionObserver(function(en){vis=en[0].isIntersecting;sync();},{threshold:.15}).observe(st);
+    document.addEventListener('visibilitychange',sync); sync();
+  } else if(v){ v.removeAttribute('autoplay'); }
+  paint(0);
+})();
+</script>
   <div class="welcome-stats-bar">
     <div class="welcome-stat">
       <div class="welcome-stat-num">32</div>
@@ -4502,13 +4613,14 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     </button>
   </div>
 
-  <div style="display:flex;justify-content:center;margin-top:10px;margin-bottom:20px">
+  <div class="w-old-puz" style="display:flex;justify-content:center;margin-top:10px;margin-bottom:20px">
     <a class="welcome-btn primary" href="/puzzles.html" style="max-width:360px;width:100%;min-height:70px;box-sizing:border-box;background:linear-gradient(135deg,rgba(87,60,130,0.78),rgba(56,38,86,0.75));border-color:rgba(233,185,73,0.5);color:#fff;text-decoration:none;backdrop-filter:blur(2px);flex-direction:column;gap:4px;text-align:center;justify-content:center">
       <span class="btn28-badge" style="font-size:1.2rem">🧩 Logic Puzzles</span> <span style="font-size:0.62em;opacity:0.95;display:block;font-weight:600;color:#f0d9a8;text-shadow:0 1px 2px rgba(0,0,0,0.5)">100 logic puzzles &amp; riddles, with clues</span>
     </a>
   </div>
 
   <div class="welcome-subbtn-row">
+    <button class="welcome-subbtn" id="btnLearnShortcut"><span>🧠</span> Learn 28 vs AI</button>
     <button class="welcome-subbtn" id="btnRules"><span>📖</span> How to Play</button>
     <button class="welcome-subbtn" id="btnBrainManager"><span>🧠</span> Bot Brain Manager</button>
     <button class="welcome-subbtn" id="btnLoadSavedGame"><span>📂</span> Load Saved Game</button>
@@ -7714,6 +7826,7 @@ document.getElementById('btnSendComment').addEventListener('click', sendComment)
 // already shown this in this browsing session" is a single, reliable
 // check rather than needing to guess at timing.
 function maybeShowCommentInviteToast() {
+  if (window.K28_POPUPS_FROZEN) return;
   try {
     if (sessionStorage.getItem('k28_seenCommentInvite')) return;
     sessionStorage.setItem('k28_seenCommentInvite', '1');
@@ -16109,7 +16222,8 @@ function enhanceWelcomeScreen() {
   // every one of the 7 call sites elsewhere becomes a no-op after the
   // first), which is exactly the "once per session, not every time
   // this screen reappears" behavior wanted here.
-  showLeaderboardPopup();
+  // FROZEN (Oct 16, 2026, per owner): no leaderboard / What's New / comment-invite popups for now. Set to false to bring them back.
+  if (!window.K28_POPUPS_FROZEN) showLeaderboardPopup();
   const rules = welcome.querySelector('.welcome-rules');
   const createBotBtn = document.createElement('button');
   createBotBtn.id = 'btnPersonalBot';
@@ -18216,6 +18330,7 @@ const K28_UPDATE_HTML = `
 `;
 var __k28UpdateShown = false;
 function maybeShowUpdateAnnouncement(){
+  if (window.K28_POPUPS_FROZEN) return;
   if (__k28UpdateShown) return;
   try {
     if (localStorage.getItem('k28_seenUpdateVersion') === K28_UPDATE_VERSION) return;
@@ -20418,7 +20533,44 @@ function serverBotPlayForMe() {
     return targets;
   }
 
+  // NEW (Oct 16, 2026): the idle screensaver is now the 28gulan can video, full screen, WITH its sound.
+  // The old bouncing-objects version is still below; set window.K28_BOUNCE_SAVER = true to use it instead.
+  var videoSaverOn = false, saverMuted = false;
+  function startVideoSaver() {
+    var ov = document.getElementById('gsSaver'), v = document.getElementById('gsSaverVid');
+    if (!ov || !v || videoSaverOn) return;
+    videoSaverOn = true;
+    if (!v.getAttribute('src')) {
+      var mp4 = v.canPlayType && v.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
+      v.src = mp4 ? '/video/gulan-saver.mp4' : '/video/gulan-saver.webm';
+    }
+    var snd = document.getElementById('gsSaverSnd'), tip = document.getElementById('gsSaverTap');
+    v.muted = saverMuted; snd.textContent = saverMuted ? '🔇' : '🔊'; tip.style.display = 'none';
+    ov.classList.add('on'); void ov.offsetWidth; ov.classList.add('show');
+    var p = v.play();
+    if (p && p.catch) p.catch(function () {          // browser refused sound (no tap on the page yet): play silently
+      v.muted = true; snd.textContent = '🔇'; tip.textContent = 'Tap 🔊 for sound'; tip.style.display = 'block';
+      var q = v.play(); if (q && q.catch) q.catch(function () {});
+    });
+  }
+  function stopVideoSaver() {
+    if (!videoSaverOn) return;
+    videoSaverOn = false;
+    var ov = document.getElementById('gsSaver'), v = document.getElementById('gsSaverVid');
+    if (ov) { ov.classList.remove('show'); setTimeout(function () { if (!videoSaverOn) ov.classList.remove('on'); }, 500); }
+    if (v) { v.pause(); try { v.currentTime = 0; } catch (e) {} }
+  }
+  (function () {
+    var b = document.getElementById('gsSaverSnd'); if (!b) return;
+    b.addEventListener('click', function (e) {
+      e.stopPropagation(); var v = document.getElementById('gsSaverVid'); if (!v) return;
+      saverMuted = !v.muted; v.muted = saverMuted; b.textContent = saverMuted ? '🔇' : '🔊';
+      document.getElementById('gsSaverTap').style.display = 'none'; if (v.paused) v.play().catch(function () {});
+    });
+    b.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
+  })();
   function startScreensaver() {
+    if (!window.K28_BOUNCE_SAVER) { if (isWelcomeScreenVisible()) startVideoSaver(); return; }
     if (!isWelcomeScreenVisible() || bouncers) return;
     const targets = collectTargets();
     if (!targets.length) return;
@@ -20515,6 +20667,7 @@ function serverBotPlayForMe() {
   }
 
   function stopScreensaver() {
+    stopVideoSaver();
     if (!bouncers) return;
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
@@ -20539,7 +20692,7 @@ function serverBotPlayForMe() {
   // just as if the player had clicked something themselves, so the screensaver could go a very
   // long time without ever actually firing during genuinely idle-but-still-advancing play.
   function handleActivity(e) { if (e.isTrusted) resetIdleTimer(); }
-  ['click', 'touchstart'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
+  ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(evt => document.addEventListener(evt, handleActivity, { passive: true }));
   window.addEventListener('resize', () => { if (bouncers) stopScreensaver(); resetIdleTimer(); });
   resetIdleTimer();
 })();
