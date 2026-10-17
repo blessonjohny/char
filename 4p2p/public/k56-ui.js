@@ -167,7 +167,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<div id="k56Trick"></div>' +
     '<div class="table-oval"><div class="six-oval-rail"></div><div class="six-oval-bevel"></div><div class="six-oval-felt"></div></div>' +
     '<div class="felt-bid" id="feltBid"></div>' +
-    [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="seat" id="seatWrap' + i + '"><div class="av" id="av' + i + '"></div><div class="nm" id="nm' + i + '"></div><div class="cc" id="cc' + i + '"></div><div class="bc" id="bc' + i + '"></div></div>'; }).join('') +
+    [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="seat" id="seatWrap' + i + '"><div class="av" id="av' + i + '"></div><div class="nm" id="nm' + i + '"></div><div class="cc" id="cc' + i + '"></div><div class="bw" id="bw' + i + '"><div class="rvh" id="rv' + i + '"></div><div class="bc" id="bc' + i + '"></div></div></div>'; }).join('') +
     [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="trickslot" id="trickSlot' + i + '"></div>'; }).join('') +
     '<div class="hand-bar"><div class="turnlabel" id="turnLabel"></div><div class="hand-cards" id="handCards"></div></div>' +
     '</div>' +
@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=46">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=48">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -917,18 +917,24 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   function placeBc() {
     var ys = [], minY = 1e9, i;
     for (i = 0; i < 6; i++) { var a = $('av' + i); var y = a && a.offsetHeight ? a.getBoundingClientRect().top : null; ys.push(y); if (y != null && y < minY) minY = y; }
-    for (i = 0; i < 6; i++) {
-      var av = $('av' + i), bc = $('bc' + i); if (!av || !bc) continue;
-      var h = av.offsetHeight || 92;
-      /* the farthest (top) player gets the box above the head, everyone else on the chest */
-      var top = ys[i] != null && ys[i] - minY < 8;
-      bc.style.top = top ? '-26px' : Math.round(h * 0.6) + 'px';
-      bc.style.marginLeft = '0px';
-    }
-    /* keep call boxes out from under the middle panel, and on screen */
     var fp = $('feltBid'), pr = fp && fp.classList.contains('on') && fp.offsetWidth ? fp.getBoundingClientRect() : null, vw = window.innerWidth;
+    /* revealed cards: one size for everybody, sized to the room between the panel and the screen edge */
+    var avail = pr ? Math.min(pr.left, vw - pr.right) : vw * 0.3;
+    var cw = Math.max(13, Math.min(26, (Math.max(70, avail) - 10) / 5.2));
+    if (host) host.style.setProperty('--rvw', cw.toFixed(1) + 'px');
     for (i = 0; i < 6; i++) {
-      var b2 = $('bc' + i); if (!b2 || !b2.firstChild) continue;
+      var av = $('av' + i), bw = $('bw' + i); if (!av || !bw) continue;
+      var h = av.offsetHeight || 92, rv = $('rv' + i);
+      /* the farthest (top) player gets the box above the head with the cards under it; everyone else: cards above the box, box on the chest */
+      var top = ys[i] != null && ys[i] - minY < 8;
+      bw.classList.toggle('bw-top', top);
+      var rh = (!top && rv && rv.firstChild) ? rv.offsetHeight + 3 : 0;
+      bw.style.top = top ? '-26px' : Math.round(h * 0.6 - rh) + 'px';
+      bw.style.marginLeft = '0px';
+    }
+    /* keep everything out from under the middle panel, and on screen */
+    for (i = 0; i < 6; i++) {
+      var b2 = $('bw' + i); if (!b2 || !(b2.querySelector('.bc').firstChild || b2.querySelector('.rvh').firstChild)) continue;
       var r = b2.getBoundingClientRect(), sh = 0;
       if (pr && r.bottom > pr.top && r.top < pr.bottom && r.right > pr.left && r.left < pr.right) {
         sh = (r.left + r.width / 2 < (pr.left + pr.right) / 2) ? (pr.left - 4 - r.right) : (pr.right + 4 - r.left);
@@ -937,6 +943,20 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       if (nl < 4) sh += 4 - nl; else if (nr > vw - 4) sh -= nr - (vw - 4);
       if (sh) b2.style.marginLeft = Math.round(sh) + 'px';
     }
+  }
+  /* admin "reveal all hands" (👁): every other player's 8 cards, face up and small, by their call box */
+  function renderReveal(st) {
+    var on = !!(ctx.revealOn && ctx.revealOn() && ctx.canReveal && ctx.canReveal()) && st.phase !== 'lobby';
+    var ms = ctx.mySeat();
+    for (var seat = 0; seat < 6; seat++) {
+      var el = $('rv' + slotOf(seat)); if (!el) continue;
+      var html = '';
+      if (on && seat !== ms && st.seats[seat]) {
+        html = sortHand(st.hands[seat] || []).map(function (c) { return '<span class="rc' + (RED[c.s] ? ' red' : '') + '"><i>' + c.r + '</i><b>' + SYM[c.s] + '</b></span>'; }).join('');
+      }
+      (function (h, sk) { once('rv' + sk, h, function () { el.innerHTML = h; }); })(html, seat);
+    }
+    placeFeltSoon();
   }
   function placeFeltBid() {
     placeBc();
@@ -1036,7 +1056,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (host.hidden) host.hidden = false;
     sizeClass(); applySizes();
     var rb = $('btnReveal'); if (rb) { var cr = !!(ctx.canReveal && ctx.canReveal()); rb.style.display = cr ? '' : 'none'; rb.style.background = cr && ctx.revealOn && ctx.revealOn() ? '#f4c430' : ''; rb.style.color = cr && ctx.revealOn && ctx.revealOn() ? '#241a12' : ''; }
-    renderTop(st); renderSeats(st); renderTrick(st); renderHand(st); renderBanners(st); renderBid(st, false); renderCells(st); renderFeltBid(st); renderResult(st);
+    renderTop(st); renderSeats(st); renderTrick(st); renderHand(st); renderBanners(st); renderBid(st, false); renderCells(st); renderReveal(st); renderFeltBid(st); renderResult(st);
   }
   function hide() { if (host && !host.hidden) { host.hidden = true; cache = {}; winnerKey = null; resultKey = null; } }
 
