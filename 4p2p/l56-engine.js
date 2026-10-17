@@ -519,16 +519,29 @@ function callKnowledge(state, seat) {
   });
   return K;
 }
-function chooseDiscard(state, seat, legalCards) {
+function chooseDiscard(state, seat, legalCards, partnerWinningCard) {
   const safeSuits = suitLeadSafety(state, seat);
   const K = callKnowledge(state, seat);
-  const unsafeCards = legalCards.filter(c => !safeSuits.has(c.s));
-  let pool = unsafeCards.length > 0 ? unsafeCards : legalCards;
-  // keep the suits my partners showed a Jack in (they can still win with them); throw from elsewhere when possible
+  // Partner is winning the trick: give him the points (J, 9, A, 10) -- but only when it can't be taken back:
+  // I am the last to play, or his card is the Jack of the lead suit in a No Trump hand (a Jack played first beats everything).
+  if (partnerWinningCard) {
+    const cb = state.currentBid, noTrump = !cb || !cb.trump;
+    const last = state.table.length >= 5;
+    const unbeatable = noTrump && partnerWinningCard.r === 'J' && partnerWinningCard.s === state.leadSuit;
+    if (last || unbeatable) {
+      const feed = legalCards.slice().sort((a, b) => RANK_PTS[b.r] - RANK_PTS[a.r]);
+      if (RANK_PTS[feed[0].r] > 0) return feed[0];
+    }
+  }
+  // Otherwise throw the cheapest card: never a J or 9 if anything else is legal; keep suits my partners showed a Jack in
+  let pool = legalCards.slice();
+  const cheap = pool.filter(c => RANK_PTS[c.r] < 2);
+  if (cheap.length > 0) pool = cheap;
+  const unsafeCards = pool.filter(c => !safeSuits.has(c.s));
+  if (unsafeCards.length > 0) pool = unsafeCards;
   const notPartnerSuit = pool.filter(c => !(K[c.s] && K[c.s].partnerJack > 0));
   if (notPartnerSuit.length > 0) pool = notPartnerSuit;
-  const sorted = pool.slice().sort((a, b) => RANK_PTS[a.r] - RANK_PTS[b.r]);
-  return sorted[0];
+  return pool.slice().sort((a, b) => RANK_PTS[a.r] - RANK_PTS[b.r])[0];
 }
 function botChooseCard(state, seat, legalCards) {
   if (state.table.length === 0) {
@@ -574,7 +587,7 @@ function botChooseCard(state, seat, legalCards) {
   }
 
   const partnerWinning = TEAM_OF(winner.seat) === TEAM_OF(seat);
-  if (partnerWinning) return chooseDiscard(state, seat, legalCards);
+  if (partnerWinning) return chooseDiscard(state, seat, legalCards, winner.card);
 
   const winners = legalCards.filter(c => {
     const pow = cardPower(c, state);
