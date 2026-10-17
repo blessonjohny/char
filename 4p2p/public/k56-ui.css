@@ -2035,3 +2035,32 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .b56-ddrow.none{border-left-color:transparent;opacity:.65}
 .b56-ddrow b{flex:0 0 auto;color:#e8d9a8}
 .b56-ddrow span{flex:1;text-align:right;font-weight:700}
+
+/* ===== in-felt bidding panel (dropdowns + 3-column readout) ===== */
+.b56-ov{display:none !important}
+.seat .call-badge{display:none !important}
+.seat .bc{display:flex;gap:2px;justify-content:center;margin-top:2px;pointer-events:none}
+.seat .bc i{font-style:normal;min-width:26px;height:17px;padding:0 3px;border-radius:4px;background:rgba(10,8,6,.88);border:1px solid #c9a24a;color:#f3e6c4;font:700 .62rem/15px 'Cinzel',Georgia,serif;text-align:center;white-space:nowrap;box-sizing:border-box}
+.seat .bc i.e{background:rgba(10,8,6,.35);border-color:rgba(201,162,74,.35)}
+.seat .bc i.p{color:#a9b4c4;font-weight:600}
+.seat .bc i.r{color:#ff6a6a}
+.seat .bc i.live{border-color:#ffd54a;box-shadow:0 0 6px #ffd54a;color:#ffd54a}
+:host(.k28-in-game) .seat .bc i{min-width:30px;height:20px;font-size:.72rem;line-height:18px}
+.felt-bid{position:absolute;transform:translate(-50%,-50%);z-index:9;box-sizing:border-box;display:none;border-radius:14px;padding:7px 8px 8px;background:linear-gradient(rgba(43,20,16,.95),rgba(26,11,9,.96));border:1.5px solid #d4a54a;box-shadow:0 4px 16px rgba(0,0,0,.75);color:#f3e6c4;font-family:'Cinzel',Georgia,serif}
+.felt-bid.on{display:block}
+.felt-bid.wait{background:rgba(10,8,6,.55);border-color:rgba(212,165,74,.5);text-align:center;padding:6px 8px;pointer-events:none}
+.fb-wt{font:700 .8rem 'Cinzel',serif;color:#f0cf94}.fb-hi{font:.68rem Georgia;color:#e8d3a0;margin-top:2px}
+.fb-hd{display:flex;justify-content:space-between;gap:6px;font:.66rem Georgia;color:#e8d3a0;margin-bottom:5px}.fb-hd b{color:#ffd54a}
+.fb-row{display:flex;gap:5px;margin-bottom:5px}
+.felt-bid select{flex:1;min-width:0;height:30px;border-radius:7px;background:#f6ead0;color:#2a1810;font:700 .85rem Georgia;border:1.5px solid #b78a32;padding:0 4px}
+.felt-bid select:disabled{opacity:.45}
+.fb-b{flex:1;height:30px;border-radius:7px;font:800 .75rem Georgia;border:1.5px solid #b78a32;background:#3a2a16;color:#f0cf94;cursor:pointer}
+.fb-b.sel{background:#e0b878;color:#2a1810;border-color:#ffe39a}
+.fb-b.fb-pass{background:#5a1a16;color:#ffd0c8;border-color:#c0504a}.fb-b.fb-pass.sel{background:#c0504a;color:#fff}
+.fb-note{font:.62rem Georgia;color:#ffd54a;text-align:center;margin:-1px 0 4px}
+.fb-cells{display:flex;gap:4px;margin-bottom:4px}
+.fb-cells i{flex:1;height:24px;border-radius:6px;border:1px solid rgba(201,162,74,.5);background:rgba(0,0,0,.35);font:800 .9rem/22px Georgia;text-align:center;font-style:normal;color:#f3e6c4}
+.fb-cells i.on{border-color:#ffd54a;background:rgba(10,8,6,.9);box-shadow:0 0 6px rgba(255,213,74,.5)}.fb-cells i.r{color:#ff6a6a}
+.fb-msg{min-height:12px;font:.62rem Georgia;color:#ff9a9a;text-align:center;margin-bottom:3px}
+.fb-go{width:100%;height:32px;border-radius:8px;border:1.5px solid #ffe39a;background:linear-gradient(#f2d489,#c79a3c);color:#2a1810;font:800 .8rem Georgia;cursor:pointer}
+.fb-go.off{opacity:.45}

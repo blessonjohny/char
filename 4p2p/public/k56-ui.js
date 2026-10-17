@@ -166,7 +166,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<div id="bidStatusBanner6p" class="bid-status-banner" style="display:none"></div>' +
     '<div id="k56Trick"></div>' +
     '<div class="table-oval"><div class="six-oval-rail"></div><div class="six-oval-bevel"></div><div class="six-oval-felt"></div></div>' +
-    [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="seat" id="seatWrap' + i + '"><div class="av" id="av' + i + '"></div><div class="nm" id="nm' + i + '"></div><div class="cc" id="cc' + i + '"></div></div>'; }).join('') +
+    '<div class="felt-bid" id="feltBid"></div>' +
+    [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="seat" id="seatWrap' + i + '"><div class="av" id="av' + i + '"></div><div class="nm" id="nm' + i + '"></div><div class="cc" id="cc' + i + '"></div><div class="bc" id="bc' + i + '"></div></div>'; }).join('') +
     [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="trickslot" id="trickSlot' + i + '"></div>'; }).join('') +
     '<div class="hand-bar"><div class="turnlabel" id="turnLabel"></div><div class="hand-cards" id="handCards"></div></div>' +
     '</div>' +
@@ -216,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=39">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=40">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -231,11 +232,11 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       });
     });
     sizeClass(); applySizes();
-    window.addEventListener('resize', function () { sizeClass(); applySizes(); fitHand(); });
+    window.addEventListener('resize', function () { sizeClass(); applySizes(); fitHand(); if (lastState) renderFeltBid(lastState, true); });
     if (window.K28Stage) window.K28Stage.onChange(placeStage);
     var lk = root.querySelector('link');
     if (lk) lk.addEventListener('load', function () { sizeClass(); applySizes(); fitHand(); });
-    wire();
+    wire(); wireFelt();
     var src = document.getElementById('chatBadge56');
     if (src) {
       var mirror = function () {
@@ -820,13 +821,185 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     });
   }
 
+
+  /* ================= in-felt bidding: dropdowns + 3-column readout =================
+     The bidding panel sits in the middle of the felt (no pop-up), so every player and every call stays visible.
+     Under each player: 3 small cells = that player's calls, first call first. Above CONFIRM: 3 cells that fill in the order you pick
+     (plus / number first, then suit, ...). */
+  var fb = { sig: '', num: '', suit: '', ord: 'f', kind: '', dbl: '', pass: false, picks: [], msg: '' };
+  function compactCall(lab) {
+    lab = String(lab).replace(/\s*\(\d+\)\s*$/, '').replace(/No Trump/g, 'NT').replace(/\s+/g, '');
+    return lab;
+  }
+  function callsBySeat(st) {
+    var by = [[], [], [], [], [], []];
+    (ctx.handLog(st) || []).forEach(function (l) {
+      if (l.seat == null || l.seat < 0 || l.seat > 5) return;
+      var nm = (st.seats[l.seat] || {}).name || '', t = String(l.text || '');
+      if (nm && t.indexOf(nm) === 0) t = t.slice(nm.length).trim();
+      t = t.replace(/\s*—\s*".*"\.?$/, '');
+      var c = null, m;
+      if (/^finalized/.test(t)) return;
+      if (/^redoubled/.test(t)) c = 'XX';
+      else if (/^doubled/.test(t)) c = 'X';
+      else if ((m = t.match(/^passed — (\d+) No Trump stands/))) c = 'P·' + m[1] + 'NT';
+      else if ((m = t.match(/^passed with (\d+)/))) c = m[1] + 'P';
+      else if (/^passed/.test(t)) c = 'Pass';
+      else if ((m = t.match(/^bid (.*?)\.?$/))) c = compactCall(m[1]);
+      if (c) by[l.seat].push(c);
+    });
+    return by;
+  }
+  function cellHtml(t, cls) { return '<i class="' + (cls || '') + (/Pass|P$/.test(t) ? ' p' : '') + (/[♥♦]/.test(t) ? ' r' : '') + '">' + esc(t) + '</i>'; }
+  function renderCells(st) {
+    var by = callsBySeat(st), ms = ctx.mySeat(), live = fbDesc(st);
+    for (var seat = 0; seat < 6; seat++) {
+      var el = $('bc' + slotOf(seat)); if (!el) continue;
+      var occ = st.seats[seat];
+      var list = (occ && st.phase !== 'lobby') ? by[seat].slice() : [];
+      var html = '';
+      if (!list.length && !(seat === ms && live)) { once('bc' + seat, 'empty', function () { el.innerHTML = ''; }); continue; }
+      var shown = list.slice(-3), liveCell = (seat === ms && st.phase === 'bidding' && st.turn === ms && live && live.text) ? live.text : null;
+      if (liveCell && shown.length >= 3) shown = shown.slice(-2);
+      shown.forEach(function (t) { html += cellHtml(t, ''); });
+      if (liveCell) html += cellHtml(liveCell, 'live');
+      var empties = 3 - shown.length - (liveCell ? 1 : 0);
+      for (var e2 = 0; e2 < empties; e2++) html += '<i class="e"></i>';
+      (function (h, sk) { once('bc' + sk, h, function () { el.innerHTML = h; }); })(html, seat);
+    }
+  }
+  function fbBase(st) { return st.currentBid ? st.currentBid.value : 27; }
+  /* what the current selection means: { text, ok, why, act } */
+  function fbDesc(st) {
+    var ms = ctx.mySeat(); if (ms == null || st.phase !== 'bidding' || st.turn !== ms) return null;
+    var cb = st.currentBid, base = fbBase(st), minVal = cb ? cb.value + 1 : 28;
+    if (fb.dbl) return { text: fb.dbl, ok: true, act: { t: fb.dbl === 'XX' ? 'redouble' : 'double' }, big: fb.dbl === 'XX' ? 'Redouble' : 'Double' };
+    if (fb.pass) {
+      var abs = (/^\d+$/.test(fb.num) ? +fb.num : null);
+      return { text: st.finalChance ? 'Final.' : (abs ? abs + 'P' : 'Pass'), ok: true, act: { t: 'pass', num: abs }, big: st.finalChance ? 'Finalize bid' : (abs ? abs + ' Pass' : 'Pass') };
+    }
+    var kind = fb.suit ? 'suit' : fb.kind, inc = /^p\d$/.test(fb.num), n = inc ? +fb.num.slice(1) : 0;
+    var nTxt = fb.num === '' ? '' : (inc ? '+' + (n === 1 ? '' : n) : fb.num);
+    var sym = fb.suit ? SYM[fb.suit] : (fb.kind === 'nt' ? 'NT' : fb.kind === 'ns' ? 'NS' : '');
+    var parts = fb.picks.map(function (k) { return k === 'num' ? nTxt : k === 'suit' ? (fb.ord === 'r' && fb.suit ? sym + '·' : sym) : k === 'kind' ? sym : ''; }).filter(Boolean);
+    var text = parts.join(' ');
+    if (fb.num === '' || !kind) return { text: text, ok: false, why: fb.num === '' ? 'Pick a number' : 'Pick a suit, NS or NT' };
+    var value = inc ? base + n : +fb.num;
+    if (value > 56) value = 56;
+    if (value < minVal) return { text: text, ok: false, why: 'Must be at least ' + minVal };
+    var sp = { kind: kind, trump: kind === 'suit' ? fb.suit : null, order: kind === 'suit' ? (fb.ord === 'r' ? 'reverse' : 'forward') : null, inc: inc, value: value };
+    if (kind === 'suit') sp.sig = inc ? (fb.ord === 'r' ? 'revplus' : 'plus') : (fb.ord === 'r' ? 'rev' : 'straight');
+    else if (kind === 'nt') sp.sig = 'nt';
+    else {
+      var mateNs = false; try { for (var k in (st.nsBySeat || {})) { if (+k !== ms && team(+k) === team(ms)) mateNs = true; } } catch (e) {}
+      sp.sig = inc ? ((n === 1 && !mateNs) ? 'nosrest' : 'nosreply') : 'nos';
+    }
+    return { text: text, ok: true, act: { t: 'bid', sp: sp }, big: callLabel(sp, cb), red: kind === 'suit' && !!RED[sp.trump] };
+  }
+  function fbPick(k) { var i = fb.picks.indexOf(k); if (i < 0) fb.picks.push(k); }
+  function fbUnpick(k) { var i = fb.picks.indexOf(k); if (i >= 0) fb.picks.splice(i, 1); }
+  function fbReset() { fb.num = ''; fb.suit = ''; fb.ord = 'f'; fb.kind = ''; fb.dbl = ''; fb.pass = false; fb.picks = []; fb.msg = ''; }
+  function fbSend(st, d) {
+    if (!d || !d.ok) { fb.msg = (d && d.why) || 'Pick your call'; renderFeltBid(st, true); return; }
+    vib(15);
+    var a = d.act;
+    if (a.t === 'bid') { var sp = a.sp; ctx.send('l56_placeBid', { value: sp.value, trump: sp.trump, kind: sp.kind, order: sp.order, inc: !!sp.inc, sig: sp.sig, note: '' }); }
+    else if (a.t === 'pass') { ctx.send('l56_pass', { note: '', num: a.num || undefined }); }
+    else if (a.t === 'double') ctx.send('l56_double', { note: '' });
+    else if (a.t === 'redouble') ctx.send('l56_redouble', { note: '' });
+    fbReset();
+  }
+  function placeFeltBid() {
+    var fbEl = $('feltBid'), gs = $('gameScreen'); if (!fbEl || !gs) return;
+    var S = window.K28Stage, x, y, w;
+    if (window.innerWidth < 521 && S && S.centre) {
+      var c = S.centre(gs); if (!c) return;
+      x = c[0]; y = c[1]; w = Math.max(206, Math.min(c[2] * 0.62, 250));
+    } else {
+      var g0 = gs.getBoundingClientRect(), op = (fbEl.offsetParent || gs).getBoundingClientRect();
+      x = g0.left - op.left + g0.width / 2; y = g0.top - op.top + g0.height * 0.505; w = Math.max(220, Math.min(g0.width * 0.26, 270));
+    }
+    fbEl.style.width = w + 'px'; fbEl.style.left = x + 'px'; fbEl.style.top = y + 'px';
+  }
+  var fbTimer = null;
+  function placeFeltSoon() { placeFeltBid(); requestAnimationFrame(placeFeltBid); clearTimeout(fbTimer); fbTimer = setTimeout(placeFeltBid, 350); }
+  function renderFeltBid(st, force) {
+    var el = $('feltBid'); if (!el) return;
+    var ms = ctx.mySeat(), bidding = st.phase === 'bidding';
+    if (!bidding) { if (el.dataset.k !== 'off') { el.dataset.k = 'off'; el.innerHTML = ''; el.classList.remove('on'); } return; }
+    var cb = st.currentBid, minVal = cb ? cb.value + 1 : 28, myTurn = ms != null && st.turn === ms;
+    var holder = cb ? ((st.seats[cb.seat] || {}).name || '') : '';
+    var hi = cb ? ctx.formatBid(cb) : '';
+    if (!myTurn) {
+      var who = st.seats[st.turn] ? st.seats[st.turn].name : '';
+      var k = 'w:' + who + ':' + hi + ':' + (st.doubled || 0);
+      if (el.dataset.k !== k) { el.dataset.k = k; el.className = 'felt-bid on wait'; el.innerHTML = '<div class="fb-wt">' + (who ? esc(who) + '’s call…' : '') + '</div>' + (cb ? '<div class="fb-hi">High <b>' + esc(hi) + '</b> · ' + esc(holder) + (st.doubled ? ' · ' + (st.doubled === 2 ? 'XX' : 'X') : '') + '</div>' : '<div class="fb-hi">Opening bid: 28</div>'); }
+      fbReset(); fb.sig = ''; placeFeltBid(); return;
+    }
+    var sig = st.handNumber + ':' + (cb ? cb.seat + '-' + cb.value : 'none') + ':' + (st.doubled || 0);
+    if (sig !== fb.sig) { fb.sig = sig; fbReset(); force = true; }
+    var oppose = cb && team(cb.seat) !== team(ms), mine = cb && team(cb.seat) === team(ms);
+    var canDbl = !!(oppose && st.doubled === 0), canRe = !!(mine && st.doubled === 1);
+    var d = fbDesc(st);
+    var key = JSON.stringify([fb, minVal, canDbl, canRe, hi, st.finalChance, d && d.ok]);
+    if (!force && el.dataset.k === key) { placeFeltSoon(); return; }
+    el.dataset.k = key; el.className = 'felt-bid on';
+    var base = fbBase(st), opts = '<option value="">–</option>';
+    var plusOpts = '';
+    for (var n = 1; n <= 7 && base + n <= 56; n++) { if (base + n < minVal) continue; plusOpts += '<option value="p' + n + '"' + (fb.num === 'p' + n ? ' selected' : '') + '>' + (n === 1 ? '+' : '+' + n) + ' → ' + (base + n) + '</option>'; }
+    if (plusOpts) opts += '<optgroup label="Plus (raise)">' + plusOpts + '</optgroup>';
+    var numOpts = ''; for (var v = minVal; v <= 56; v++) numOpts += '<option value="' + v + '"' + (fb.num === String(v) ? ' selected' : '') + '>' + v + '</option>';
+    opts += '<optgroup label="Number">' + numOpts + '</optgroup>';
+    var sopts = '<option value="">–</option><optgroup label="Number first (with Jack)">' + ['S', 'H', 'D', 'C'].map(function (x) { return '<option value="f' + x + '"' + (fb.suit === x && fb.ord === 'f' ? ' selected' : '') + '>' + SYM[x] + '</option>'; }).join('') + '</optgroup>' +
+      '<optgroup label="Suit first (no Jack)">' + ['S', 'H', 'D', 'C'].map(function (x) { return '<option value="r' + x + '"' + (fb.suit === x && fb.ord === 'r' ? ' selected' : '') + '>' + SYM[x] + ' · no J</option>'; }).join('') + '</optgroup>';
+    var dopts = '<option value="">–</option>' + (canDbl ? '<option value="X"' + (fb.dbl === 'X' ? ' selected' : '') + '>X Double</option>' : '') + (canRe ? '<option value="XX"' + (fb.dbl === 'XX' ? ' selected' : '') + '>XX Redouble</option>' : '');
+    var cells = '', pk = fb.dbl ? ['dbl'] : fb.pass ? ['pass'] : fb.picks.slice(0, 3);
+    var dd = d || { text: '' };
+    // the 3 readout cells fill in the order things were picked
+    var texts = [];
+    if (fb.dbl) texts.push(fb.dbl);
+    else if (fb.pass) { texts.push(/^\d+$/.test(fb.num) ? fb.num : ''); texts.push('PASS'); }
+    else fb.picks.forEach(function (k) { texts.push(k === 'num' ? (fb.num === '' ? '' : (/^p\d$/.test(fb.num) ? '+' + (fb.num === 'p1' ? '' : fb.num.slice(1)) : fb.num)) : k === 'suit' ? (fb.suit ? SYM[fb.suit] + (fb.ord === 'r' ? '·' : '') : '') : (fb.kind === 'nt' ? 'NT' : fb.kind === 'ns' ? 'NS' : '')); });
+    texts = texts.filter(function (t) { return t !== ''; }).slice(0, 3);
+    for (var c = 0; c < 3; c++) cells += '<i class="' + (texts[c] ? 'on' : '') + (texts[c] && /[♥♦]/.test(texts[c]) ? ' r' : '') + '">' + esc(texts[c] || '') + '</i>';
+    var hd = cb ? 'High <b>' + esc(hi) + '</b> · ' + esc(holder) + (st.doubled ? ' · ' + (st.doubled === 2 ? 'XX' : 'X') : '') : 'You open · min <b>28</b>';
+    var firstSpeaker = !cb && st.turn === (st.dealer + 1) % 6 && !(st.passedSeats && st.passedSeats.length);
+    el.innerHTML = '<div class="fb-hd"><span>Your call</span><span>' + hd + '</span></div>' +
+      '<div class="fb-row"><select id="fbNum" aria-label="Number">' + opts + '</select><select id="fbSuit" aria-label="Suit">' + sopts + '</select><select id="fbDbl" aria-label="Double"' + (canDbl || canRe ? '' : ' disabled') + '>' + dopts + '</select></div>' +
+      '<div class="fb-row"><button type="button" class="fb-b' + (fb.kind === 'ns' && !fb.suit ? ' sel' : '') + '" data-k="ns">NS</button><button type="button" class="fb-b' + (fb.kind === 'nt' && !fb.suit ? ' sel' : '') + '" data-k="nt">NT</button><button type="button" class="fb-b fb-pass' + (fb.pass ? ' sel' : '') + '" data-k="pass">' + (st.finalChance ? 'FINALIZE' : 'PASS') + '</button></div>' +
+      (firstSpeaker ? '<div class="fb-note">Pass = 28 NT stands · next must call 29+</div>' : '') +
+      '<div class="fb-cells">' + cells + '</div>' +
+      '<div class="fb-msg">' + esc(fb.msg || (d && !d.ok && texts.length ? d.why : '')) + '</div>' +
+      '<button type="button" class="fb-go' + (d && d.ok ? '' : ' off') + '" data-k="go">' + (d && d.ok ? 'CONFIRM · ' + esc(d.big) : 'CONFIRM') + '</button>';
+    placeFeltSoon();
+  }
+  function wireFelt() {
+    var el = $('feltBid'); if (!el || el._w) return; el._w = true;
+    el.addEventListener('change', function (ev) {
+      var t = ev.target, st = lastState; if (!st || !t) return;
+      fb.msg = ''; fb.pass = false;
+      if (t.id === 'fbNum') { fb.num = t.value; fb.dbl = ''; if (t.value === '') fbUnpick('num'); else fbPick('num'); }
+      else if (t.id === 'fbSuit') { fb.dbl = ''; if (t.value === '') { fb.suit = ''; fbUnpick('suit'); } else { fb.suit = t.value.slice(1); fb.ord = t.value[0]; fb.kind = ''; fbUnpick('kind'); fbPick('suit'); } }
+      else if (t.id === 'fbDbl') { fb.dbl = t.value; if (t.value) { fb.picks = []; } }
+      renderFeltBid(st, true); renderCells(st);
+    });
+    el.addEventListener('click', function (ev) {
+      var b = ev.target.closest ? ev.target.closest('button') : null, st = lastState; if (!b || !st) return;
+      var k = b.dataset.k; fb.msg = '';
+      if (k === 'ns' || k === 'nt') { fb.dbl = ''; fb.pass = false; if (fb.kind === k && !fb.suit) { fb.kind = ''; fbUnpick('kind'); } else { fb.kind = k; fb.suit = ''; fb.ord = 'f'; fbUnpick('suit'); fbPick('kind'); } }
+      else if (k === 'pass') { fb.pass = !fb.pass; fb.dbl = ''; }
+      else if (k === 'go') { return fbSend(st, fbDesc(st)); }
+      vib(8); renderFeltBid(st, true); renderCells(st);
+    });
+  }
+
   function render(st) {
     if (!host) return;
     lastState = st;
     if (host.hidden) host.hidden = false;
     sizeClass(); applySizes();
     var rb = $('btnReveal'); if (rb) { var cr = !!(ctx.canReveal && ctx.canReveal()); rb.style.display = cr ? '' : 'none'; rb.style.background = cr && ctx.revealOn && ctx.revealOn() ? '#f4c430' : ''; rb.style.color = cr && ctx.revealOn && ctx.revealOn() ? '#241a12' : ''; }
-    renderTop(st); renderSeats(st); renderTrick(st); renderHand(st); renderBanners(st); renderBid(st, false); renderResult(st);
+    renderTop(st); renderSeats(st); renderTrick(st); renderHand(st); renderBanners(st); renderBid(st, false); renderCells(st); renderFeltBid(st); renderResult(st);
   }
   function hide() { if (host && !host.hidden) { host.hidden = true; cache = {}; winnerKey = null; resultKey = null; } }
 

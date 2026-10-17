@@ -107,7 +107,16 @@
       ['left','top','width','height','mix-blend-mode','display'].forEach(function (q) { g.style.removeProperty(q); });
     });
   }
+  /* centre of the table top (the felt) in the game screen's own pixels, phone column layout only: [x, y, screenWidth] */
+  function centre(gs) {
+    if (!gs) return null;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var W = vw < 521 ? vw : Math.min(vw, vh * IMG.w / IMG.h), H = vh;
+    var S = Math.max(W / IMG.w, H / IMG.h), ox = (W - IMG.w * S) / 2, oy = H - IMG.h * S;
+    return [ox + CENTRE[0] / 100 * IMG.w * S, oy + (IMG.add + CENTRE[1] / 100 * IMG.oh) * S, W];
+  }
   window.K28Stage = {
+    centre: centre,
     place: place, reset: reset, names: NAMES, url: url, pad: pad,
     theme: function (game) { return themes[game]; },
     onChange: function (f) { subs.push(f); },
