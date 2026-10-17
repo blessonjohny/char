@@ -393,7 +393,7 @@ function botDecideBid(state, seat) {
   }
   const isPartnerBid = TEAM_OF(cb.seat) === TEAM_OF(seat);
   // Partner has already shown "nothing in the suit" (NOS). If I have nothing in it either, I answer with a PLUS call: "+1 NOS".
-  if (isPartnerBid && cb.kind === 'ns' && state.nsBySeat && typeof state.nsBySeat[cb.seat] === 'string' && !(state.nsBySeat[seat])) {
+  if (isPartnerBid && cb.kind === 'ns' && state.nsBySeat && typeof state.nsBySeat[cb.seat] === 'string' && !(state.nsDone && state.nsDone[seat + '-' + state.nsBySeat[cb.seat]])) {
     const s = state.nsBySeat[cb.seat];
     const nothing = count[s] === 0 || (count[s] === 1 && jacks[s] + nines[s] === 0 && !hand.some(c => c.s === s && c.r === 'A'));
     if (nothing && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'ns', order: null, plus: true };
@@ -411,7 +411,7 @@ function botDecideBid(state, seat) {
   }
   if (isPartnerBid && cb.trump) {
     const s = cb.trump;
-    const alreadySaidVoid = state.nsBySeat && state.nsBySeat[seat] && (state.nsBySeat[seat] === true || state.nsBySeat[seat] === s);
+    const alreadySaidVoid = (state.nsDone && state.nsDone[seat + '-' + s]) || (state.nsBySeat && state.nsBySeat[seat] === true);
     const alreadyBidThisSuit = state.suitBidBySeat && state.suitBidBySeat[seat + '-' + s];
     // NOS also when his only card of that suit is a low one with no value (no J, 9 or A) --
     // the opener reads it as "nothing here", exactly like a void.
@@ -499,20 +499,61 @@ function suitLeadSafety(state, seat) {
   });
   return safe;
 }
+// What a bot has learned from EVERYONE's calls this hand (partners' and opponents'): who showed a Jack in which suit (a "forward" call),
+// who showed length with it, and who said "nothing in it" (NOS). Used to choose what to lead and what to throw away.
+function callKnowledge(state, seat) {
+  const myTeam = TEAM_OF(seat), K = {};
+  SUITS.forEach(s => {
+    const k = { partnerJack: 0, partnerLong: 0, oppJack: 0, partnerNone: 0, oppNone: 0 };
+    for (let x = 0; x < 6; x++) {
+      if (x === seat) continue;
+      const mate = TEAM_OF(x) === myTeam;
+      const claim = state.suitBidBySeat ? state.suitBidBySeat[x + '-' + s] : null;
+      if (claim === 'forward') {
+        if (mate) { k.partnerJack++; if (state.suitLongBySeat && state.suitLongBySeat[x + '-' + s]) k.partnerLong++; } else k.oppJack++;
+      }
+      if (state.nsDone && state.nsDone[x + '-' + s]) { if (mate) k.partnerNone++; else k.oppNone++; }
+      if (state.revealedVoidBySeat && state.revealedVoidBySeat[x] && state.revealedVoidBySeat[x].includes(s)) { if (mate) k.partnerNone++; else k.oppNone++; }
+    }
+    K[s] = k;
+  });
+  return K;
+}
 function chooseDiscard(state, seat, legalCards) {
   const safeSuits = suitLeadSafety(state, seat);
+  const K = callKnowledge(state, seat);
   const unsafeCards = legalCards.filter(c => !safeSuits.has(c.s));
-  const pool = unsafeCards.length > 0 ? unsafeCards : legalCards;
+  let pool = unsafeCards.length > 0 ? unsafeCards : legalCards;
+  // keep the suits my partners showed a Jack in (they can still win with them); throw from elsewhere when possible
+  const notPartnerSuit = pool.filter(c => !(K[c.s] && K[c.s].partnerJack > 0));
+  if (notPartnerSuit.length > 0) pool = notPartnerSuit;
   const sorted = pool.slice().sort((a, b) => RANK_PTS[a.r] - RANK_PTS[b.r]);
   return sorted[0];
 }
 function botChooseCard(state, seat, legalCards) {
   if (state.table.length === 0) {
     const safeSuits = suitLeadSafety(state, seat);
+    const K = callKnowledge(state, seat);
     const bySuit = {};
     legalCards.forEach(c => { (bySuit[c.s] = bySuit[c.s] || []).push(c); });
     const candidateSuits = Object.keys(bySuit).filter(s => safeSuits.has(s));
     const pool = candidateSuits.length > 0 ? candidateSuits.flatMap(s => bySuit[s]) : legalCards;
+    // score each suit I could lead from, using what the calls told me
+    let bestSuit = null, bestScore = 0;
+    Object.keys(bySuit).forEach(s => {
+      const k = K[s], hasJ = bySuit[s].some(c => c.r === 'J');
+      let sc = safeSuits.has(s) ? 100 : 0;
+      sc += 40 * k.partnerJack + 15 * k.partnerLong;      // partner showed the Jack (and length): lead into it
+      if (k.oppJack > 0 && !hasJ) sc -= 60;               // an opponent showed the Jack: a lead there just loses
+      sc -= 30 * k.partnerNone;                           // partner said nothing in it: no help there
+      sc += 8 * k.oppNone;                                // an opponent has nothing in it
+      if (sc > bestScore) { bestScore = sc; bestSuit = s; }
+    });
+    if (bestSuit && !candidateSuits.includes(bestSuit)) {
+      // not a "safe" suit, but the calls say it is the best one to lead: strong card if I hold the Jack, else a small one feeding partner
+      const cs = bySuit[bestSuit].slice().sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
+      return cs.some(c => c.r === 'J') ? cs[0] : cs[cs.length - 1];
+    }
     const sorted = pool.slice().sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
     return sorted[0];
   }
@@ -572,10 +613,10 @@ function newRoomState(roomCode) {
     openerSuit: null,
     openerReassertCount: 0,
     openerProbeSuit: null,
-    nsBySeat: {},
+    nsBySeat: {}, nsDone: {},
     lastActionBySeat: {},
     revealedVoidBySeat: {},
-    suitBidBySeat: {},
+    suitBidBySeat: {}, suitLongBySeat: {},
     teamSuitOpen: {},
     table: [],
     leadSuit: null,
@@ -614,13 +655,13 @@ function dealFreshHand(state) {
   state.openerSuit = null;
   state.openerReassertCount = 0;
   state.openerProbeSuit = null;
-  state.nsBySeat = {};
+  state.nsBySeat = {}; state.nsDone = {};
   state.lastActionBySeat = {};
   state.revealedVoidBySeat = {};
   state.reviewHold = false;
   state.pendingEarlyWinChoice = null;
   state.earlyWinDeclined = false;
-  state.suitBidBySeat = {};
+  state.suitBidBySeat = {}; state.suitLongBySeat = {};
   state.teamSuitOpen = {};
   state.bidHistory = [];
   state.table = [];
@@ -665,7 +706,7 @@ module.exports = {
   formatBidLabel, formatBidLogLabel, legalCardsForSeat, cardPower,
   resolveTrick, settlePendingTrick, finishHand, checkEarlyWin, respondEarlyWin,
   advanceBiddingTurn, closeBidding, passesDone, autoNoTrump, firstBidderPass,
-  suitStats, suitOpenValue, botDecideBid,
+  suitStats, suitOpenValue, botDecideBid, callKnowledge,
   getPlayedCardsThisHand, suitLeadSafety, chooseDiscard, botChooseCard,
   newRoomState, dealFreshHand, startGame, nextHand, startNewMatch, restartRound,
 };

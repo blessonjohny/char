@@ -5830,6 +5830,13 @@ function l56NosSuit(state) {
   if (cb.kind === 'ns' && state.nsBySeat && typeof state.nsBySeat[cb.seat] === 'string') return state.nsBySeat[cb.seat];
   return true;
 }
+// remember WHICH suit each seat has already said NOS about (per suit, so a new suit from a partner can be answered with NOS again)
+function l56MarkNos(state, seat) {
+  const su = state.nsBySeat && state.nsBySeat[seat];
+  if (typeof su !== 'string') return;
+  state.nsDone = state.nsDone || {};
+  state.nsDone[seat + '-' + su] = true;
+}
 function l56RunBotBid(state, seat) {
   if (state.finalChance && state.currentBid && state.currentBid.seat === seat) { l56Engine.addLog(state, `${state.seats[seat].name} finalized the bid.`, seat); l56Engine.closeBidding(state); return; }
   const decision = l56Engine.botDecideBid(state, seat);
@@ -5882,8 +5889,8 @@ function l56RunBotBid(state, seat) {
     }
     if (decision.kind === 'ns') Object.assign(newBid, l56NosInfo(state, decision.plus === true && !!state.currentBid));
     if (!state.currentBid) { state.openerSeat = seat; state.openerSuit = decision.trump; }
-    if (decision.kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[seat] = l56NosSuit(state); }
-    if (decision.kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[seat + '-' + decision.trump] = decision.order; }
+    if (decision.kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[seat] = l56NosSuit(state); l56MarkNos(state, seat); }
+    if (decision.kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[seat + '-' + decision.trump] = decision.order; state.suitLongBySeat = state.suitLongBySeat || {}; state.suitLongBySeat[seat + '-' + decision.trump] = decision.plus !== true; }
     if (decision.kind === 'suit') { state.teamSuitOpen = state.teamSuitOpen || {}; const k = l56Engine.TEAM_OF(seat) + '-' + decision.trump; if (state.teamSuitOpen[k] === undefined) state.teamSuitOpen[k] = decision.value; }
     if (decision.isReassert) state.openerReassertCount = (state.openerReassertCount || 0) + 1;
     if (decision.isProbe) state.openerProbeSuit = decision.trump;
@@ -6493,8 +6500,8 @@ io.on('connection', (socket) => {
     if (kind === 'ns') Object.assign(newBid, l56NosInfo(state, inc === true && !!state.currentBid));
     if (!state.currentBid) { state.openerSeat = pos; state.openerSuit = newBid.trump; }
     if (kind === 'ns' && newBid.sig === 'nosrest') { state.restVoidBySeat = state.restVoidBySeat || {}; state.restVoidBySeat[pos] = true; }   // "+ NOS": none of the suits my partners have not called
-    else if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = l56NosSuit(state); }
-    if (kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[pos + '-' + trump] = order; }
+    else if (kind === 'ns') { state.nsBySeat = state.nsBySeat || {}; state.nsBySeat[pos] = l56NosSuit(state); l56MarkNos(state, pos); }
+    if (kind === 'suit') { state.suitBidBySeat = state.suitBidBySeat || {}; state.suitBidBySeat[pos + '-' + trump] = order; state.suitLongBySeat = state.suitLongBySeat || {}; state.suitLongBySeat[pos + '-' + trump] = inc !== true; }
     if (kind === 'suit') { state.teamSuitOpen = state.teamSuitOpen || {}; const k = l56Engine.TEAM_OF(pos) + '-' + trump; if (state.teamSuitOpen[k] === undefined) state.teamSuitOpen[k] = value; }
     if (state.openerSeat === pos && state.openerSuit && trump === state.openerSuit && state.currentBid) {
       state.openerReassertCount = (state.openerReassertCount || 0) + 1;
