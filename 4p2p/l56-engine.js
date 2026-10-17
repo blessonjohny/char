@@ -307,6 +307,13 @@ function suitOpenValue(jacksN, ninesN) {
   if (jacksN >= 2) return 28 + 1 + ninesN;
   return 28;
 }
+// How high a bot is willing to go in a suit it holds: its Jacks, 9s and Aces/10s there, plus extra length. A lone Jack with 4 cards can
+// only challenge at the bottom (up to 31); two Jacks, 9s and a long suit can go much higher.
+function suitCeiling(hand, s) {
+  let pts = 0, n = 0;
+  hand.forEach(c => { if (c.s !== s) return; n++; pts += c.r === 'J' ? 3 : c.r === '9' ? 2 : (c.r === 'A' || c.r === '10') ? 1 : 0; });
+  return Math.min(44, 28 + pts + 2 * Math.max(0, n - 4));
+}
 const SUPPORT_LEN = 3;   // cards in partner's suit that count as "support"
 function botDecideBid(state, seat) {
   const hand = state.hands[seat] || [];
@@ -387,7 +394,7 @@ function botDecideBid(state, seat) {
     if (biddableSuits.length > 0) {
       const { suit, value } = bestOf(biddableSuits);
       const v = Math.max(minAllowed, value);
-      if (v <= 56) return { action: 'bid', value: v, trump: suit, kind: 'suit', order: 'forward' };
+      if (v <= 56 && v <= Math.max(suitCeiling(hand, suit), value)) return { action: 'bid', value: v, trump: suit, kind: 'suit', order: 'forward' };
     }
     return { action: 'pass' };
   }
@@ -439,7 +446,7 @@ function botDecideBid(state, seat) {
         const { suit, value } = bestOf(others);
         // can't back partner's suit -> open my own strong suit (at least the minimum), instead of letting it die
         const v2 = Math.max(minAllowed, value);
-        if (v2 <= 56) return { action: 'bid', value: v2, trump: suit, kind: 'suit', order: 'forward' };
+        if (v2 <= 56 && v2 <= Math.max(suitCeiling(hand, suit), value)) return { action: 'bid', value: v2, trump: suit, kind: 'suit', order: 'forward' };
       }
     }
     return { action: 'pass' };
@@ -461,8 +468,11 @@ function botDecideBid(state, seat) {
     const candidates = biddableSuits.filter(s => s !== contested);
     if (candidates.length === 0) return { action: 'pass' };
     const { suit, value } = bestOf(candidates);
-    if (value >= minAllowed && value <= 56) {
-      return { action: 'bid', value, trump: suit, kind: 'suit', order: jacks[suit] >= 1 ? 'forward' : 'reverse' };
+    // strongest candidate first; a strong suit the opponents have NOT opened is bid at the minimum, up to what the hand can back
+    const best = candidates.slice().sort((a, b) => suitCeiling(hand, b) - suitCeiling(hand, a))[0];
+    const bv = Math.max(minAllowed, suitOpenValue(jacks[best], nines[best]));
+    if (bv <= 56 && bv <= Math.max(suitCeiling(hand, best), suitOpenValue(jacks[best], nines[best]))) {
+      return { action: 'bid', value: bv, trump: best, kind: 'suit', order: jacks[best] >= 1 ? 'forward' : 'reverse' };
     }
   }
   if (!isPartnerBid && spreadJacks && cb.value <= 30 && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'nt', order: null };
