@@ -1788,6 +1788,7 @@ app.get('/api/public-live-tables', (req, res) => {
       maxSeats: r.maxSeats || (r.humans + r.bots),
       isPlaying: r.isPlaying,
       phase: r.phase,
+      createdAt: r.createdAt || null,
     }))
     // Busiest tables (most real humans) first, so a visitor scanning the
     // list sees the liveliest games at the top rather than in whatever
