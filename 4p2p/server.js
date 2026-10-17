@@ -5804,7 +5804,7 @@ function l56ScheduleNext(code) {
     // connected-but-stuck human has already used up its full 2-minute
     // grace period by the time it gets here -- act promptly instead of
     // making everyone else wait even longer on top of that.
-    const delay = occ.bot ? (state.phase === 'bidding' ? (2000 + Math.random() * 2000) : 900) : 900;
+    const delay = occ.bot ? (state.phase === 'bidding' ? (700 + Math.random() * 700) : 900) : 900;
     r.l56BotTimer = setTimeout(() => {
       const rr = l56Rooms[code];
       if (!rr || !rr.state) return;
