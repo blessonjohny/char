@@ -2103,3 +2103,5 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .rvh .rc{align-items:flex-start;padding:1px 0 0 1px}
 .rvh .rc i{font-size:calc(var(--rvw,20px)*.5);letter-spacing:-.06em}
 .rvh .rc b{font-size:calc(var(--rvw,20px)*.5)}
+
+.seat.rv-up{z-index:420 !important}

@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=48">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=49">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -928,6 +928,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       /* the farthest (top) player gets the box above the head with the cards under it; everyone else: cards above the box, box on the chest */
       var top = ys[i] != null && ys[i] - minY < 8;
       bw.classList.toggle('bw-top', top);
+      var sw = $('seatWrap' + i); if (sw) sw.classList.toggle('rv-up', !!(top && rv && rv.firstChild));   /* revealed cards of the top player sit above the "won the bid" popup */
       var rh = (!top && rv && rv.firstChild) ? rv.offsetHeight + 3 : 0;
       bw.style.top = top ? '-26px' : Math.round(h * 0.6 - rh) + 'px';
       bw.style.marginLeft = '0px';
