@@ -2087,3 +2087,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .seat .bc i.p{color:#ffc9c4}
 .seat .bc i.r{color:#ff8f87}
 .seat .bc i.live{background:#4a3a05;border-color:#ffd54a;color:#ffd54a}
+
+.fb-acts{margin:0}.fb-acts .fb-go{flex:1.6;width:auto;min-width:0;font-size:.7rem;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fb-clr{flex:1;height:32px;border-radius:8px;border:1.5px solid #c0504a;background:#3a1512;color:#ffb0a8;font:800 .75rem Georgia;cursor:pointer}

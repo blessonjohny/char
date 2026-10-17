@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=45">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=46">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -739,7 +739,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       once('banner', html, function () { b.innerHTML = html; });
       var bm = st.turn === ms, bp = !bm && st.turn != null && team(st.turn) === team(me());
       tog(b, 'bsb-mine', bm); tog(b, 'bsb-partner', bp); tog(b, 'bsb-opp', !bm && !bp);
-      show(b, !(st.turn === ms));   /* your own bid sheet already says all this */
+      show(b, false);   /* the in-table panel + "calls so far" already say all this */
       /* sits in the empty space above the top player's head (not over the table), like the trick popup */
       var placeBid = function () {
         if (b.style.display === 'none') return;
@@ -921,6 +921,19 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       /* the farthest (top) player gets the box above the head, everyone else on the chest */
       var top = ys[i] != null && ys[i] - minY < 8;
       bc.style.top = top ? '-26px' : Math.round(h * 0.6) + 'px';
+      bc.style.marginLeft = '0px';
+    }
+    /* keep call boxes out from under the middle panel, and on screen */
+    var fp = $('feltBid'), pr = fp && fp.classList.contains('on') && fp.offsetWidth ? fp.getBoundingClientRect() : null, vw = window.innerWidth;
+    for (i = 0; i < 6; i++) {
+      var b2 = $('bc' + i); if (!b2 || !b2.firstChild) continue;
+      var r = b2.getBoundingClientRect(), sh = 0;
+      if (pr && r.bottom > pr.top && r.top < pr.bottom && r.right > pr.left && r.left < pr.right) {
+        sh = (r.left + r.width / 2 < (pr.left + pr.right) / 2) ? (pr.left - 4 - r.right) : (pr.right + 4 - r.left);
+      }
+      var nl = r.left + sh, nr = r.right + sh;
+      if (nl < 4) sh += 4 - nl; else if (nr > vw - 4) sh -= nr - (vw - 4);
+      if (sh) b2.style.marginLeft = Math.round(sh) + 'px';
     }
   }
   function placeFeltBid() {
@@ -935,6 +948,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       x = g0.left - op.left + g0.width / 2; y = g0.top - op.top + g0.height * 0.505; w = Math.max(220, Math.min(g0.width * 0.26, 270));
     }
     fbEl.style.width = w + 'px'; fbEl.style.left = x + 'px'; fbEl.style.top = y + 'px';
+    placeBc();
   }
   var fbTimer = null;
   function placeFeltSoon() { placeFeltBid(); requestAnimationFrame(placeFeltBid); clearTimeout(fbTimer); fbTimer = setTimeout(placeFeltBid, 350); }
@@ -989,7 +1003,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       (firstSpeaker ? '<div class="fb-note">Pass = 28 NT stands · next must call 29+</div>' : '') +
       '<div class="fb-cells">' + cells + '</div>' +
       '<div class="fb-msg">' + esc(fb.msg || (d && !d.ok && texts.length ? d.why : '')) + '</div>' +
-      '<button type="button" class="fb-go' + (d && d.ok ? '' : ' off') + '" data-k="go">' + (d && d.ok ? 'CONFIRM · ' + esc(d.big) : 'CONFIRM') + '</button>';
+      '<div class="fb-row fb-acts"><button type="button" class="fb-clr" data-k="clear">CLEAR</button><button type="button" class="fb-go' + (d && d.ok ? '' : ' off') + '" data-k="go">' + 'CONFIRM</button></div>';
     placeFeltSoon();
   }
   function wireFelt() {
@@ -1009,6 +1023,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       else if (k === 'pass') { fb.pass = !fb.pass; fb.dbl = ''; }
       else if (k === 'X' || k === 'XX') { if (b.disabled) return; fb.dbl = fb.dbl === k ? '' : k; fb.pass = false; fb.num = ''; fb.suit = ''; fb.kind = ''; fb.picks = []; }
       else if (k === 'go') { return fbSend(st, fbDesc(st)); }
+      else if (k === 'clear') { fbReset(); }
       vib(8); renderFeltBid(st, true); renderCells(st);
     });
   }
