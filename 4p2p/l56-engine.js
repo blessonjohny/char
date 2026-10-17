@@ -265,6 +265,20 @@ function autoNoTrump(state) {
   addLog(state, `Everyone passed. ${state.seats[seat].name} gets 28 No Trump automatically.`, seat);
   closeBidding(state);
 }
+// Rule (Oct 2026): the first speaker (left of dealer) who passes does not leave the auction empty-handed -- 28 No Trump stands in
+// their name, so the next player who wants to open must call 29 or more. Returns true when it applied (the caller then must NOT
+// do its normal pass handling).
+function firstBidderPass(state, seat) {
+  if (state.currentBid || (state.passedSeats && state.passedSeats.length) || seat !== (state.dealer + 1) % 6) return false;
+  state.currentBid = { value: 28, trump: null, seat, kind: 'nt', order: null, viaPass: true };
+  state.doubled = 0; state.doubledBySeat = null;
+  state.passedSeats = []; state.openerSeat = seat; state.openerSuit = null;
+  state.lastActionBySeat = state.lastActionBySeat || {};
+  state.lastActionBySeat[seat] = 'Pass \u00b7 28 NT';
+  addLog(state, `${state.seats[seat].name} passed \u2014 28 No Trump stands.`, seat);
+  advanceBiddingTurn(state);
+  return true;
+}
 function closeBidding(state) {
   const cb = state.currentBid;
   state.finalChance = false;
@@ -638,7 +652,7 @@ module.exports = {
   bandFor, freshDeck, shuffle, dealHands, addLog,
   formatBidLabel, formatBidLogLabel, legalCardsForSeat, cardPower,
   resolveTrick, settlePendingTrick, finishHand, checkEarlyWin, respondEarlyWin,
-  advanceBiddingTurn, closeBidding, passesDone, autoNoTrump,
+  advanceBiddingTurn, closeBidding, passesDone, autoNoTrump, firstBidderPass,
   suitStats, suitOpenValue, botDecideBid,
   getPlayedCardsThisHand, suitLeadSafety, chooseDiscard, botChooseCard,
   newRoomState, dealFreshHand, startGame, nextHand, startNewMatch, restartRound,

@@ -5837,7 +5837,9 @@ function l56RunBotBid(state, seat) {
   }
   if (mySignal) delete state.partnerSignals[seat];
 
-  if (decision.action === 'pass') {
+  if (decision.action === 'pass' && l56Engine.firstBidderPass(state, seat)) {
+    // first speaker passed: 28 No Trump stands (handled in the engine)
+  } else if (decision.action === 'pass') {
     if (!state.passedSeats.includes(seat)) state.passedSeats.push(seat);
     state.lastActionBySeat[seat] = 'Pass';
     l56Engine.addLog(state, `${botName} passed.`, seat);
@@ -6154,6 +6156,8 @@ function l56TryNudge(r) {
           state.lastActionBySeat[seat] = '28 No Trump';
           l56AddLog(state, `${state.seats[seat].name} bid 28 No Trump.`, seat);
           l56AdvanceBiddingTurn(state);
+        } else if (!state.currentBid && l56Engine.firstBidderPass(state, seat)) {
+          // first speaker timed out: 28 No Trump stands
         } else {
           state.passedSeats = state.passedSeats || [];
           if (!state.passedSeats.includes(seat)) state.passedSeats.push(seat);
@@ -6513,6 +6517,12 @@ io.on('connection', (socket) => {
     if (state.finalChance && state.currentBid && state.currentBid.seat === pos) {
       l56Engine.addLog(state, `${state.seats[pos].name} finalized the bid.`, pos);
       l56Engine.closeBidding(state);
+      l56Touch(r); l56Broadcast(code); l56ScheduleNext(code);
+      return;
+    }
+    if (!state.currentBid && l56Engine.firstBidderPass(state, pos)) {
+      const nt0 = (typeof note === 'string' ? note.trim() : '').slice(0, 200);
+      if (nt0) state.lastNote = { seat: pos, text: nt0, ts: Date.now() };
       l56Touch(r); l56Broadcast(code); l56ScheduleNext(code);
       return;
     }
