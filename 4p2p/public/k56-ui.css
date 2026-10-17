@@ -2105,3 +2105,9 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .rvh .rc b{font-size:calc(var(--rvw,20px)*.5)}
 
 .seat.rv-up{z-index:420 !important}
+
+.tmr{font:700 .64rem/15px Georgia,serif;color:#cdbf94;background:rgba(0,0,0,.62);border:1px solid rgba(201,162,74,.45);padding:0 5px;border-radius:7px;min-width:24px;text-align:center;box-sizing:border-box;pointer-events:none;display:none}
+.tmr.run{color:#ffd54a;border-color:#ffd54a}
+.seat .bw .tmr{margin-top:1px}
+.seat .bw.bw-top .tmr{position:absolute;right:calc(50% + 34px);top:3px;margin:0}
+.hand-bar .tmr-me{align-self:center;margin-bottom:2px}

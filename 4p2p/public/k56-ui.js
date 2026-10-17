@@ -167,9 +167,9 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     '<div id="k56Trick"></div>' +
     '<div class="table-oval"><div class="six-oval-rail"></div><div class="six-oval-bevel"></div><div class="six-oval-felt"></div></div>' +
     '<div class="felt-bid" id="feltBid"></div>' +
-    [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="seat" id="seatWrap' + i + '"><div class="av" id="av' + i + '"></div><div class="nm" id="nm' + i + '"></div><div class="cc" id="cc' + i + '"></div><div class="bw" id="bw' + i + '"><div class="rvh" id="rv' + i + '"></div><div class="bc" id="bc' + i + '"></div></div></div>'; }).join('') +
+    [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="seat" id="seatWrap' + i + '"><div class="av" id="av' + i + '"></div><div class="nm" id="nm' + i + '"></div><div class="cc" id="cc' + i + '"></div><div class="bw" id="bw' + i + '"><div class="rvh" id="rv' + i + '"></div><div class="bc" id="bc' + i + '"></div><div class="tmr" id="tm' + i + '"></div></div></div>'; }).join('') +
     [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="trickslot" id="trickSlot' + i + '"></div>'; }).join('') +
-    '<div class="hand-bar"><div class="turnlabel" id="turnLabel"></div><div class="hand-cards" id="handCards"></div></div>' +
+    '<div class="hand-bar"><div class="tmr tmr-me" id="tmMe"></div><div class="turnlabel" id="turnLabel"></div><div class="hand-cards" id="handCards"></div></div>' +
     '</div>' +
     /* bid sheet */
     '<div class="overlay b56-ov" id="b56ov"><div class="panel b56-panel">' +
@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=49">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=50">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -945,6 +945,32 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       if (sh) b2.style.marginLeft = Math.round(sh) + 'px';
     }
   }
+  /* count-up seconds: runs while it is that player's turn, then stays on their call box until their next turn */
+  var tmr = { key: null, seat: null, at: 0, dur: {}, hand: null };
+  function fmtSecs(ms) { var t = Math.max(0, Math.floor(ms / 1000)); return t < 60 ? t + 's' : Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
+  function trackTimers(st) {
+    if (tmr.hand !== st.handNumber) { tmr.hand = st.handNumber; tmr.dur = {}; tmr.key = null; tmr.seat = null; }
+    var active = (st.phase === 'bidding' || st.phase === 'playing') && st.turn != null && !st.pendingTrick;
+    var key = active ? [st.phase, st.turn, (st.passedSeats || []).length, st.currentBid ? st.currentBid.seat + '-' + st.currentBid.value : '', (st.table || []).length, (st.tricksLog || []).length].join(':') : null;
+    if (key === tmr.key) return;
+    var now = Date.now();
+    if (tmr.seat != null && tmr.key != null) tmr.dur[tmr.seat] = now - tmr.at;
+    tmr.key = key; tmr.seat = active ? st.turn : null; tmr.at = now;
+  }
+  function paintTimers() {
+    var now = Date.now(), ms = ctx.mySeat();
+    for (var seat = 0; seat < 6; seat++) {
+      var running = tmr.seat === seat && tmr.key != null, v = running ? now - tmr.at : tmr.dur[seat];
+      var txt = v == null ? '' : fmtSecs(v);
+      var els = [$('tm' + slotOf(seat))]; if (seat === ms) els.push($('tmMe'));
+      for (var k = 0; k < els.length; k++) {
+        var el = els[k]; if (!el) continue;
+        if (el.textContent !== txt) el.textContent = txt;
+        el.classList.toggle('run', running); el.style.display = (txt && (k === 1 || seat !== ms)) ? 'block' : 'none';
+      }
+    }
+  }
+  setInterval(function () { if (host && !host.hidden) paintTimers(); }, 500);
   /* admin "reveal all hands" (👁): every other player's 8 cards, face up and small, by their call box */
   function renderReveal(st) {
     var on = !!(ctx.revealOn && ctx.revealOn() && ctx.canReveal && ctx.canReveal()) && st.phase !== 'lobby';
@@ -1057,7 +1083,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (host.hidden) host.hidden = false;
     sizeClass(); applySizes();
     var rb = $('btnReveal'); if (rb) { var cr = !!(ctx.canReveal && ctx.canReveal()); rb.style.display = cr ? '' : 'none'; rb.style.background = cr && ctx.revealOn && ctx.revealOn() ? '#f4c430' : ''; rb.style.color = cr && ctx.revealOn && ctx.revealOn() ? '#241a12' : ''; }
-    renderTop(st); renderSeats(st); renderTrick(st); renderHand(st); renderBanners(st); renderBid(st, false); renderCells(st); renderReveal(st); renderFeltBid(st); renderResult(st);
+    renderTop(st); renderSeats(st); renderTrick(st); renderHand(st); renderBanners(st); renderBid(st, false); trackTimers(st); renderCells(st); renderReveal(st); paintTimers(); renderFeltBid(st); renderResult(st);
   }
   function hide() { if (host && !host.hidden) { host.hidden = true; cache = {}; winnerKey = null; resultKey = null; } }
 
