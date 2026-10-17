@@ -411,7 +411,7 @@ function botDecideBid(state, seat) {
   }
   if (isPartnerBid && cb.trump) {
     const s = cb.trump;
-    const alreadySaidVoid = state.nsBySeat && state.nsBySeat[seat];
+    const alreadySaidVoid = state.nsBySeat && state.nsBySeat[seat] && (state.nsBySeat[seat] === true || state.nsBySeat[seat] === s);
     const alreadyBidThisSuit = state.suitBidBySeat && state.suitBidBySeat[seat + '-' + s];
     // NOS also when his only card of that suit is a low one with no value (no J, 9 or A) --
     // the opener reads it as "nothing here", exactly like a void.
