@@ -2070,3 +2070,8 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .fb-b.fb-x.sel{background:#d4141c;color:#fff;border-color:#ff8a80;animation:fbBlink .7s infinite}
 @keyframes fbBlink{0%,100%{box-shadow:0 0 0 2px #ff3b30,0 0 14px #ff3b30;background:#d4141c}50%{box-shadow:0 0 0 0 transparent;background:#7a0c10}}
 .fb-cells i.on.x{color:#ff6a6a;border-color:#ff3b30;animation:fbBlink .7s infinite}
+
+.felt-bid select.fb-hist{flex:none;max-width:68%;height:22px;background:rgba(0,0,0,.35);color:#ffd54a;border:1px solid #c9a24a;font:700 .72rem Georgia;padding:0 2px;text-overflow:ellipsis}
+.felt-bid select.fb-hist option{background:#f6ead0;color:#2a1810}
+.fb-hd{align-items:center}
+.felt-bid .fb-row select{font-size:.78rem;padding:0 1px 0 4px}

@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=42">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=43">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -828,12 +828,13 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
      Under each player: 3 small cells = that player's calls, first call first. Above CONFIRM: 3 cells that fill in the order you pick
      (plus / number first, then suit, ...). */
   var fb = { sig: '', num: '', suit: '', ord: 'f', kind: '', dbl: '', pass: false, picks: [], msg: '' };
+  var fbOrder = [];
   function compactCall(lab) {
     lab = String(lab).replace(/\s*\(\d+\)\s*$/, '').replace(/No Trump/g, 'NT').replace(/\s+/g, '');
     return lab;
   }
   function callsBySeat(st) {
-    var by = [[], [], [], [], [], []];
+    var by = [[], [], [], [], [], []]; fbOrder = [];
     (ctx.handLog(st) || []).forEach(function (l) {
       if (l.seat == null || l.seat < 0 || l.seat > 5) return;
       var nm = (st.seats[l.seat] || {}).name || '', t = String(l.text || '');
@@ -847,7 +848,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       else if ((m = t.match(/^passed with (\d+)/))) c = m[1] + 'P';
       else if (/^passed/.test(t)) c = 'Pass';
       else if ((m = t.match(/^bid (.*?)\.?$/))) c = compactCall(m[1]);
-      if (c) by[l.seat].push(c);
+      if (c) { by[l.seat].push(c); fbOrder.push({ seat: l.seat, c: c }); }
     });
     return by;
   }
@@ -945,7 +946,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var key = JSON.stringify([fb, minVal, canDbl, canRe, hi, st.finalChance, d && d.ok]);
     if (!force && el.dataset.k === key) { placeFeltSoon(); return; }
     el.dataset.k = key; el.className = 'felt-bid on';
-    var base = fbBase(st), opts = '<option value="">–</option>', popts = '<option value="">PLUS</option>';
+    var base = fbBase(st), opts = '<option value="">–</option>', popts = '<option value="">Plus</option>';
     var plusOpts = '';
     for (var n = 1; n <= 7 && base + n <= 56; n++) { if (base + n < minVal) continue; plusOpts += '<option value="p' + n + '"' + (fb.num === 'p' + n ? ' selected' : '') + '>' + (n === 1 ? '+' : '+' + n) + '</option>'; }
     popts += plusOpts;
@@ -964,7 +965,11 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     for (var c = 0; c < 3; c++) cells += '<i class="' + (texts[c] ? 'on' : '') + (fb.dbl && texts[c] ? ' x' : '') + (texts[c] && /[♥♦]/.test(texts[c]) ? ' r' : '') + '">' + esc(texts[c] || '') + '</i>';
     var hd = cb ? 'High <b>' + esc(hi) + '</b> · ' + esc(holder) + (st.doubled ? ' · ' + (st.doubled === 2 ? 'XX' : 'X') : '') : 'You open · min <b>28</b>';
     var firstSpeaker = !cb && st.turn === (st.dealer + 1) % 6 && !(st.passedSeats && st.passedSeats.length);
-    el.innerHTML = '<div class="fb-hd"><span>Your call</span><span>' + hd + '</span></div>' +
+    callsBySeat(st);
+    var hopts = '<option value="">' + (cb ? 'High ' + esc(hi) + ' · ' + esc(holder) : 'Calls so far') + (st.doubled ? (st.doubled === 2 ? ' · XX' : ' · X') : '') + '</option>';
+    fbOrder.forEach(function (o) { hopts += '<option disabled>' + esc(((st.seats[o.seat] || {}).name || '?') + ' — ' + o.c) + '</option>'; });
+    if (!fbOrder.length) hopts += '<option disabled>No calls yet</option>';
+    el.innerHTML = '<div class="fb-hd"><span>Your call</span><select id="fbHist" class="fb-hist" aria-label="Calls so far">' + hopts + '</select></div>' +
       '<div class="fb-row"><select id="fbPlus" aria-label="Plus">' + popts + '</select><select id="fbNum" aria-label="Number">' + opts + '</select><select id="fbSuit" aria-label="Suit">' + sopts + '</select></div>' +
       '<div class="fb-row"><button type="button" class="fb-b' + (fb.kind === 'ns' && !fb.suit ? ' sel' : '') + '" data-k="ns">NS</button><button type="button" class="fb-b' + (fb.kind === 'nt' && !fb.suit ? ' sel' : '') + '" data-k="nt">NT</button><button type="button" class="fb-b fb-pass' + (fb.pass ? ' sel' : '') + '" data-k="pass">' + (st.finalChance ? 'FINALIZE' : 'PASS') + '</button></div>' +
       '<div class="fb-row"><button type="button" class="fb-b fb-x' + (fb.dbl === 'X' ? ' sel' : '') + '" data-k="X"' + (canDbl ? '' : ' disabled') + '>X DOUBLE</button><button type="button" class="fb-b fb-x' + (fb.dbl === 'XX' ? ' sel' : '') + '" data-k="XX"' + (canRe ? '' : ' disabled') + '>XX REDOUBLE</button></div>' +
@@ -978,6 +983,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var el = $('feltBid'); if (!el || el._w) return; el._w = true;
     el.addEventListener('change', function (ev) {
       var t = ev.target, st = lastState; if (!st || !t) return;
+      if (t.id === 'fbHist') { t.value = ''; return; }
       fb.msg = ''; fb.pass = false;
       if (t.id === 'fbNum' || t.id === 'fbPlus') { fb.num = t.value; fb.dbl = ''; if (t.value === '') fbUnpick('num'); else fbPick('num'); }
       else if (t.id === 'fbSuit') { fb.dbl = ''; if (t.value === '') { fb.suit = ''; fbUnpick('suit'); } else { fb.suit = t.value.slice(1); fb.ord = t.value[0]; fb.kind = ''; fbUnpick('kind'); fbPick('suit'); } }
