@@ -381,6 +381,16 @@ function botDecideBid(state, seat) {
     return { action: 'pass' };
   }
 
+  // The first speaker passed, so "28 No Trump" merely stands -- nobody has really called anything. Whoever holds the Jack plus length in a suit
+  // (a strong hand even though the trump isn't) opens it now, at 29 or more -- partner of the passer included.
+  if (cb.viaPass && cb.kind === 'nt') {
+    if (biddableSuits.length > 0) {
+      const { suit, value } = bestOf(biddableSuits);
+      const v = Math.max(minAllowed, value);
+      if (v <= 56) return { action: 'bid', value: v, trump: suit, kind: 'suit', order: 'forward' };
+    }
+    return { action: 'pass' };
+  }
   const isPartnerBid = TEAM_OF(cb.seat) === TEAM_OF(seat);
   // Partner has already shown "nothing in the suit" (NOS). If I have nothing in it either, I answer with a PLUS call: "+1 NOS".
   if (isPartnerBid && cb.kind === 'ns' && state.nsBySeat && typeof state.nsBySeat[cb.seat] === 'string' && !(state.nsBySeat[seat])) {
@@ -427,7 +437,9 @@ function botDecideBid(state, seat) {
       const others = biddableSuits.filter(x => x !== s);
       if (others.length > 0) {
         const { suit, value } = bestOf(others);
-        if (value >= minAllowed && value <= 56) return { action: 'bid', value, trump: suit, kind: 'suit', order: 'forward' };
+        // can't back partner's suit -> open my own strong suit (at least the minimum), instead of letting it die
+        const v2 = Math.max(minAllowed, value);
+        if (v2 <= 56) return { action: 'bid', value: v2, trump: suit, kind: 'suit', order: 'forward' };
       }
     }
     return { action: 'pass' };
