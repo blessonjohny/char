@@ -4276,7 +4276,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .gs-top{margin-bottom:0;background:#04050b}
 .gs-bgblur{position:absolute;inset:-6%;background:url('/images/gulan-final.jpg') center/cover no-repeat;filter:blur(26px) brightness(.55) saturate(1.1);z-index:0}
 .gs-video{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%)!important;mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%)!important;-webkit-mask-composite:source-over!important;mask-composite:add!important}
-.gs-scrim{position:absolute;left:0;right:0;bottom:0;height:36%;background:linear-gradient(180deg,rgba(4,5,11,0) 0%,rgba(4,5,11,.8) 72%,rgba(4,5,11,.94) 100%);z-index:7;pointer-events:none}
+.gs-fg{position:absolute;left:50%;top:0;height:100%;aspect-ratio:640/1392;transform:translateX(-50%);z-index:15;pointer-events:none;opacity:0;user-select:none}
+.gs-scrim{position:absolute;left:0;right:0;bottom:0;height:36%;background:linear-gradient(180deg,rgba(4,5,11,0) 0%,rgba(4,5,11,.8) 72%,rgba(4,5,11,.94) 100%);z-index:16;pointer-events:none}
 .gs-stars{position:absolute;inset:-35%;z-index:6;pointer-events:none;animation:gsSpin 420s linear infinite}
 .gs-stars i{position:absolute;border-radius:50%;background:#fff;opacity:.1;animation:gsTw var(--d,4s) ease-in-out infinite;animation-delay:var(--l,0s)}
 @keyframes gsSpin{to{transform:rotate(360deg)}}
@@ -4501,6 +4502,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="gs-track" id="gsTrack"></div>
     <div class="gs-stars" id="gsStars"></div>
     <div class="gs-orbits" id="gsOrbits"></div>
+    <img class="gs-fg" id="gsFg" src="/images/gulan-king-fg.webp?v=1" alt="" aria-hidden="true">
     <div class="gs-scrim"></div>
     <div class="gs-ring" id="gsRing"><a class="gs-chip inv" href="/play6.html" data-i="0" aria-label="28 · 6 Player" style="background:linear-gradient(160deg,rgba(224,184,120,0.85) 0%,rgba(207,161,96,0.82) 55%,rgba(166,122,62,0.78) 100%);border-color:#781c18;color:#4a1410"><span class="btn28-badge" style="font-size:1.7rem">28</span><span class="btn28-modelabel">6 Player</span><span class="gs-sub" style="color:#5c1410">🎙️ 2 teams of 3</span></a><a class="gs-chip" href="/" data-i="1" aria-label="28 · 4 Player" style="background:linear-gradient(160deg,rgba(138,34,28,0.78) 0%,rgba(92,21,15,0.75) 55%,rgba(43,6,3,0.72) 100%);border-color:#cfa160;color:#f0cf94"><span class="btn28-badge" style="font-size:1.7rem">28</span><span class="btn28-modelabel">4 Player</span><span class="gs-sub" style="color:#f0d9a8">🎙️ live voice chat</span></a><a class="gs-chip" href="/56.html" data-i="2" aria-label="56 · Ampathiaaru" style="background:linear-gradient(135deg,rgba(42,157,143,0.75),rgba(29,111,101,0.72));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.7rem">56</span><span class="gs-sub" style="color:#f0d9a8">bid 28 to 56, doubling</span></a><a class="gs-chip" href="/holdem.html" data-i="3" aria-label="Texas Hold'em" style="background:linear-gradient(135deg,rgba(11,107,58,0.75),rgba(8,77,42,0.72));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Hold'em</span><span class="gs-sub" style="color:#f0d9a8">9-player, cash/tourney</span></a><a class="gs-chip" href="/spades.html" data-i="4" aria-label="Spades" style="background:linear-gradient(135deg,rgba(26,58,110,0.78),rgba(15,36,71,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Spades</span><span class="gs-sub" style="color:#f0d9a8">300 to win, nil, bags</span></a><a class="gs-chip" href="/carrom.html" data-i="5" aria-label="Carrom" style="background:linear-gradient(135deg,rgba(138,106,60,0.78),rgba(94,71,38,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Carrom</span><span class="gs-sub" style="color:#f0d9a8">1v1 or 2v2 teams</span></a><a class="gs-chip" href="/pool.html" data-i="6" aria-label="8-Ball Pool" style="background:linear-gradient(135deg,rgba(13,92,77,0.78),rgba(8,61,51,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.35rem">Pool</span><span class="gs-sub" style="color:#f0d9a8">1v1, 8-ball</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" aria-label="Logic Puzzles" style="background:linear-gradient(135deg,rgba(87,60,130,0.78),rgba(56,38,86,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.1rem">🧩 Puzzles</span><span class="gs-sub" style="color:#f0d9a8">100 puzzles & riddles</span></a></div>
   </section>
@@ -4564,7 +4566,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     }
   }
   /* ---------- orbit layout: buttons on a tilted ellipse around the can ---------- */
-  var trk=document.getElementById('gsTrack'), orbitsEl=document.getElementById('gsOrbits'), starsEl=document.getElementById('gsStars'), objs=[], T=0;
+  var fgEl=null, trk=document.getElementById('gsTrack'), orbitsEl=document.getElementById('gsOrbits'), starsEl=document.getElementById('gsStars'), objs=[], T=0;
   // stars (twinkle + the whole field slowly turns around the goblet)
   for(var q=0;q<70;q++){ var si=document.createElement('i'), sz=(Math.random()*1.8+0.7).toFixed(1);
     si.style.cssText='left:'+(Math.random()*100).toFixed(1)+'%;top:'+(Math.random()*100).toFixed(1)+'%;width:'+sz+'px;height:'+sz+'px;--d:'+(2.5+Math.random()*4).toFixed(1)+'s;--l:-'+(Math.random()*6).toFixed(1)+'s;--o:'+(0.5+Math.random()*0.5).toFixed(2)+(Math.random()<.25?';background:#ffd98a':''); starsEl.appendChild(si); }
@@ -4582,6 +4584,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   // how wide the king / cape / cup / stem / base are at each height (fraction of the video width, half-width): anything orbiting behind is cut off there
   function figHalf(yf){ return yf<0.12?0:yf<0.24?0.17:yf<0.47?0.27:yf<0.63?0.19:yf<0.85?0.07:yf<0.95?0.17:0; }
   function maskFor(x,y,half,vw,cx,h){
+    return 'none';   // (replaced by the exact-silhouette overlay #gsFg)
     var fh=figHalf(y/h)*vw; if(fh<=0) return 'none';
     var l=x-half, r=x+half, bl=cx-fh, br=cx+fh; if(!(r>bl&&l<br)) return 'none';
     var A=Math.max(0,Math.min(100,(bl-l)/(2*half)*100)), B=Math.max(0,Math.min(100,(br-l)/(2*half)*100));
@@ -4594,7 +4597,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   }
   function layout(){
     var w=st.clientWidth, h=st.clientHeight, cx=w/2, vw=vid?vid.offsetWidth:w;
-    var ap=Math.min(1,rv*1.6), sx=0.35+0.65*rv;
+    var ap=Math.min(1,rv*1.6), sx=0.35+0.65*rv; if(!fgEl) fgEl=document.getElementById('gsFg'); if(fgEl) fgEl.style.opacity=rv>0.02?'1':'0';
     // 1) the game buttons: tight ring around the goblet's stem
     var rx=Math.min(w/2-74,190)*rv, ry=Math.max(34,h*0.06)*rv, cy=h*0.625; if(vid){ var vr=vid.getBoundingClientRect(), sr=st.getBoundingClientRect(); if(vr.height>50) cy=(vr.top-sr.top)+vr.height*0.73; }
     if(trk){ trk.style.opacity=(rv*0.7).toFixed(3); trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; trk.style.transform='translate3d('+(cx-rx)+'px,'+(cy-ry)+'px,0)'; }
@@ -20825,11 +20828,14 @@ function serverBotPlayForMe() {
       var e = document.createElement('div'); e.className = 'gs-planet ' + p[0]; add(e, { cy: p[1], ry: p[2], rx: Math.min(p[3] * W, p[4]), tilt: p[5] * Math.PI / 180, i: 0, n: 1, dir: p[6], sp: p[7], ph: p[8], s0: .95, s1: 0, hw: p[9], flat: 1 }); });
     function figHalf(yf) { return yf < 0.12 ? 0 : yf < 0.24 ? 0.17 : yf < 0.47 ? 0.27 : yf < 0.63 ? 0.19 : yf < 0.85 ? 0.07 : yf < 0.95 ? 0.17 : 0; }
     function maskFor(x, y, half) {
+      return 'none';
       var fh = figHalf((y - vy) / vh) * vw; if (fh <= 0) return 'none';
       var l = x - half, r = x + half, bl = cx - fh, br = cx + fh; if (!(r > bl && l < br)) return 'none';
       var A = Math.max(0, Math.min(100, (bl - l) / (2 * half) * 100)), B = Math.max(0, Math.min(100, (br - l) / (2 * half) * 100));
       return 'linear-gradient(90deg,#000 0,#000 ' + A.toFixed(1) + '%,transparent ' + A.toFixed(1) + '%,transparent ' + B.toFixed(1) + '%,#000 ' + B.toFixed(1) + '%,#000 100%)';
     }
+    var fg = document.createElement('img'); fg.src = '/images/gulan-king-fg.webp?v=1'; fg.alt = '';
+    fg.style.cssText = 'position:absolute;left:' + vx + 'px;top:' + vy + 'px;width:' + vw + 'px;height:' + vh + 'px;z-index:10;pointer-events:none'; layer.appendChild(fg);
     ov.appendChild(layer); void layer.offsetWidth; layer.style.opacity = '1';
     var t0 = performance.now(), last = t0;
     function frame(now) {
