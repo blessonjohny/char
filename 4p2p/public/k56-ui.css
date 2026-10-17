@@ -2082,3 +2082,8 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .seat .bc i.p{color:#ffb3ad}
 .seat .bc i.live{border-color:#ffd54a;color:#ffd54a;box-shadow:0 0 6px #ffd54a}
 .fb-b.fb-x{font-size:.66rem;white-space:nowrap;padding:0 2px;letter-spacing:0}
+
+.seat .bc i,:host(.k28-in-game) .seat .bc i{min-width:46px;height:26px;font-size:.92rem;line-height:24px;padding:0 6px;background:#3b0608;border:2px solid #ff3b30;color:#ffd0cb;box-shadow:0 2px 8px #000,0 0 6px rgba(255,59,48,.6);border-radius:7px}
+.seat .bc i.p{color:#ffc9c4}
+.seat .bc i.r{color:#ff8f87}
+.seat .bc i.live{background:#4a3a05;border-color:#ffd54a;color:#ffd54a}

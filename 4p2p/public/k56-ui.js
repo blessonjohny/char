@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=44">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=45">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -854,19 +854,19 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   }
   function cellHtml(t, cls) { return '<i class="' + (cls || '') + (/Pass|P$/.test(t) ? ' p' : '') + (/[♥♦]/.test(t) ? ' r' : '') + '">' + esc(t) + '</i>'; }
   function renderCells(st) {
-    var by = callsBySeat(st), ms = ctx.mySeat(), live = fbDesc(st);
+    var by = callsBySeat(st), ms = ctx.mySeat(), live = fbDesc(st), cb = st.currentBid;
+    var bidding = st.phase === 'bidding';
     for (var seat = 0; seat < 6; seat++) {
       var el = $('bc' + slotOf(seat)); if (!el) continue;
-      var occ = st.seats[seat];
-      var list = (occ && st.phase !== 'lobby') ? by[seat].slice() : [];
-      var html = '';
-      if (!list.length && !(seat === ms && live)) { once('bc' + seat, 'empty', function () { el.innerHTML = ''; }); continue; }
-      var shown = list.slice(-3), liveCell = (seat === ms && st.phase === 'bidding' && st.turn === ms && live && live.text) ? live.text : null;
-      if (liveCell && shown.length >= 3) shown = shown.slice(-2);
-      shown.forEach(function (t) { html += cellHtml(t, ''); });
-      if (liveCell) html += cellHtml(liveCell, 'live');
-      var empties = 3 - shown.length - (liveCell ? 1 : 0);
-      for (var e2 = 0; e2 < empties; e2++) html += '<i class="e"></i>';
+      var occ = st.seats[seat], list = occ ? by[seat] : [], html = '';
+      var liveCell = (seat === ms && bidding && st.turn === ms && live && live.text) ? live.text : null;
+      if (bidding || st.phase === 'auctionClosed') {
+        /* one box per player: only their latest call (older ones are in the "calls so far" list) */
+        if (liveCell) html = cellHtml(liveCell, 'live');
+        else if (list.length) html = cellHtml(list[list.length - 1], '');
+      } else if (cb && seat === cb.seat && st.phase !== 'lobby' && list.length) {
+        html = cellHtml(list[list.length - 1], '');   /* game running: only the final caller's call stays */
+      }
       (function (h, sk) { once('bc' + sk, h, function () { el.innerHTML = h; }); })(html, seat);
     }
   }
@@ -913,10 +913,14 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   }
   /* call cells sit on each player's chest (lower half of the portrait), clear of the middle panel */
   function placeBc() {
-    for (var i = 0; i < 6; i++) {
-      var w = $('seatWrap' + i), av = $('av' + i), bc = $('bc' + i); if (!w || !av || !bc) continue;
+    var ys = [], minY = 1e9, i;
+    for (i = 0; i < 6; i++) { var a = $('av' + i); var y = a && a.offsetHeight ? a.getBoundingClientRect().top : null; ys.push(y); if (y != null && y < minY) minY = y; }
+    for (i = 0; i < 6; i++) {
+      var av = $('av' + i), bc = $('bc' + i); if (!av || !bc) continue;
       var h = av.offsetHeight || 92;
-      bc.style.top = Math.round(h * 0.6) + 'px';
+      /* the farthest (top) player gets the box above the head, everyone else on the chest */
+      var top = ys[i] != null && ys[i] - minY < 8;
+      bc.style.top = top ? '-26px' : Math.round(h * 0.6) + 'px';
     }
   }
   function placeFeltBid() {
