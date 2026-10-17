@@ -2064,3 +2064,9 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .fb-msg{min-height:12px;font:.62rem Georgia;color:#ff9a9a;text-align:center;margin-bottom:3px}
 .fb-go{width:100%;height:32px;border-radius:8px;border:1.5px solid #ffe39a;background:linear-gradient(#f2d489,#c79a3c);color:#2a1810;font:800 .8rem Georgia;cursor:pointer}
 .fb-go.off{opacity:.45}
+
+.fb-b.fb-x{background:#2a1714;color:#ffb0a8;border-color:#8a3a34}
+.fb-b:disabled{opacity:.35;cursor:default}
+.fb-b.fb-x.sel{background:#d4141c;color:#fff;border-color:#ff8a80;animation:fbBlink .7s infinite}
+@keyframes fbBlink{0%,100%{box-shadow:0 0 0 2px #ff3b30,0 0 14px #ff3b30;background:#d4141c}50%{box-shadow:0 0 0 0 transparent;background:#7a0c10}}
+.fb-cells i.on.x{color:#ff6a6a;border-color:#ff3b30;animation:fbBlink .7s infinite}
