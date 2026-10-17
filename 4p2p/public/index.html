@@ -77,9 +77,10 @@ window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adm
 <meta name="theme-color" content="#0a1628">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png?v=2">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
@@ -89,7 +90,9 @@ window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adm
 <meta property="og:url" content="https://28gulan.com/">
 <meta property="og:title" content="Play 28 &amp; 56 Online Free – Kerala Card Games | 28 Gulan">
 <meta property="og:description" content="Play card games online free with friends or offline vs smart AI bots — 28 (Kerala Gulan / Erupathettu), Texas Hold'em Poker, Spades, Carrom, and 8-Ball Pool. No download needed.">
-<meta property="og:image" content="https://28gulan.com/images/desktop-bg-4p.jpg">
+<meta property="og:image" content="https://28gulan.com/images/og-28gulan.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:locale" content="en_IN">
 <meta property="og:site_name" content="28 Kerala Gulan">
 
@@ -97,7 +100,7 @@ window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adm
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Play 28 &amp; 56 Card Games Online Free | Kerala Gulan">
 <meta name="twitter:description" content="Play Kerala's classic 28 (Gulan) and 56 (Ampathiaaru) card games online with friends and voice chat, or vs AI bots. Free, no download.">
-<meta name="twitter:image" content="https://28gulan.com/images/desktop-bg-4p.jpg">
+<meta name="twitter:image" content="https://28gulan.com/images/og-28gulan.jpg">
 
 <!-- Structured data: helps Google + AI assistants understand and cite this page -->
 <script type="application/ld+json">
@@ -124,7 +127,8 @@ window.__isAdminWatchMode = new URLSearchParams(window.location.search).has('adm
   "@type": "Organization",
   "name": "28 Kerala Gulan",
   "alternateName": "28gulan.com",
-  "url": "https://28gulan.com/"
+  "url": "https://28gulan.com/",
+  "logo": "https://28gulan.com/android-chrome-512x512.png"
 }
 </script>
 <script type="application/ld+json">
@@ -4496,6 +4500,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 
   /* ---------- physics: flick = fast spin that eases off, can be caught or reversed, then settles on a button ---------- */
   var mode='idle', vel=0, tgt=0, last=0, caught=false;
+  var rv=0, revealing=null, revealed=false;          // rv: 0 = buttons tucked behind the goblet (hidden), 1 = fully fanned out
+  function reveal(){
+    if(revealed) return; revealed=true; hold=Date.now()+5000;
+    if(calm){ rv=1; return; }
+    revealing={t0:performance.now(),ms:1300};
+  }
   var FRICTION=1.55, MAXV=16, OMEGA=8.5;            // FRICTION: spin slows naturally; OMEGA: stiffness of the final settle
   function springTo(t){ if(calm){ cur=t; mode='idle'; vel=0; settle(); layout(); return; } tgt=t; mode='spring'; }
   function go(n,dir,auto){
@@ -4517,45 +4527,43 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   var trk=document.getElementById('gsTrack');
   function layout(){
     var w=st.clientWidth, h=st.clientHeight;
-    var rx=Math.min(w/2-70,190), ry=Math.max(46,h*0.1), cy=h*0.8, cx=w/2;
-    var vw=vid?vid.offsetWidth:w*.4, band=vw*0.085;                 // half-width of the can: buttons passing behind it are cut off
-    if(trk){ trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; trk.style.transform='translate3d('+(cx-rx)+'px,'+(cy-ry)+'px,0)'; }
+    var rx=Math.min(w/2-74,190)*rv, ry=Math.max(44,h*0.085)*rv, cy=h*0.815, cx=w/2;
+    var vw=vid?vid.offsetWidth:w*.4;                 // half-width of the can: buttons passing behind it are cut off
+    if(trk){ trk.style.opacity=rv.toFixed(3); trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; trk.style.transform='translate3d('+(cx-rx)+'px,'+(cy-ry)+'px,0)'; }
     for(var k=0;k<chips.length;k++){
       var c=chips[k], i=+c.dataset.i, a=(i-cur)*(2*Math.PI/N), sn=Math.sin(a), cs=Math.cos(a), dp=(cs+1)/2;   // dp 1 = front, 0 = back
-      var sc=0.5+0.54*dp, x=cx+sn*rx, y=cy+cs*ry-(1-dp)*h*0.05;
+      var sc=(0.3+0.88*Math.pow(dp,1.15))*(0.35+0.65*rv), x=cx+sn*rx, y=cy+cs*ry;
       c.style.transform='translate3d('+(x-62).toFixed(2)+'px,'+(y-41).toFixed(2)+'px,0) scale('+sc.toFixed(4)+')';
-      c.style.opacity=(0.3+0.7*dp).toFixed(3);
+      c.style.opacity=((0.55+0.45*dp)*Math.min(1,rv*1.6)).toFixed(3);
       c.style.zIndex=dp>0.5?String(10+Math.round(dp*20)):'1';
-      var clip='none';
-      if(dp<0.5){                                                 // behind the can: hide whatever the can would cover
-        var half=62*sc, l=x-half, r=x+half, bl=cx-band, br=cx+band;
+      var msk='none';
+      if(dp<0.5){                                                 // behind the goblet: cut away exactly the part the goblet would cover
+        var half=62*sc, l=x-half, r=x+half, band=vw*(y<h*0.66?0.19:0.07), bl=cx-band, br=cx+band;
         if(r>bl&&l<br){
-          var cutL=Math.max(0,bl-l), cutR=Math.max(0,r-br);
-          if(l>=bl&&r<=br) clip='inset(0 50% 0 50%)';
-          else if(l<bl&&r>br) clip='none';
-          else if(l<bl) clip='inset(0 '+((r-bl)/(2*half)*100).toFixed(2)+'% 0 0)';
-          else clip='inset(0 0 0 '+((br-l)/(2*half)*100).toFixed(2)+'%)';
+          var A=Math.max(0,Math.min(100,(bl-l)/(2*half)*100)), B=Math.max(0,Math.min(100,(br-l)/(2*half)*100));
+          msk='linear-gradient(90deg,#000 0,#000 '+A.toFixed(2)+'%,transparent '+A.toFixed(2)+'%,transparent '+B.toFixed(2)+'%,#000 '+B.toFixed(2)+'%,#000 100%)';
         }
       }
-      c.style.clipPath=clip;
-      c.style.pointerEvents=dp<0.45?'none':'auto';
+      if(c._m!==msk){ c._m=msk; c.style.webkitMaskImage=msk; c.style.maskImage=msk; }
+      c.style.pointerEvents=(rv<0.95||dp<0.45)?'none':'auto';
     }
   }
   function frame(now){
     var dt=last?Math.min(0.034,(now-last)/1000):0.016; last=now;
+    if(revealing){ var q=Math.min(1,(now-revealing.t0)/revealing.ms); rv=1-Math.pow(1-q,3); if(q>=1){ rv=1; revealing=null; } }
     if(!drag) step(dt);
     settle(); layout(); requestAnimationFrame(frame);
   }
   window.addEventListener('resize',layout);
   setInterval(function(){                       // gentle auto-orbit while the home screen is showing and untouched
     var w=document.getElementById('welcomeScreen'), dr=document.getElementById('gDrawer');
-    if(calm||document.hidden||drag||mode!=='idle'||Date.now()<hold||!w||getComputedStyle(w).display==='none'||(dr&&dr.classList.contains('on'))) return;
+    if(!revealed||calm||document.hidden||drag||mode!=='idle'||Date.now()<hold||!w||getComputedStyle(w).display==='none'||(dr&&dr.classList.contains('on'))) return;
     go(sel+1,1,true);
   },4800);
 
   /* ---------- finger / mouse follows the ring, then glides to the nearest button ---------- */
   var STEP=96;                                   // px of finger travel per button
-  function pdown(e){ if(e.button>0) return;
+  function pdown(e){ if(e.button>0||!revealed) return;
     caught=(mode==='fling')||(mode==='spring'&&Math.abs(tgt-cur)>0.2);
     drag={x:e.clientX,base:cur,lx:e.clientX,lt:performance.now(),lock:null,y:e.clientY,v:0}; mode='idle'; vel=0; hold=Date.now()+14000; moved=false; }
   function pmove(e){
@@ -4602,11 +4610,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   var v=document.getElementById('gsVideo');
   var saveData=(navigator.connection&&navigator.connection.saveData);
   if(v&&!calm&&!saveData){
-    var vis=true, done=false; v.addEventListener('ended',function(){done=true;});
-    function sync(){ if(done) return; if(vis&&!document.hidden){var p=v.play(); if(p&&p.catch)p.catch(function(){});} else v.pause(); }
+    var vis=true, done=false; v.addEventListener('ended',function(){done=true; reveal();}); v.addEventListener('error',reveal); var guard=null;   // safety net: if the video is on screen but never starts (autoplay blocked / failed), show the buttons anyway
+    function sync(){ if(done) return; if(vis&&!document.hidden){var p=v.play(); if(p&&p.catch)p.catch(function(err){ if(err&&err.name==='NotAllowedError') reveal(); }); if(!guard) guard=setTimeout(function(){ if(!revealed&&v.currentTime<0.2) reveal(); },5000); } else v.pause(); }
     if('IntersectionObserver' in window) new IntersectionObserver(function(en){vis=en[0].isIntersecting;sync();},{threshold:.15}).observe(st);
     document.addEventListener('visibilitychange',sync); sync();
-  } else if(v){ v.addEventListener('loadedmetadata',function(){ try{ v.currentTime=Math.max(0,v.duration-0.05); }catch(e){} }); v.preload='auto'; }
+  } else if(v){ v.addEventListener('loadedmetadata',function(){ try{ v.currentTime=Math.max(0,v.duration-0.05); }catch(e){} }); v.preload='auto'; reveal(); } else { reveal(); }
 
   /* ---------- side menu ---------- */
   var dr=document.getElementById('gDrawer'), sc=document.getElementById('gdScrim'), ob=document.getElementById('gdOpen');
