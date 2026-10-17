@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=40">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=41">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -743,9 +743,10 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       /* sits in the empty space above the top player's head (not over the table), like the trick popup */
       var placeBid = function () {
         if (b.style.display === 'none') return;
-        var inv = $('btnInvite'), bh = b.offsetHeight, topEdge;
-        var ir = inv && inv.getBoundingClientRect();
-        topEdge = ir && ir.height ? ir.bottom + 10 : window.innerHeight * 0.17;
+        var dw = $('sixInfoDealerWrap'), bh = b.offsetHeight, topEdge;
+        var dr = dw && dw.getBoundingClientRect();
+        /* tucked right under the score/Bid line so it never covers the top player's call cells */
+        topEdge = dr && dr.height ? dr.bottom + 4 : window.innerHeight * 0.11;
         b.style.setProperty('top', (topEdge + bh / 2) + 'px', 'important');
         dockMic(b);
       };
