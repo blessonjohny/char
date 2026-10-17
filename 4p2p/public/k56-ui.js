@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=43">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=44">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -911,12 +911,21 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     else if (a.t === 'redouble') ctx.send('l56_redouble', { note: '' });
     fbReset();
   }
+  /* call cells sit on each player's chest (lower half of the portrait), clear of the middle panel */
+  function placeBc() {
+    for (var i = 0; i < 6; i++) {
+      var w = $('seatWrap' + i), av = $('av' + i), bc = $('bc' + i); if (!w || !av || !bc) continue;
+      var h = av.offsetHeight || 92;
+      bc.style.top = Math.round(h * 0.6) + 'px';
+    }
+  }
   function placeFeltBid() {
+    placeBc();
     var fbEl = $('feltBid'), gs = $('gameScreen'); if (!fbEl || !gs) return;
     var S = window.K28Stage, x, y, w;
     if (window.innerWidth < 521 && S && S.centre) {
       var c = S.centre(gs); if (!c) return;
-      x = c[0]; y = c[1]; w = Math.max(206, Math.min(c[2] * 0.62, 250));
+      x = c[0]; y = c[1]; w = Math.max(190, Math.min(c[2] * 0.5, 214));
     } else {
       var g0 = gs.getBoundingClientRect(), op = (fbEl.offsetParent || gs).getBoundingClientRect();
       x = g0.left - op.left + g0.width / 2; y = g0.top - op.top + g0.height * 0.505; w = Math.max(220, Math.min(g0.width * 0.26, 270));

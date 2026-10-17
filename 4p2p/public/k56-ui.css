@@ -2075,3 +2075,10 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .felt-bid select.fb-hist option{background:#f6ead0;color:#2a1810}
 .fb-hd{align-items:center}
 .felt-bid .fb-row select{font-size:.78rem;padding:0 1px 0 4px}
+
+.seat .bc{position:absolute;left:50%;transform:translateX(-50%);margin:0;z-index:7}
+.seat .bc i,:host(.k28-in-game) .seat .bc i{min-width:22px;height:18px;font-size:.66rem;line-height:16px;padding:0 2px;background:rgba(40,4,6,.9);border:1.5px solid #ff3b30;color:#ff8a80;box-shadow:0 0 5px rgba(255,59,48,.55)}
+.seat .bc i.e{background:rgba(40,4,6,.35);border-color:rgba(255,59,48,.35);box-shadow:none}
+.seat .bc i.p{color:#ffb3ad}
+.seat .bc i.live{border-color:#ffd54a;color:#ffd54a;box-shadow:0 0 6px #ffd54a}
+.fb-b.fb-x{font-size:.66rem;white-space:nowrap;padding:0 2px;letter-spacing:0}
