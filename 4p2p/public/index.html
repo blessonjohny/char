@@ -4270,6 +4270,31 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .gs-sub{display:block;font-size:.56rem;font-weight:600;line-height:1.15;opacity:.95;text-shadow:0 1px 2px rgba(0,0,0,.5);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gs-ring .gs-chip.inv .gs-sub{text-shadow:0 1px 1px rgba(255,255,255,.3)}
 .gs-ring .gs-chip.on{box-shadow:0 0 0 2px #ffd54a,0 0 24px rgba(255,213,74,.6),0 8px 22px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.25)}
+/* ===== solar-system home: the king + goblet are the sun, everything else orbits them ===== */
+#welcomeScreen{background:#04050b!important;animation:none!important}
+#welcomeScreen .gs{max-width:none;height:100vh;height:100dvh;min-height:560px;margin:0;overflow:hidden}
+.gs-top{margin-bottom:-66px}
+.gs-bgblur{position:absolute;inset:-6%;background:url('/images/gulan-final.jpg') center/cover no-repeat;filter:blur(26px) brightness(.55) saturate(1.1);z-index:0}
+.gs-video{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%)!important;mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%)!important;-webkit-mask-composite:source-over!important;mask-composite:add!important}
+.gs-scrim{position:absolute;left:0;right:0;bottom:0;height:36%;background:linear-gradient(180deg,rgba(4,5,11,0) 0%,rgba(4,5,11,.8) 72%,rgba(4,5,11,.94) 100%);z-index:7;pointer-events:none}
+.gs-stars{position:absolute;inset:-35%;z-index:6;pointer-events:none;animation:gsSpin 420s linear infinite}
+.gs-stars i{position:absolute;border-radius:50%;background:#fff;opacity:.1;animation:gsTw var(--d,4s) ease-in-out infinite;animation-delay:var(--l,0s)}
+@keyframes gsSpin{to{transform:rotate(360deg)}}
+@keyframes gsTw{0%,100%{opacity:.08}50%{opacity:var(--o,.8)}}
+.gs-orbits{position:absolute;inset:0;pointer-events:none}
+.gs-ob{position:absolute;left:0;top:0;pointer-events:none;will-change:transform,opacity;backface-visibility:hidden;opacity:0}
+.gs-word{white-space:nowrap;font-family:'Cinzel','Playfair Display',serif;font-weight:700;font-size:.74rem;letter-spacing:2px;color:#f6e4a8;text-shadow:0 0 10px rgba(246,200,90,.65),0 1px 2px #000;margin:-9px 0 0 -60px;width:120px;text-align:center}
+.gs-pcard{width:34px;height:48px;margin:-24px 0 0 -17px;border-radius:5px;background:linear-gradient(160deg,#fff,#e9e2d0);box-shadow:0 3px 10px rgba(0,0,0,.55),0 0 12px rgba(255,220,140,.35);display:flex;align-items:center;justify-content:center;font:800 .95rem/1 Georgia,serif;color:#161616;position:absolute}
+.gs-pcard.r{color:#c4161c}
+.gs-pcard b{position:absolute;top:3px;left:4px;font-size:.62rem}
+.gs-planet{width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%}
+.gs-planet.p1{width:34px;height:34px;margin:-17px 0 0 -17px;background:radial-gradient(circle at 32% 30%,#ffe9b0,#e0973f 45%,#7a3d12 100%);box-shadow:0 0 22px rgba(255,170,60,.55)}
+.gs-planet.p1::after{content:'';position:absolute;left:-14px;right:-14px;top:12px;height:10px;border:2px solid rgba(255,225,160,.7);border-radius:50%;transform:rotate(-14deg)}
+.gs-planet.p2{width:20px;height:20px;margin:-10px 0 0 -10px;background:radial-gradient(circle at 32% 30%,#cfe8ff,#4a8de0 50%,#12306a 100%);box-shadow:0 0 16px rgba(90,160,255,.55)}
+.gs-planet.p3{width:11px;height:11px;margin:-5px 0 0 -5px;background:radial-gradient(circle at 35% 30%,#fff,#d9d4c4 55%,#7c7666 100%);box-shadow:0 0 12px rgba(255,255,255,.5)}
+.gs-feature,.gs-play,.gs-dots,.gs-hint{position:relative;z-index:20}
+.gs-feature{margin-top:-178px}
+@media (prefers-reduced-motion:reduce){.gs-stars,.gs-stars i{animation:none!important}}
 </style>
 </head>
 <body>
@@ -4461,9 +4486,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
        existing click handler (btnPlayOnline, btnPlayLocal...) still works: the stage triggers them. -->
   <div class="gs-top"><button type="button" id="gdOpen" aria-label="Open games menu" aria-expanded="false"><i></i><i></i><i></i></button><span class="gs-brand">28GULAN.COM</span></div>
   <section class="gs" id="gStage" aria-label="Choose a game" style="--k:#e0b878">
-    <div class="gs-glow"></div>
+    <div class="gs-bgblur"></div>
     <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.mp4?v=4" type="video/mp4"><source src="/video/gulan-hero.webm?v=4" type="video/webm"></video></div>
     <div class="gs-track" id="gsTrack"></div>
+    <div class="gs-stars" id="gsStars"></div>
+    <div class="gs-orbits" id="gsOrbits"></div>
+    <div class="gs-scrim"></div>
     <div class="gs-ring" id="gsRing"><a class="gs-chip inv" href="/play6.html" data-i="0" aria-label="28 · 6 Player" style="background:linear-gradient(160deg,rgba(224,184,120,0.85) 0%,rgba(207,161,96,0.82) 55%,rgba(166,122,62,0.78) 100%);border-color:#781c18;color:#4a1410"><span class="btn28-badge" style="font-size:1.7rem">28</span><span class="btn28-modelabel">6 Player</span><span class="gs-sub" style="color:#5c1410">🎙️ 2 teams of 3</span></a><a class="gs-chip" href="/" data-i="1" aria-label="28 · 4 Player" style="background:linear-gradient(160deg,rgba(138,34,28,0.78) 0%,rgba(92,21,15,0.75) 55%,rgba(43,6,3,0.72) 100%);border-color:#cfa160;color:#f0cf94"><span class="btn28-badge" style="font-size:1.7rem">28</span><span class="btn28-modelabel">4 Player</span><span class="gs-sub" style="color:#f0d9a8">🎙️ live voice chat</span></a><a class="gs-chip" href="/56.html" data-i="2" aria-label="56 · Ampathiaaru" style="background:linear-gradient(135deg,rgba(42,157,143,0.75),rgba(29,111,101,0.72));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.7rem">56</span><span class="gs-sub" style="color:#f0d9a8">bid 28 to 56, doubling</span></a><a class="gs-chip" href="/holdem.html" data-i="3" aria-label="Texas Hold'em" style="background:linear-gradient(135deg,rgba(11,107,58,0.75),rgba(8,77,42,0.72));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Hold'em</span><span class="gs-sub" style="color:#f0d9a8">9-player, cash/tourney</span></a><a class="gs-chip" href="/spades.html" data-i="4" aria-label="Spades" style="background:linear-gradient(135deg,rgba(26,58,110,0.78),rgba(15,36,71,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Spades</span><span class="gs-sub" style="color:#f0d9a8">300 to win, nil, bags</span></a><a class="gs-chip" href="/carrom.html" data-i="5" aria-label="Carrom" style="background:linear-gradient(135deg,rgba(138,106,60,0.78),rgba(94,71,38,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Carrom</span><span class="gs-sub" style="color:#f0d9a8">1v1 or 2v2 teams</span></a><a class="gs-chip" href="/pool.html" data-i="6" aria-label="8-Ball Pool" style="background:linear-gradient(135deg,rgba(13,92,77,0.78),rgba(8,61,51,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.35rem">Pool</span><span class="gs-sub" style="color:#f0d9a8">1v1, 8-ball</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" aria-label="Logic Puzzles" style="background:linear-gradient(135deg,rgba(87,60,130,0.78),rgba(56,38,86,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.1rem">🧩 Puzzles</span><span class="gs-sub" style="color:#f0d9a8">100 puzzles & riddles</span></a></div>
   </section>
   <div class="gs-feature" id="gsFeature">
@@ -4511,9 +4539,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   function go(n,dir,auto){
     var nn=((n%N)+N)%N, d=nn-nearest(cur); if(d>N/2) d-=N; if(d<-N/2) d+=N;
     vel=0; springTo(Math.round(cur)+d); if(hint) hint.style.opacity='0';
-    if(!auto) hold=Date.now()+14000;
+    if(!auto) hold=Date.now()+5000;
   }
+  var DRIFT=0.2;                                   // items per second of steady rotation (one lap ~40 s)
   function step(dt){
+    if(mode==='idle'){ if(revealed&&!calm&&!drag&&Date.now()>hold) cur+=DRIFT*dt; return; }
     if(mode==='fling'){
       cur+=vel*dt; vel*=Math.exp(-FRICTION*dt);
       if(Math.abs(vel)<1.25){ tgt=Math.round(cur+Math.sign(vel)*0.0); mode='spring'; }   // slow enough: hand over to the settle spring (velocity carries over, so no jolt)
@@ -4524,48 +4554,70 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     }
   }
   /* ---------- orbit layout: buttons on a tilted ellipse around the can ---------- */
-  var trk=document.getElementById('gsTrack');
+  var trk=document.getElementById('gsTrack'), orbitsEl=document.getElementById('gsOrbits'), starsEl=document.getElementById('gsStars'), objs=[], T=0;
+  // stars (twinkle + the whole field slowly turns around the goblet)
+  for(var q=0;q<70;q++){ var si=document.createElement('i'), sz=(Math.random()*1.8+0.7).toFixed(1);
+    si.style.cssText='left:'+(Math.random()*100).toFixed(1)+'%;top:'+(Math.random()*100).toFixed(1)+'%;width:'+sz+'px;height:'+sz+'px;--d:'+(2.5+Math.random()*4).toFixed(1)+'s;--l:-'+(Math.random()*6).toFixed(1)+'s;--o:'+(0.5+Math.random()*0.5).toFixed(2)+(Math.random()<.25?';background:#ffd98a':''); starsEl.appendChild(si); }
+  function mk(cls,html){ var e=document.createElement('div'); e.className='gs-ob '+cls; e.innerHTML=html; orbitsEl.appendChild(e); return e; }
+  var WORDS=['BID SMART','PLAY SMARTER','BECOME THE KING','GULAN','28','56','KERALA'];
+  WORDS.forEach(function(t,i){ objs.push({el:mk('gs-word',t),cy:.355,ry:.05,rxf:.4,rxm:300,tilt:0,i:i,n:WORDS.length,dir:-1,sp:.04,s0:.55,s1:.6,hw:50,ph:0}); });
+  var CARDS=[['A','♠'],['K','♥'],['Q','♦'],['J','♠'],['10','♣'],['9','♥'],['8','♠'],['7','♦']];
+  CARDS.forEach(function(c,i){ var red=(c[1]==='♥'||c[1]==='♦'); objs.push({el:mk('gs-pcard'+(red?' r':''),'<b>'+c[0]+'</b>'+c[1]),cy:.215,ry:.045,rxf:.44,rxm:250,tilt:0,i:i,n:CARDS.length,dir:1,sp:.06,s0:.6,s1:.5,hw:17,ph:0.4,rot:true}); });
+  [{c:'p1',cy:.5,ry:.22,rxf:.62,rxm:560,tilt:-16,dir:1,sp:.028,ph:.8,hw:17},{c:'p2',cy:.47,ry:.3,rxf:.5,rxm:480,tilt:22,dir:-1,sp:.04,ph:2.6,hw:10},{c:'p3',cy:.2,ry:.05,rxf:.2,rxm:130,tilt:0,dir:1,sp:.1,ph:1.2,hw:6}]
+   .forEach(function(p){ objs.push({el:mk('gs-planet '+p.c,''),cy:p.cy,ry:p.ry,rxf:p.rxf,rxm:p.rxm,tilt:p.tilt*Math.PI/180,i:0,n:1,dir:p.dir,sp:p.sp,s0:.75,s1:.45,hw:p.hw,ph:p.ph}); });
+  // how wide the king / cape / cup / stem / base are at each height (fraction of the video width, half-width): anything orbiting behind is cut off there
+  function figHalf(yf){ return yf<0.12?0:yf<0.24?0.17:yf<0.47?0.27:yf<0.63?0.19:yf<0.85?0.07:yf<0.95?0.17:0; }
+  function maskFor(x,y,half,vw,cx,h){
+    var fh=figHalf(y/h)*vw; if(fh<=0) return 'none';
+    var l=x-half, r=x+half, bl=cx-fh, br=cx+fh; if(!(r>bl&&l<br)) return 'none';
+    var A=Math.max(0,Math.min(100,(bl-l)/(2*half)*100)), B=Math.max(0,Math.min(100,(br-l)/(2*half)*100));
+    return 'linear-gradient(90deg,#000 0,#000 '+A.toFixed(2)+'%,transparent '+A.toFixed(2)+'%,transparent '+B.toFixed(2)+'%,#000 '+B.toFixed(2)+'%,#000 100%)';
+  }
+  function put(el,x,y,sc,op,z,msk,rot){
+    el.style.transform='translate3d('+x.toFixed(2)+'px,'+y.toFixed(2)+'px,0) scale('+sc.toFixed(4)+')'+(rot?' rotate('+rot.toFixed(1)+'deg)':'');
+    el.style.opacity=op.toFixed(3); el.style.zIndex=String(z);
+    if(el._m!==msk){ el._m=msk; el.style.webkitMaskImage=msk; el.style.maskImage=msk; }
+  }
   function layout(){
-    var w=st.clientWidth, h=st.clientHeight;
-    var rx=Math.min(w/2-74,190)*rv, ry=Math.max(44,h*0.085)*rv, cy=h*0.815, cx=w/2;
-    var vw=vid?vid.offsetWidth:w*.4;                 // half-width of the can: buttons passing behind it are cut off
-    if(trk){ trk.style.opacity=rv.toFixed(3); trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; trk.style.transform='translate3d('+(cx-rx)+'px,'+(cy-ry)+'px,0)'; }
+    var w=st.clientWidth, h=st.clientHeight, cx=w/2, vw=vid?vid.offsetWidth:w;
+    var ap=Math.min(1,rv*1.6), sx=0.35+0.65*rv;
+    // 1) the game buttons: tight ring around the goblet's stem
+    var rx=Math.min(w/2-74,190)*rv, ry=Math.max(40,h*0.075)*rv, cy=h*0.625;
+    if(trk){ trk.style.opacity=(rv*0.7).toFixed(3); trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; trk.style.transform='translate3d('+(cx-rx)+'px,'+(cy-ry)+'px,0)'; }
     for(var k=0;k<chips.length;k++){
-      var c=chips[k], i=+c.dataset.i, a=(i-cur)*(2*Math.PI/N), sn=Math.sin(a), cs=Math.cos(a), dp=(cs+1)/2;   // dp 1 = front, 0 = back
-      var sc=(0.3+0.88*Math.pow(dp,1.15))*(0.35+0.65*rv), x=cx+sn*rx, y=cy+cs*ry;
+      var c=chips[k], i=+c.dataset.i, a=(i-cur)*(2*Math.PI/N), sn=Math.sin(a), cs=Math.cos(a), dp=(cs+1)/2;
+      var sc=(0.3+0.88*Math.pow(dp,1.15))*sx, x=cx+sn*rx, y=cy+cs*ry;
       c.style.transform='translate3d('+(x-62).toFixed(2)+'px,'+(y-41).toFixed(2)+'px,0) scale('+sc.toFixed(4)+')';
-      c.style.opacity=((0.55+0.45*dp)*Math.min(1,rv*1.6)).toFixed(3);
-      c.style.zIndex=dp>0.5?String(10+Math.round(dp*20)):'1';
-      var msk='none';
-      if(dp<0.5){                                                 // behind the goblet: cut away exactly the part the goblet would cover
-        var half=62*sc, l=x-half, r=x+half, band=vw*(y<h*0.66?0.19:0.07), bl=cx-band, br=cx+band;
-        if(r>bl&&l<br){
-          var A=Math.max(0,Math.min(100,(bl-l)/(2*half)*100)), B=Math.max(0,Math.min(100,(br-l)/(2*half)*100));
-          msk='linear-gradient(90deg,#000 0,#000 '+A.toFixed(2)+'%,transparent '+A.toFixed(2)+'%,transparent '+B.toFixed(2)+'%,#000 '+B.toFixed(2)+'%,#000 100%)';
-        }
-      }
+      c.style.opacity=((0.55+0.45*dp)*ap).toFixed(3);
+      c.style.zIndex=dp>0.5?String(30+Math.round(dp*20)):'12';
+      var msk=dp<0.5?maskFor(x,y,62*sc,vw,cx,h):'none';
       if(c._m!==msk){ c._m=msk; c.style.webkitMaskImage=msk; c.style.maskImage=msk; }
       c.style.pointerEvents=(rv<0.95||dp<0.45)?'none':'auto';
+    }
+    // 2) words, playing cards and planets: other orbits around the king
+    for(var j=0;j<objs.length;j++){
+      var o=objs[j], ang=o.ph+(o.i/o.n)*2*Math.PI+o.dir*o.sp*2*Math.PI*T, s2=Math.sin(ang), c2=Math.cos(ang), d2=(c2+1)/2;
+      var ox=Math.min(o.rxf*w,o.rxm)*rv*s2, oy=o.ry*h*rv*c2, ct=Math.cos(o.tilt), st2=Math.sin(o.tilt);
+      var px=cx+ox*ct-oy*st2, py=o.cy*h+ox*st2+oy*ct;
+      var scl=(o.s0+o.s1*d2)*sx;
+      var mm=d2<0.5?maskFor(px,py,o.hw*scl,vw,cx,h):'none';
+      put(o.el,px,py,scl,(0.3+0.7*d2)*ap,d2>0.5?(20+Math.round(d2*8)):10,mm,o.rot?Math.sin(ang*2)*14:0);
     }
   }
   function frame(now){
     var dt=last?Math.min(0.034,(now-last)/1000):0.016; last=now;
     if(revealing){ var q=Math.min(1,(now-revealing.t0)/revealing.ms); rv=1-Math.pow(1-q,3); if(q>=1){ rv=1; revealing=null; } }
+    if(revealed&&!calm) T+=dt;
     if(!drag) step(dt);
     settle(); layout(); requestAnimationFrame(frame);
   }
   window.addEventListener('resize',layout);
-  setInterval(function(){                       // gentle auto-orbit while the home screen is showing and untouched
-    var w=document.getElementById('welcomeScreen'), dr=document.getElementById('gDrawer');
-    if(!revealed||calm||document.hidden||drag||mode!=='idle'||Date.now()<hold||!w||getComputedStyle(w).display==='none'||(dr&&dr.classList.contains('on'))) return;
-    go(sel+1,1,true);
-  },4800);
 
   /* ---------- finger / mouse follows the ring, then glides to the nearest button ---------- */
   var STEP=96;                                   // px of finger travel per button
   function pdown(e){ if(e.button>0||!revealed) return;
     caught=(mode==='fling')||(mode==='spring'&&Math.abs(tgt-cur)>0.2);
-    drag={x:e.clientX,base:cur,lx:e.clientX,lt:performance.now(),lock:null,y:e.clientY,v:0}; mode='idle'; vel=0; hold=Date.now()+14000; moved=false; }
+    drag={x:e.clientX,base:cur,lx:e.clientX,lt:performance.now(),lock:null,y:e.clientY,v:0}; mode='idle'; vel=0; hold=Date.now()+5000; moved=false; }
   function pmove(e){
     if(!drag) return; var dx=e.clientX-drag.x, dy=e.clientY-drag.y;
     if(drag.lock===null && (Math.abs(dx)>6||Math.abs(dy)>6)) drag.lock=Math.abs(dx)>Math.abs(dy)*1.15?'h':'v';
