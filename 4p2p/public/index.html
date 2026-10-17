@@ -4569,10 +4569,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     si.style.cssText='left:'+(Math.random()*100).toFixed(1)+'%;top:'+(Math.random()*100).toFixed(1)+'%;width:'+sz+'px;height:'+sz+'px;--d:'+(2.5+Math.random()*4).toFixed(1)+'s;--l:-'+(Math.random()*6).toFixed(1)+'s;--o:'+(0.5+Math.random()*0.5).toFixed(2)+(Math.random()<.25?';background:#ffd98a':''); starsEl.appendChild(si); }
   function mk(cls,html){ var e=document.createElement('div'); e.className='gs-ob '+cls; e.innerHTML=html; orbitsEl.appendChild(e); return e; }
   var WORDS=['BID SMART','PLAY SMARTER','BECOME THE KING','GULAN','28','56','KERALA'];
-  WORDS.forEach(function(t,i){ objs.push({el:mk('gs-word',t),cy:.355,ry:.05,rxf:.4,rxm:300,tilt:0,i:i,n:WORDS.length,dir:-1,sp:.04,s0:.55,s1:.6,hw:50,ph:0}); });
+  WORDS.forEach(function(t,i){ objs.push({el:mk('gs-word',t),cy:.355,ry:.05,rxf:.46,rxm:620,tilt:0,i:i,n:WORDS.length,dir:-1,sp:.04,s0:.55,s1:.6,hw:50,ph:0}); });
   var CARDS=[['A','♠'],['K','♥'],['Q','♦'],['J','♠'],['10','♣'],['9','♥'],['8','♠'],['7','♦']];
-  CARDS.forEach(function(c,i){ var red=(c[1]==='♥'||c[1]==='♦'); objs.push({el:mk('gs-pcard'+(red?' r':''),'<b>'+c[0]+'</b>'+c[1]),cy:.215,ry:.045,rxf:.44,rxm:250,tilt:0,i:i,n:CARDS.length,dir:1,sp:.06,s0:.6,s1:.5,hw:17,ph:0.4,rot:true}); });
-  [{c:'p1',cy:.5,ry:.22,rxf:.62,rxm:560,tilt:-16,dir:1,sp:.028,ph:.8,hw:17},{c:'p2',cy:.47,ry:.3,rxf:.5,rxm:480,tilt:22,dir:-1,sp:.04,ph:2.6,hw:10},{c:'p3',cy:.2,ry:.05,rxf:.2,rxm:130,tilt:0,dir:1,sp:.1,ph:1.2,hw:6}]
+  CARDS.forEach(function(c,i){ var red=(c[1]==='♥'||c[1]==='♦'); objs.push({el:mk('gs-pcard'+(red?' r':''),'<b>'+c[0]+'</b>'+c[1]),cy:.215,ry:.045,rxf:.4,rxm:520,tilt:0,i:i,n:CARDS.length,dir:1,sp:.06,s0:.6,s1:.5,hw:17,ph:0.4,rot:true}); });
+  [{c:'p1',cy:.5,ry:.22,rxf:.62,rxm:560,tilt:-16,dir:1,sp:.028,ph:.8,hw:17},{c:'p2',cy:.47,ry:.3,rxf:.5,rxm:640,tilt:22,dir:-1,sp:.04,ph:2.6,hw:10},{c:'p3',cy:.2,ry:.05,rxf:.2,rxm:130,tilt:0,dir:1,sp:.1,ph:1.2,hw:6}]
    .forEach(function(p){ objs.push({el:mk('gs-planet '+p.c,''),cy:p.cy,ry:p.ry,rxf:p.rxf,rxm:p.rxm,tilt:p.tilt*Math.PI/180,i:0,n:1,dir:p.dir,sp:p.sp,s0:.75,s1:.45,hw:p.hw,ph:p.ph}); });
   // how wide the king / cape / cup / stem / base are at each height (fraction of the video width, half-width): anything orbiting behind is cut off there
   function figHalf(yf){ return yf<0.12?0:yf<0.24?0.17:yf<0.47?0.27:yf<0.63?0.19:yf<0.85?0.07:yf<0.95?0.17:0; }
@@ -4591,11 +4591,11 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     var w=st.clientWidth, h=st.clientHeight, cx=w/2, vw=vid?vid.offsetWidth:w;
     var ap=Math.min(1,rv*1.6), sx=0.35+0.65*rv;
     // 1) the game buttons: tight ring around the goblet's stem
-    var rx=Math.min(w/2-74,190)*rv, ry=Math.max(40,h*0.075)*rv, cy=h*0.625; if(vid){ var vr=vid.getBoundingClientRect(), sr=st.getBoundingClientRect(); if(vr.height>50) cy=(vr.top-sr.top)+vr.height*0.63; }
+    var rx=Math.min(w/2-74,190)*rv, ry=Math.max(34,h*0.06)*rv, cy=h*0.625; if(vid){ var vr=vid.getBoundingClientRect(), sr=st.getBoundingClientRect(); if(vr.height>50) cy=(vr.top-sr.top)+vr.height*0.69; }
     if(trk){ trk.style.opacity=(rv*0.7).toFixed(3); trk.style.width=(rx*2)+'px'; trk.style.height=(ry*2)+'px'; trk.style.transform='translate3d('+(cx-rx)+'px,'+(cy-ry)+'px,0)'; }
     for(var k=0;k<chips.length;k++){
       var c=chips[k], i=+c.dataset.i, a=(i-cur)*(2*Math.PI/N), sn=Math.sin(a), cs=Math.cos(a), dp=(cs+1)/2;
-      var sc=(0.3+0.88*Math.pow(dp,1.15))*sx, x=cx+sn*rx, y=cy+cs*ry;
+      var sc=(0.3+0.7*Math.pow(dp,1.15))*sx, x=cx+sn*rx, y=cy+cs*ry;
       c.style.transform='translate3d('+(x-62).toFixed(2)+'px,'+(y-41).toFixed(2)+'px,0) scale('+sc.toFixed(4)+')';
       c.style.opacity=((0.55+0.45*dp)*ap).toFixed(3);
       c.style.zIndex=dp>0.5?String(30+Math.round(dp*20)):'12';
@@ -20772,8 +20772,7 @@ function serverBotPlayForMe() {
     if (!v._once) { v._once = true;
       var done = false, finish = function () {          // plays ONE time, then fades to the home scene (king + goblet, everything orbiting)
         if (done || !videoSaverOn) return; done = true;
-        v.pause(); ov.classList.remove('show');
-        setTimeout(function () { if (!videoSaverOn) return; videoSaverOn = false; ov.classList.remove('on'); try { window.scrollTo(0, 0); } catch (e) {} }, 520);
+        v.pause(); startSaverOrbit(ov);                  // hold the final frame (king + goblet) and set everything revolving around it
       };
       v.addEventListener('ended', finish);
       v.addEventListener('timeupdate', function () { if (v.duration && v.currentTime >= v.duration - 0.9) finish(); });
@@ -20785,7 +20784,67 @@ function serverBotPlayForMe() {
       var q = v.play(); if (q && q.catch) q.catch(function () {});
     });
   }
+  // ---- after the video: every game button, word, card and planet revolves around the king and goblet (full screen) ----
+  var orbRaf = 0, orbLayer = null;
+  function stopSaverOrbit() {
+    if (orbRaf) cancelAnimationFrame(orbRaf); orbRaf = 0;
+    if (orbLayer && orbLayer.parentNode) orbLayer.parentNode.removeChild(orbLayer); orbLayer = null;
+  }
+  function startSaverOrbit(ov) {
+    stopSaverOrbit();
+    var layer = document.createElement('div'); orbLayer = layer;
+    layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .8s';
+    var W = ov.clientWidth, H = ov.clientHeight, cover = (W / H) < 0.6, sc0 = cover ? Math.max(W / 480, H / 1044) : Math.min(W / 480, H / 1044);
+    var vw = 480 * sc0, vh = 1044 * sc0, vx = (W - vw) / 2, vy = (H - vh) / 2, cx = W / 2, U = Math.max(0.85, Math.min(1.5, vw / 390));
+    var objs = [];
+    function add(el, o) { el.style.cssText += ';position:absolute;left:0;top:0;will-change:transform,opacity'; (o.box || layer).appendChild(el); o.el = el; objs.push(o); }
+    // stars
+    for (var q = 0; q < 60; q++) { var st = document.createElement('i'), z = (Math.random() * 1.8 + .7).toFixed(1);
+      st.style.cssText = 'position:absolute;border-radius:50%;background:#fff;left:' + (Math.random() * 100).toFixed(1) + '%;top:' + (Math.random() * 100).toFixed(1) + '%;width:' + z + 'px;height:' + z + 'px;opacity:' + (0.3 + Math.random() * 0.6).toFixed(2);
+      layer.appendChild(st); }
+    // 1) all the real game buttons (cloned from the home ring: same colours and text)
+    var chips = document.querySelectorAll('#gsRing .gs-chip'), ringBox = document.createElement('div'); ringBox.className = 'gs-ring'; layer.appendChild(ringBox);
+    Array.prototype.forEach.call(chips, function (c, i) {
+      var e = c.cloneNode(true); e.removeAttribute('id'); e.style.cssText = c.style.cssText.replace(/transform[^;]*;?|opacity[^;]*;?|z-index[^;]*;?|mask[^;]*;?|-webkit-mask[^;]*;?/g, '') ; e.style.pointerEvents = 'none'; e.style.transition = 'none';
+      add(e, { box: ringBox, cy: 0.71, ry: 0.07, rx: Math.min(0.46 * W, 200 * U), i: i, n: chips.length, dir: 1, sp: 0.05, s0: .3, s1: .9, hw: 62, ph: 0, chip: true });
+    });
+    // 2) words  3) playing cards  4) planets
+    var WORDS = ['BID SMART', 'PLAY SMARTER', 'BECOME THE KING', 'GULAN', '28', '56', 'KERALA'];
+    WORDS.forEach(function (t, i) { var e = document.createElement('div'); e.className = 'gs-word'; e.textContent = t; add(e, { cy: .355, ry: .05, rx: Math.min(.46 * W, 620), i: i, n: WORDS.length, dir: -1, sp: .045, s0: .55, s1: .6, hw: 50 * U, ph: 0 }); });
+    var CARDS = [['A', '♠'], ['K', '♥'], ['Q', '♦'], ['J', '♠'], ['10', '♣'], ['9', '♥'], ['8', '♠'], ['7', '♦']];
+    CARDS.forEach(function (c, i) { var e = document.createElement('div'); e.className = 'gs-pcard' + ((c[1] === '♥' || c[1] === '♦') ? ' r' : ''); e.innerHTML = '<b>' + c[0] + '</b>' + c[1]; add(e, { cy: .215, ry: .045, rx: Math.min(.4 * W, 520), i: i, n: CARDS.length, dir: 1, sp: .065, s0: .6, s1: .5, hw: 17 * U, ph: .4 }); });
+    [['p1', .5, .22, .62, 560, -16, 1, .03, .8, 17], ['p2', .47, .3, .5, 480, 22, -1, .042, 2.6, 10], ['p3', .2, .05, .2, 130, 0, 1, .1, 1.2, 6]].forEach(function (p) {
+      var e = document.createElement('div'); e.className = 'gs-planet ' + p[0]; add(e, { cy: p[1], ry: p[2], rx: Math.min(p[3] * W, p[4]), tilt: p[5] * Math.PI / 180, i: 0, n: 1, dir: p[6], sp: p[7], ph: p[8], s0: .75, s1: .45, hw: p[9] }); });
+    function figHalf(yf) { return yf < 0.12 ? 0 : yf < 0.24 ? 0.17 : yf < 0.47 ? 0.27 : yf < 0.63 ? 0.19 : yf < 0.85 ? 0.07 : yf < 0.95 ? 0.17 : 0; }
+    function maskFor(x, y, half) {
+      var fh = figHalf((y - vy) / vh) * vw; if (fh <= 0) return 'none';
+      var l = x - half, r = x + half, bl = cx - fh, br = cx + fh; if (!(r > bl && l < br)) return 'none';
+      var A = Math.max(0, Math.min(100, (bl - l) / (2 * half) * 100)), B = Math.max(0, Math.min(100, (br - l) / (2 * half) * 100));
+      return 'linear-gradient(90deg,#000 0,#000 ' + A.toFixed(1) + '%,transparent ' + A.toFixed(1) + '%,transparent ' + B.toFixed(1) + '%,#000 ' + B.toFixed(1) + '%,#000 100%)';
+    }
+    ov.appendChild(layer); void layer.offsetWidth; layer.style.opacity = '1';
+    var t0 = performance.now(), last = t0;
+    function frame(now) {
+      if (!orbLayer) return;
+      var T = (now - t0) / 1000, ramp = Math.min(1, T / 1.6);
+      for (var k = 0; k < objs.length; k++) {
+        var o = objs[k], ang = o.ph + (o.i / o.n) * 2 * Math.PI + o.dir * o.sp * 2 * Math.PI * T * 1.3, sn = Math.sin(ang), cs = Math.cos(ang), d = (cs + 1) / 2;
+        var ox = o.rx * ramp * sn, oy = o.ry * vh * ramp * cs, tl = o.tilt || 0, ct = Math.cos(tl), stt = Math.sin(tl);
+        var x = cx + ox * ct - oy * stt, y = vy + o.cy * vh + ox * stt + oy * ct;
+        var sc = (o.s0 + o.s1 * d) * U * (o.chip ? 0.95 : 1) * (0.35 + 0.65 * ramp);
+        var half = (o.chip ? 62 : o.hw) * sc, m = d < .5 ? maskFor(x, y, half) : 'none';
+        var ox0 = o.chip ? 62 : 0, oy0 = o.chip ? 41 : 0;
+        o.el.style.transform = 'translate3d(' + (x - ox0).toFixed(1) + 'px,' + (y - oy0).toFixed(1) + 'px,0) scale(' + sc.toFixed(3) + ')';
+        o.el.style.opacity = ((0.35 + 0.65 * d) * Math.min(1, ramp * 1.6)).toFixed(2);
+        o.el.style.zIndex = d > .5 ? 20 + Math.round(d * 8) : 1;
+        if (o._m !== m) { o._m = m; o.el.style.webkitMaskImage = m; o.el.style.maskImage = m; }
+      }
+      orbRaf = requestAnimationFrame(frame);
+    }
+    orbRaf = requestAnimationFrame(frame);
+  }
   function stopVideoSaver() {
+    stopSaverOrbit();
     if (!videoSaverOn) return;
     videoSaverOn = false;
     var ov = document.getElementById('gsSaver'), v = document.getElementById('gsSaverVid');
