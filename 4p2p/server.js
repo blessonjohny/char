@@ -5639,7 +5639,7 @@ const l56Rooms = {}; // code -> { state, lastActivityAt, hostPlayerId, creatorNa
 // pattern as the 4p/6p room cap).
 // Defaults to DISABLED (hidden for everyone) — the admin has to
 // explicitly turn it on for it to show up at all.
-let reveal56Disabled = true;
+let reveal56Disabled = false;
 
 function newL56Id() { return crypto.randomBytes(4).toString('hex').toUpperCase(); }
 function l56SocketRoom(code) { return 'l56_' + code; }
