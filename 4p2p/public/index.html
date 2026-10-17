@@ -4568,12 +4568,17 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   for(var q=0;q<70;q++){ var si=document.createElement('i'), sz=(Math.random()*1.8+0.7).toFixed(1);
     si.style.cssText='left:'+(Math.random()*100).toFixed(1)+'%;top:'+(Math.random()*100).toFixed(1)+'%;width:'+sz+'px;height:'+sz+'px;--d:'+(2.5+Math.random()*4).toFixed(1)+'s;--l:-'+(Math.random()*6).toFixed(1)+'s;--o:'+(0.5+Math.random()*0.5).toFixed(2)+(Math.random()<.25?';background:#ffd98a':''); starsEl.appendChild(si); }
   function mk(cls,html){ var e=document.createElement('div'); e.className='gs-ob '+cls; e.innerHTML=html; orbitsEl.appendChild(e); return e; }
-  var WORDS=['BID SMART','PLAY SMARTER','BECOME THE KING','GULAN','28','56','KERALA'];
-  WORDS.forEach(function(t,i){ objs.push({el:mk('gs-word',t),cy:.355,ry:.05,rxf:.46,rxm:620,tilt:0,i:i,n:WORDS.length,dir:-1,sp:.04,s0:.55,s1:.6,hw:50,ph:0}); });
-  var CARDS=[['A','♠'],['K','♥'],['Q','♦'],['J','♠'],['10','♣'],['9','♥'],['8','♠'],['7','♦']];
-  CARDS.forEach(function(c,i){ var red=(c[1]==='♥'||c[1]==='♦'); objs.push({el:mk('gs-pcard'+(red?' r':''),'<b>'+c[0]+'</b>'+c[1]),cy:.215,ry:.045,rxf:.4,rxm:520,tilt:0,i:i,n:CARDS.length,dir:1,sp:.06,s0:.6,s1:.5,hw:17,ph:0.4,rot:true}); });
+  var WORDS_A=['BID SMART','PLAY SMARTER','BECOME THE KING','GULAN'], WORDS_B=['28','KERALA','56'];
+  var CARDS_A=[['A','♠'],['K','♥'],['Q','♦'],['J','♠']], CARDS_B=[['10','♣'],['9','♥'],['8','♠'],['7','♦']];
+  function band(list,cy,ry,dir,sp,ph,isCard,rxf,rxm){ list.forEach(function(c,i){
+    var el=isCard?mk('gs-pcard'+((c[1]==='♥'||c[1]==='♦')?' r':''),'<b>'+c[0]+'</b>'+c[1]):mk('gs-word',c);
+    objs.push({el:el,cy:cy,ry:ry,rxf:rxf,rxm:rxm,tilt:0,i:i,n:list.length,dir:dir,sp:sp,s0:isCard?.85:.9,s1:0,hw:isCard?17:50,ph:ph,rot:isCard,flat:1}); }); }
+  band(CARDS_A,.21,.04,1,.06,.4,true,.42,540);        // cards high, around the king's head
+  band(WORDS_A,.36,.045,-1,.04,0,false,.46,620);       // words around the cape
+  band(WORDS_B,.53,.04,1,.035,1,false,.4,520);         // words around the cup
+  band(CARDS_B,.8,.03,-1,.05,.8,true,.42,540);       // cards around the base, below the buttons
   [{c:'p1',cy:.5,ry:.22,rxf:.62,rxm:560,tilt:-16,dir:1,sp:.028,ph:.8,hw:17},{c:'p2',cy:.47,ry:.3,rxf:.5,rxm:640,tilt:22,dir:-1,sp:.04,ph:2.6,hw:10},{c:'p3',cy:.2,ry:.05,rxf:.2,rxm:130,tilt:0,dir:1,sp:.1,ph:1.2,hw:6}]
-   .forEach(function(p){ objs.push({el:mk('gs-planet '+p.c,''),cy:p.cy,ry:p.ry,rxf:p.rxf,rxm:p.rxm,tilt:p.tilt*Math.PI/180,i:0,n:1,dir:p.dir,sp:p.sp,s0:.75,s1:.45,hw:p.hw,ph:p.ph}); });
+   .forEach(function(p){ objs.push({el:mk('gs-planet '+p.c,''),cy:p.cy,ry:p.ry,rxf:p.rxf,rxm:p.rxm,tilt:p.tilt*Math.PI/180,i:0,n:1,dir:p.dir,sp:p.sp,s0:.95,s1:0,hw:p.hw,ph:p.ph,flat:1}); });
   // how wide the king / cape / cup / stem / base are at each height (fraction of the video width, half-width): anything orbiting behind is cut off there
   function figHalf(yf){ return yf<0.12?0:yf<0.24?0.17:yf<0.47?0.27:yf<0.63?0.19:yf<0.85?0.07:yf<0.95?0.17:0; }
   function maskFor(x,y,half,vw,cx,h){
@@ -4610,7 +4615,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       var px=cx+ox*ct-oy*st2, py=o.cy*h+ox*st2+oy*ct;
       var scl=(o.s0+o.s1*d2)*sx;
       var mm=d2<0.5?maskFor(px,py,o.hw*scl,vw,cx,h):'none';
-      put(o.el,px,py,scl,(0.3+0.7*d2)*ap,d2>0.5?(20+Math.round(d2*8)):10,mm,o.rot?Math.sin(ang*2)*14:0);
+      put(o.el,px,py,scl,(o.flat?1:(0.3+0.7*d2))*ap,d2>0.5?(20+Math.round(d2*8)):10,mm,o.rot?Math.sin(ang*2)*14:0);
     }
   }
   function frame(now){
@@ -20809,12 +20814,16 @@ function serverBotPlayForMe() {
       add(e, { box: ringBox, cy: 0.71, ry: 0.07, rx: Math.min(0.46 * W, 200 * U), i: i, n: chips.length, dir: 1, sp: 0.05, s0: .3, s1: .9, hw: 62, ph: 0, chip: true });
     });
     // 2) words  3) playing cards  4) planets
-    var WORDS = ['BID SMART', 'PLAY SMARTER', 'BECOME THE KING', 'GULAN', '28', '56', 'KERALA'];
-    WORDS.forEach(function (t, i) { var e = document.createElement('div'); e.className = 'gs-word'; e.textContent = t; add(e, { cy: .355, ry: .05, rx: Math.min(.46 * W, 620), i: i, n: WORDS.length, dir: -1, sp: .045, s0: .55, s1: .6, hw: 50 * U, ph: 0 }); });
-    var CARDS = [['A', '♠'], ['K', '♥'], ['Q', '♦'], ['J', '♠'], ['10', '♣'], ['9', '♥'], ['8', '♠'], ['7', '♦']];
-    CARDS.forEach(function (c, i) { var e = document.createElement('div'); e.className = 'gs-pcard' + ((c[1] === '♥' || c[1] === '♦') ? ' r' : ''); e.innerHTML = '<b>' + c[0] + '</b>' + c[1]; add(e, { cy: .215, ry: .045, rx: Math.min(.4 * W, 520), i: i, n: CARDS.length, dir: 1, sp: .065, s0: .6, s1: .5, hw: 17 * U, ph: .4 }); });
+    function band(list, cy, ry, dir, sp, ph, isCard, rxf, rxm) { list.forEach(function (c, i) {
+      var e = document.createElement('div');
+      if (isCard) { e.className = 'gs-pcard' + ((c[1] === '♥' || c[1] === '♦') ? ' r' : ''); e.innerHTML = '<b>' + c[0] + '</b>' + c[1]; } else { e.className = 'gs-word'; e.textContent = c; }
+      add(e, { cy: cy, ry: ry, rx: Math.min(rxf * W, rxm), i: i, n: list.length, dir: dir, sp: sp, s0: isCard ? .85 : .9, s1: 0, hw: (isCard ? 17 : 50) * U, ph: ph, flat: 1 }); }); }
+    band([['A', '♠'], ['K', '♥'], ['Q', '♦'], ['J', '♠']], .21, .04, 1, .065, .4, true, .42, 540);
+    band(['BID SMART', 'PLAY SMARTER', 'BECOME THE KING', 'GULAN'], .36, .045, -1, .045, 0, false, .46, 620);
+    band(['28', 'KERALA', '56'], .53, .04, 1, .04, 1, false, .4, 520);
+    band([['10', '♣'], ['9', '♥'], ['8', '♠'], ['7', '♦']], .86, .035, -1, .05, .8, true, .42, 540);
     [['p1', .5, .22, .62, 560, -16, 1, .03, .8, 17], ['p2', .47, .3, .5, 480, 22, -1, .042, 2.6, 10], ['p3', .2, .05, .2, 130, 0, 1, .1, 1.2, 6]].forEach(function (p) {
-      var e = document.createElement('div'); e.className = 'gs-planet ' + p[0]; add(e, { cy: p[1], ry: p[2], rx: Math.min(p[3] * W, p[4]), tilt: p[5] * Math.PI / 180, i: 0, n: 1, dir: p[6], sp: p[7], ph: p[8], s0: .75, s1: .45, hw: p[9] }); });
+      var e = document.createElement('div'); e.className = 'gs-planet ' + p[0]; add(e, { cy: p[1], ry: p[2], rx: Math.min(p[3] * W, p[4]), tilt: p[5] * Math.PI / 180, i: 0, n: 1, dir: p[6], sp: p[7], ph: p[8], s0: .95, s1: 0, hw: p[9], flat: 1 }); });
     function figHalf(yf) { return yf < 0.12 ? 0 : yf < 0.24 ? 0.17 : yf < 0.47 ? 0.27 : yf < 0.63 ? 0.19 : yf < 0.85 ? 0.07 : yf < 0.95 ? 0.17 : 0; }
     function maskFor(x, y, half) {
       var fh = figHalf((y - vy) / vh) * vw; if (fh <= 0) return 'none';
@@ -20835,7 +20844,7 @@ function serverBotPlayForMe() {
         var half = (o.chip ? 62 : o.hw) * sc, m = d < .5 ? maskFor(x, y, half) : 'none';
         var ox0 = o.chip ? 62 : 0, oy0 = o.chip ? 41 : 0;
         o.el.style.transform = 'translate3d(' + (x - ox0).toFixed(1) + 'px,' + (y - oy0).toFixed(1) + 'px,0) scale(' + sc.toFixed(3) + ')';
-        o.el.style.opacity = ((0.35 + 0.65 * d) * Math.min(1, ramp * 1.6)).toFixed(2);
+        o.el.style.opacity = ((o.flat ? 1 : (0.35 + 0.65 * d)) * Math.min(1, ramp * 1.6)).toFixed(2);
         o.el.style.zIndex = d > .5 ? 20 + Math.round(d * 8) : 1;
         if (o._m !== m) { o._m = m; o.el.style.webkitMaskImage = m; o.el.style.maskImage = m; }
       }
