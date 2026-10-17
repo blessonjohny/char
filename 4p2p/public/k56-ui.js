@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=50">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=51">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -827,7 +827,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
      The bidding panel sits in the middle of the felt (no pop-up), so every player and every call stays visible.
      Under each player: 3 small cells = that player's calls, first call first. Above CONFIRM: 3 cells that fill in the order you pick
      (plus / number first, then suit, ...). */
-  var fb = { rep: false, sig: '', num: '', suit: '', ord: 'f', kind: '', dbl: '', pass: false, picks: [], msg: '' };
+  var fb = { histOpen: false, rep: false, sig: '', num: '', suit: '', ord: 'f', kind: '', dbl: '', pass: false, picks: [], msg: '' };
   var fbOrder = [];
   function compactCall(lab) {
     lab = String(lab).replace(/\s*\(\d+\)\s*$/, '').replace(/No Trump/g, 'NT').replace(/\s+/g, '');
@@ -1041,10 +1041,15 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var hd = cb ? 'High <b>' + esc(hi) + '</b> · ' + esc(holder) + (st.doubled ? ' · ' + (st.doubled === 2 ? 'XX' : 'X') : '') : 'You open · min <b>28</b>';
     var firstSpeaker = !cb && st.turn === (st.dealer + 1) % 6 && !(st.passedSeats && st.passedSeats.length);
     callsBySeat(st);
-    var hopts = '<option value="">' + (cb ? 'High ' + esc(hi) + ' · ' + esc(holder) : 'Calls so far') + (st.doubled ? (st.doubled === 2 ? ' · XX' : ' · X') : '') + '</option>';
-    fbOrder.forEach(function (o) { hopts += '<option disabled>' + esc(((st.seats[o.seat] || {}).name || '?') + ' — ' + o.c) + '</option>'; });
-    if (!fbOrder.length) hopts += '<option disabled>No calls yet</option>';
-    el.innerHTML = '<div class="fb-hd"><span>Your call</span><select id="fbHist" class="fb-hist" aria-label="Calls so far">' + hopts + '</select></div>' +
+    var hsum = (cb ? 'High ' + esc(hi) + ' · ' + esc(holder) : 'Calls so far') + (st.doubled ? (st.doubled === 2 ? ' · XX' : ' · X') : '');
+    var hrows = '';
+    fbOrder.forEach(function (o) {
+      var mate = o.seat === ms ? 'You' : (team(o.seat) === team(ms) ? 'Partner' : 'Opp'), good = mate !== 'Opp';
+      hrows += '<div class="hr ' + (good ? 'g' : 'r') + '"><i>' + mate + '</i><span>' + esc((st.seats[o.seat] || {}).name || '?') + '</span><b>' + esc(o.c) + '</b></div>';
+    });
+    if (!fbOrder.length) hrows = '<div class="hr none">No calls yet</div>';
+    var hist = '<button type="button" class="fb-hbtn' + (fb.histOpen ? ' open' : '') + '" data-k="hist">' + hsum + ' <em>' + (fb.histOpen ? '▲' : '▼') + '</em></button>' + (fb.histOpen ? '<div class="fb-hl" id="fbHl">' + hrows + '</div>' : '');
+    el.innerHTML = '<div class="fb-hd"><span>Your call</span>' + hist + '</div>' +
       '<div class="fb-row"><select id="fbPlus" aria-label="Plus">' + popts + '</select><select id="fbNum" aria-label="Number">' + opts + '</select><select id="fbSuit" aria-label="Suit">' + sopts + '</select></div>' +
       '<div class="fb-row"><button type="button" class="fb-b' + (fb.kind === 'ns' && !fb.suit ? ' sel' : '') + '" data-k="ns">NS</button><button type="button" class="fb-b' + (fb.kind === 'nt' && !fb.suit ? ' sel' : '') + '" data-k="nt">NT</button><button type="button" class="fb-b fb-pass' + (fb.pass ? ' sel' : '') + '" data-k="pass">' + (st.finalChance ? 'FINALIZE' : 'PASS') + '</button></div>' +
       '<div class="fb-row"><button type="button" class="fb-b fb-x' + (fb.dbl === 'X' ? ' sel' : '') + '" data-k="X"' + (canDbl ? '' : ' disabled') + '>X DOUBLE</button><button type="button" class="fb-b fb-x' + (fb.dbl === 'XX' ? ' sel' : '') + '" data-k="XX"' + (canRe ? '' : ' disabled') + '>XX REDOUBLE</button></div>' +
@@ -1068,6 +1073,8 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     el.addEventListener('click', function (ev) {
       var b = ev.target.closest ? ev.target.closest('button') : null, st = lastState; if (!b || !st) return;
       var k = b.dataset.k; fb.msg = '';
+      if (k === 'hist') { fb.histOpen = !fb.histOpen; renderFeltBid(st, true); var hl = $('feltBid').querySelector('#fbHl'); if (hl) hl.scrollTop = hl.scrollHeight; return; }
+      fb.histOpen = false;
       if (k === 'ns' || k === 'nt') { fb.dbl = ''; fb.pass = false; if (fb.kind === k && !fb.suit) { fb.kind = ''; fbUnpick('kind'); } else { fb.kind = k; fb.suit = ''; fb.ord = 'f'; fbUnpick('suit'); fbPick('kind'); } }
       else if (k === 'pass') { fb.pass = !fb.pass; fb.dbl = ''; }
       else if (k === 'X' || k === 'XX') { if (b.disabled) return; fb.dbl = fb.dbl === k ? '' : k; fb.pass = false; fb.num = ''; fb.suit = ''; fb.kind = ''; fb.picks = []; }

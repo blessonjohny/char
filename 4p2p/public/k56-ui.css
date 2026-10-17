@@ -2111,3 +2111,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .seat .bw .tmr{margin-top:1px}
 .seat .bw.bw-top .tmr{position:absolute;right:calc(50% + 34px);top:3px;margin:0}
 .hand-bar .tmr-me{align-self:center;margin-bottom:2px}
+
+.fb-hd{position:relative}
+.fb-hbtn{flex:none;max-width:72%;height:22px;background:rgba(0,0,0,.35);color:#ffd54a;border:1px solid #c9a24a;border-radius:6px;font:700 .72rem Georgia;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.fb-hbtn em{font-style:normal;font-size:.6rem;margin-left:3px}
+.fb-hl{position:absolute;z-index:30;left:0;right:0;top:26px;background:#1d0e0b;border:1.5px solid #d4a54a;border-radius:8px;max-height:132px;overflow-y:auto;padding:3px 4px;box-shadow:0 6px 16px #000d}
+.fb-hl .hr{display:flex;align-items:center;gap:5px;font:700 .68rem/17px Georgia;color:#f3e6c4;padding:0 2px;border-bottom:1px solid rgba(201,162,74,.15)}
+.fb-hl .hr:last-child{border-bottom:0}
+.fb-hl .hr i{font-style:normal;font-size:.55rem;line-height:12px;padding:0 4px;border-radius:5px;color:#fff;min-width:38px;text-align:center;flex:none}
+.fb-hl .hr.g i{background:#2e7d4f}.fb-hl .hr.r i{background:#b3342d}
+.fb-hl .hr.g span{color:#8be0a8}.fb-hl .hr.r span{color:#ff9a92}
+.fb-hl .hr span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fb-hl .hr b{flex:none;color:#ffe8a8}
+.fb-hl .hr.none{justify-content:center;color:#cdbf94}
