@@ -4295,6 +4295,12 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .gs-feature,.gs-play,.gs-dots,.gs-hint{position:relative;z-index:20}
 .gs-feature{margin-top:-178px}
 @media (prefers-reduced-motion:reduce){.gs-stars,.gs-stars i{animation:none!important}}
+.gs-live{position:absolute;left:50%;top:70px;transform:translateX(-50%);z-index:25;display:flex;flex-direction:column;gap:6px;width:min(92%,330px);pointer-events:none}
+.gs-live a{pointer-events:auto;display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(10,8,6,.62);border:1px solid rgba(233,185,73,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);text-decoration:none;color:#f0e4c8;font-size:.7rem;box-shadow:0 3px 12px rgba(0,0,0,.45)}
+.gs-live .wlt-dot{flex-shrink:0}
+.gs-live b{font-family:'Cinzel',serif;font-size:.64rem;color:#241a12;background:linear-gradient(135deg,#f0cf94,#d4a54a);border-radius:6px;padding:3px 7px;white-space:nowrap}
+.gs-live span.m{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-live i{font-style:normal;font-weight:800;font-size:.64rem;color:#241a12;background:#e9b949;border-radius:20px;padding:3px 10px}
 </style>
 </head>
 <body>
@@ -4479,7 +4485,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   <a class="gd-i" href="/kerala-28-gulan-guide.html"><span class="gd-g">📜</span><span class="gd-t">How to play 28</span></a>
   <a class="gd-i" href="/kerala-56-ampathiaaru-guide.html"><span class="gd-g">📜</span><span class="gd-t">How to play 56</span></a>
 </nav>
-<div id="gsSaver" aria-hidden="true"><video id="gsSaverVid" playsinline loop preload="none"></video><button type="button" id="gsSaverSnd" aria-label="Sound on or off">🔊</button><div id="gsSaverTap">Tap anywhere to play</div></div>
+<div id="gsSaver" aria-hidden="true"><video id="gsSaverVid" playsinline preload="none"></video><button type="button" id="gsSaverSnd" aria-label="Sound on or off">🔊</button><div id="gsSaverTap">Tap anywhere to play</div></div>
 <div class="welcome-screen" id="welcomeScreen">
   <!-- HOME STAGE: the 28gulan can video in the centre, game buttons around it, swipe left/right to change the
        featured game (default: 28 6-Player). The original button grid below is kept in the page but hidden, so every
@@ -4492,6 +4498,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     <div class="gs-stars" id="gsStars"></div>
     <div class="gs-orbits" id="gsOrbits"></div>
     <div class="gs-scrim"></div>
+    <div class="gs-live" id="gsLive"></div>
     <div class="gs-ring" id="gsRing"><a class="gs-chip inv" href="/play6.html" data-i="0" aria-label="28 · 6 Player" style="background:linear-gradient(160deg,rgba(224,184,120,0.85) 0%,rgba(207,161,96,0.82) 55%,rgba(166,122,62,0.78) 100%);border-color:#781c18;color:#4a1410"><span class="btn28-badge" style="font-size:1.7rem">28</span><span class="btn28-modelabel">6 Player</span><span class="gs-sub" style="color:#5c1410">🎙️ 2 teams of 3</span></a><a class="gs-chip" href="/" data-i="1" aria-label="28 · 4 Player" style="background:linear-gradient(160deg,rgba(138,34,28,0.78) 0%,rgba(92,21,15,0.75) 55%,rgba(43,6,3,0.72) 100%);border-color:#cfa160;color:#f0cf94"><span class="btn28-badge" style="font-size:1.7rem">28</span><span class="btn28-modelabel">4 Player</span><span class="gs-sub" style="color:#f0d9a8">🎙️ live voice chat</span></a><a class="gs-chip" href="/56.html" data-i="2" aria-label="56 · Ampathiaaru" style="background:linear-gradient(135deg,rgba(42,157,143,0.75),rgba(29,111,101,0.72));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.7rem">56</span><span class="gs-sub" style="color:#f0d9a8">bid 28 to 56, doubling</span></a><a class="gs-chip" href="/holdem.html" data-i="3" aria-label="Texas Hold'em" style="background:linear-gradient(135deg,rgba(11,107,58,0.75),rgba(8,77,42,0.72));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Hold'em</span><span class="gs-sub" style="color:#f0d9a8">9-player, cash/tourney</span></a><a class="gs-chip" href="/spades.html" data-i="4" aria-label="Spades" style="background:linear-gradient(135deg,rgba(26,58,110,0.78),rgba(15,36,71,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Spades</span><span class="gs-sub" style="color:#f0d9a8">300 to win, nil, bags</span></a><a class="gs-chip" href="/carrom.html" data-i="5" aria-label="Carrom" style="background:linear-gradient(135deg,rgba(138,106,60,0.78),rgba(94,71,38,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.2rem">Carrom</span><span class="gs-sub" style="color:#f0d9a8">1v1 or 2v2 teams</span></a><a class="gs-chip" href="/pool.html" data-i="6" aria-label="8-Ball Pool" style="background:linear-gradient(135deg,rgba(13,92,77,0.78),rgba(8,61,51,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.35rem">Pool</span><span class="gs-sub" style="color:#f0d9a8">1v1, 8-ball</span></a><a class="gs-chip" href="/puzzles.html" data-i="7" aria-label="Logic Puzzles" style="background:linear-gradient(135deg,rgba(87,60,130,0.78),rgba(56,38,86,0.75));border-color:rgba(233,185,73,0.5);color:#fff"><span class="btn28-badge" style="font-size:1.1rem">🧩 Puzzles</span><span class="gs-sub" style="color:#f0d9a8">100 puzzles & riddles</span></a></div>
   </section>
   <div class="gs-feature" id="gsFeature">
@@ -4738,8 +4745,26 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       if (!t.isPlaying) return 'Waiting for players';
       return 'In progress';
     }
+    function isFull(t) { return t.isPlaying || (t.humans + t.bots) >= t.maxSeats; }
+    function renderTop(tables) {
+      var box = document.getElementById('gsLive'); if (!box) return;
+      var open = tables.filter(function (t) { return !isFull(t); });
+      open.sort(function (a, b) { return (b.humans - a.humans) || ((a.createdAt || 9e15) - (b.createdAt || 9e15)); });   // most people, then oldest
+      var top = open.slice(0, 2);
+      box.innerHTML = top.map(function (t) {
+        var meta = WLT_GAME_META[t.mode] || { label: t.game, page: '/index.html' };
+        return '<a href="' + meta.page + '?invite=' + encodeURIComponent(t.tableId) + '"><span class="wlt-dot"></span><b>' + meta.label + '</b><span class="m">' + t.humans + (t.humans === 1 ? ' player' : ' players') + ' · ' + (t.humans + t.bots) + '/' + t.maxSeats + ' seats</span><i>Join</i></a>';
+      }).join('');
+      return top;
+    }
     function render(tables) {
       if (!listEl) return;
+      var shown = renderTop(tables) || [];
+      tables = tables.filter(function (t) { return shown.indexOf(t) < 0; });   // full / extra tables go to the list below
+      tables.sort(function (a, b) { return (isFull(a) - isFull(b)) || (b.humans - a.humans) || ((a.createdAt || 9e15) - (b.createdAt || 9e15)); });
+      var panel = document.getElementById('welcomeLiveTables');
+      if (panel) panel.style.display = (!tables.length && shown.length) ? 'none' : '';
+      if (!tables.length && shown.length) return;
       if (!tables.length) {
         listEl.innerHTML = '<div class="wlt-empty">No live tables right now — start one below and be the first! 👇</div>';
         return;
@@ -20738,6 +20763,17 @@ function serverBotPlayForMe() {
     var snd = document.getElementById('gsSaverSnd'), tip = document.getElementById('gsSaverTap');
     v.muted = saverMuted; snd.textContent = saverMuted ? '🔇' : '🔊'; tip.style.display = 'none';
     ov.classList.add('on'); void ov.offsetWidth; ov.classList.add('show');
+    try { v.currentTime = 0; } catch (e) {}
+    if (!v._once) { v._once = true;
+      var done = false, finish = function () {          // plays ONE time, then fades to the home scene (king + goblet, everything orbiting)
+        if (done || !videoSaverOn) return; done = true;
+        v.pause(); ov.classList.remove('show');
+        setTimeout(function () { if (!videoSaverOn) return; videoSaverOn = false; ov.classList.remove('on'); try { window.scrollTo(0, 0); } catch (e) {} }, 520);
+      };
+      v.addEventListener('ended', finish);
+      v.addEventListener('timeupdate', function () { if (v.duration && v.currentTime >= v.duration - 0.9) finish(); });
+      v.addEventListener('play', function () { done = false; });
+    }
     var p = v.play();
     if (p && p.catch) p.catch(function () {          // browser refused sound (no tap on the page yet): play silently
       v.muted = true; snd.textContent = '🔇'; tip.textContent = 'Tap 🔊 for sound'; tip.style.display = 'block';
