@@ -2865,6 +2865,9 @@ function generateTableDisplayName(creatorName, existingNames) {
 // human's name showing never competes for a letter, since it isn't
 // using this generic form at all.
 const TABLE_ABANDON_GRACE_MS = 2 * 60 * 1000;
+// How long a connected-looking HUMAN may sit on their turn at a 56 table before the server plays for them. Longer than the 2-minute table
+// abandon grace so switching apps/browsers or a short break doesn't hand your turn to autoplay.
+const L56_IDLE_AUTOPLAY_MS = 5 * 60 * 1000;
 function computeTableDisplayName(seats, creatorName, existingGenericNames) {
   // 56's seats use `bot`, every other game's engine uses `isBot` --
   // checking both here means this one helper works correctly across
@@ -5794,7 +5797,7 @@ function l56ScheduleNext(code) {
     // with nothing able to recover it short of an admin force-closing
     // the table. Matches the same fix already in place on 4-player,
     // 6-player, and poker.
-    const treatAsStuck = occ.bot || turnAgeMs >= TABLE_ABANDON_GRACE_MS;
+    const treatAsStuck = occ.bot || turnAgeMs >= L56_IDLE_AUTOPLAY_MS;
     if (!treatAsStuck) return; // a human's turn, not yet stuck -- nothing to schedule, we wait for their action
     const key = state.phase + ':' + state.turn + ':' + state.updatedAt;
     if (r.l56BotKey === key) return;
@@ -5811,7 +5814,7 @@ function l56ScheduleNext(code) {
       const s = rr.state;
       if (s.phase !== state.phase || s.turn !== state.turn) return; // stale, something else already happened
       const seatNow = s.seats[state.turn];
-      const stillStuck = seatNow && (seatNow.bot || (Date.now() - (r.l56TurnStartedAt || Date.now())) >= TABLE_ABANDON_GRACE_MS);
+      const stillStuck = seatNow && (seatNow.bot || (Date.now() - (r.l56TurnStartedAt || Date.now())) >= L56_IDLE_AUTOPLAY_MS);
       if (!stillStuck) return; // acted (or reconnected and it's no longer stuck) within the grace period -- leave it entirely to them
       if (s.phase === 'bidding') l56RunBotBid(s, state.turn);
       else if (s.phase === 'playing') l56RunBotPlay(s, state.turn);
