@@ -69,16 +69,18 @@ function addLog(state, text, seat) {
 function formatBidLabel(cb) {
   if (!cb) return '';
   if (cb.kind === 'nt') return cb.value + ' No Trump';
-  if (cb.kind === 'ns') return cb.value + ' NOS';
+  if (cb.kind === 'ns') return cb.increment ? `+${cb.increment} NOS ${cb.value}${cb.nosSuit ? ' ' + SUIT_SYM[cb.nosSuit] : ''}` : cb.value + ' NOS';
   const sym = SUIT_SYM[cb.trump];
   return cb.order === 'reverse' ? `${sym} ${cb.value}` : `${cb.value} ${sym}`;
 }
 function formatBidLogLabel(cb) {
   if (!cb) return '';
+  if (cb.kind === 'nt' && cb.increment) return `+${cb.increment} No Trump (${cb.value})`;
+  if (cb.kind === 'ns' && cb.sig === 'nosrest') return `+ NOS (${cb.value})`;
   if (cb.kind === 'nt' || cb.kind === 'ns') return formatBidLabel(cb);
   if (cb.increment) {
     const sym = SUIT_SYM[cb.trump];
-    const inc = cb.order === 'reverse' ? `${sym} +${cb.increment}` : `+${cb.increment} ${sym}`;
+    const inc = cb.order === 'reverse' ? `${sym} +${cb.increment === 1 ? '' : cb.increment}` : `+${cb.increment === 1 ? '' : cb.increment} ${sym}`;
     return `${inc} (${cb.value})`;
   }
   return formatBidLabel(cb);
@@ -133,22 +135,63 @@ function settlePendingTrick(state) {
   state.turn = winnerSeat;
   state.pendingTrick = null;
   const cardsLeft = state.hands.reduce((a, h) => a + h.length, 0);
-  if (cardsLeft === 0) finishHand(state);
+  if (cardsLeft === 0) { finishHand(state); return; }
+  checkEarlyWin(state);
+}
+
+// "Already won": once the bidding team has reached its bid, or the other side has taken so many points that the
+// bid can no longer be reached (the deck holds 56 points in all), the rest of the hand cannot change who wins
+// it. Same idea as the 6-player table's popup: if the team that is already ahead has a human at the table, ask
+// them whether to keep playing or go straight to the result; if it is all bots, just settle the hand now.
+const TOTAL_POINTS = 56;
+function checkEarlyWin(state) {
+  if (state.earlyWinDeclined || state.pendingEarlyWinChoice) return;
+  const cb = state.currentBid;
+  if (!cb || !state.teamPoints) return;
+  const bidTeam = TEAM_OF(cb.seat);
+  const defTeam = bidTeam === 'A' ? 'B' : 'A';
+  const bidderClinched = state.teamPoints[bidTeam] >= cb.value;
+  const defenseClinched = state.teamPoints[defTeam] > TOTAL_POINTS - cb.value;
+  if (!bidderClinched && !defenseClinched) return;
+  const winTeam = bidderClinched ? bidTeam : defTeam;
+  const hasHuman = state.seats.some((s, i) => s && !s.bot && s.connected !== false && TEAM_OF(i) === winTeam);
+  if (hasHuman) {
+    state.pendingEarlyWinChoice = { team: winTeam, made: bidderClinched, ts: Date.now() };
+    addLog(state, `Team ${winTeam} has ${bidderClinched ? 'already reached the bid' : 'made the bid impossible to reach'} — waiting for them to keep playing or move on.`);
+  } else {
+    addLog(state, `Team ${winTeam} has ${bidderClinched ? 'already reached the bid' : 'made the bid impossible to reach'} — hand settled early.`);
+    finishHand(state);
+  }
+}
+function respondEarlyWin(state, pos, continuePlay) {
+  const ew = state.pendingEarlyWinChoice;
+  if (!ew) return false;
+  if (TEAM_OF(pos) !== ew.team) return false;
+  state.pendingEarlyWinChoice = null;
+  if (continuePlay) {
+    state.earlyWinDeclined = true;
+    addLog(state, `Team ${ew.team} chose to keep playing the hand out.`);
+  } else {
+    addLog(state, `Team ${ew.team} chose to move on — hand settled now.`);
+    finishHand(state);
+  }
+  return true;
 }
 function finishHand(state) {
+  state.pendingEarlyWinChoice = null;
   const cb = state.currentBid;
   const biddingTeam = TEAM_OF(cb.seat);
   const oppTeam = biddingTeam === 'A' ? 'B' : 'A';
   const made = state.teamPoints[biddingTeam] >= cb.value;
   const band = bandFor(cb.value);
-  const mult = state.doubled === 2 ? 4 : state.doubled === 1 ? 2 : 1;
+  const extra = state.doubled === 2 ? 2 : state.doubled === 1 ? 1 : 0;   // double adds 1 table, redouble adds 1 more (not a multiplier)
   if (made) {
-    const amt = Math.min(band.win * mult, state.matchScore[oppTeam]);
+    const amt = Math.min(band.win + extra, state.matchScore[oppTeam]);
     state.matchScore[biddingTeam] += amt;
     state.matchScore[oppTeam] -= amt;
     addLog(state, `Team ${biddingTeam} made their bid of ${cb.value}. Receive ${amt} table${amt !== 1 ? 's' : ''} from Team ${oppTeam}.`);
   } else {
-    const amt = Math.min(band.lose * mult, state.matchScore[biddingTeam]);
+    const amt = Math.min(band.lose + extra, state.matchScore[biddingTeam]);
     state.matchScore[biddingTeam] -= amt;
     state.matchScore[oppTeam] += amt;
     addLog(state, `Team ${biddingTeam} fell short of ${cb.value}. Pay ${amt} table${amt !== 1 ? 's' : ''} to Team ${oppTeam}.`);
@@ -201,8 +244,44 @@ function advanceBiddingTurn(state) {
   }
   state.turn = next;
 }
+// Five others passed over a standing bid: the bidder gets ONE final chance to raise or finalize, then play starts.
+function passesDone(state) {
+  const cb = state.currentBid;
+  if (!state.finalChance && !state.doubled && cb) {
+    state.finalChance = true; state.turn = cb.seat;
+    addLog(state, `No one called over ${state.seats[cb.seat].name}. Final chance to raise, or finalize the bid.`, cb.seat);
+    return;
+  }
+  closeBidding(state);
+}
+// Everyone passed: the first bidder (left of dealer) is auto-assigned 28 No Trump, no choices, bidding closes.
+function autoNoTrump(state) {
+  const seat = (state.dealer + 1) % 6;
+  state.currentBid = { value: 28, trump: null, seat, kind: 'nt', order: null };
+  state.doubled = 0; state.doubledBySeat = null;
+  state.passedSeats = []; state.openerSeat = seat; state.openerSuit = null;
+  state.lastActionBySeat = state.lastActionBySeat || {};
+  state.lastActionBySeat[seat] = '28 No Trump';
+  addLog(state, `Everyone passed. ${state.seats[seat].name} gets 28 No Trump automatically.`, seat);
+  closeBidding(state);
+}
+// Rule (Oct 2026): the first speaker (left of dealer) who passes does not leave the auction empty-handed -- 28 No Trump stands in
+// their name, so the next player who wants to open must call 29 or more. Returns true when it applied (the caller then must NOT
+// do its normal pass handling).
+function firstBidderPass(state, seat) {
+  if (state.currentBid || (state.passedSeats && state.passedSeats.length) || seat !== (state.dealer + 1) % 6) return false;
+  state.currentBid = { value: 28, trump: null, seat, kind: 'nt', order: null, viaPass: true };
+  state.doubled = 0; state.doubledBySeat = null;
+  state.passedSeats = []; state.openerSeat = seat; state.openerSuit = null;
+  state.lastActionBySeat = state.lastActionBySeat || {};
+  state.lastActionBySeat[seat] = 'Pass \u00b7 28 NT';
+  addLog(state, `${state.seats[seat].name} passed \u2014 28 No Trump stands.`, seat);
+  advanceBiddingTurn(state);
+  return true;
+}
 function closeBidding(state) {
   const cb = state.currentBid;
+  state.finalChance = false;
   state.phase = 'auctionClosed';
   state.auctionClosedAt = Date.now();
   state.turn = null;
@@ -228,14 +307,28 @@ function suitOpenValue(jacksN, ninesN) {
   if (jacksN >= 2) return 28 + 1 + ninesN;
   return 28;
 }
+const SUPPORT_LEN = 3;   // cards in partner's suit that count as "support"
 function botDecideBid(state, seat) {
   const hand = state.hands[seat] || [];
   const cb = state.currentBid;
   const minAllowed = cb ? cb.value + 1 : 28;
   const { jacks, nines, count } = suitStats(hand);
   const isForced = state.forcedSeat === seat && !cb;
+  // 3+ jacks spread over 3+ different suits: the "No Trump" hand.
+  const spreadJacks = SUITS.reduce((a, x) => a + (jacks[x] >= 1 ? 1 : 0), 0) >= 3 && SUITS.reduce((a, x) => a + jacks[x], 0) >= 3;
 
   const biddableSuits = SUITS.filter(s => jacks[s] >= 1 && count[s] >= 4);
+  // "N Pass" from a partner = a pass with a number (no trump). The LAST partner on the team to speak must then open his strongest suit.
+  if (!cb && state.numPassBySeat) {
+    const hn = state.handNumber || 1;
+    const partnerNumPassed = Object.keys(state.numPassBySeat).some(k => Number(k) !== seat && TEAM_OF(Number(k)) === TEAM_OF(seat) && state.numPassBySeat[k].hand === hn);
+    const othersDone = [0, 1, 2, 3, 4, 5].filter(x => x !== seat && TEAM_OF(x) === TEAM_OF(seat)).every(x => state.passedSeats.includes(x));
+    if (partnerNumPassed && othersDone && minAllowed <= 56) {
+      let bestS = SUITS[0], bestScore = -1;
+      SUITS.forEach(x => { const sc = jacks[x] * 20 + nines[x] * 6 + count[x] * 3; if (sc > bestScore) { bestScore = sc; bestS = x; } });
+      return { action: 'bid', value: 28, trump: bestS, kind: 'suit', order: jacks[bestS] >= 1 ? 'forward' : 'reverse', sig: jacks[bestS] >= 1 ? 'straight' : 'rev' };
+    }
+  }
   const bestOf = (suits) => {
     let best = null, bestVal = -1;
     suits.forEach(s => {
@@ -280,6 +373,7 @@ function botDecideBid(state, seat) {
       const { suit, value } = bestOf(biddableSuits);
       return { action: 'bid', value: Math.min(56, value), trump: suit, kind: 'suit', order: 'forward' };
     }
+    if (spreadJacks && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'nt', order: null };
     if (isForced) {
       const longest = SUITS.reduce((a, b) => count[b] > count[a] ? b : a, SUITS[0]);
       return { action: 'bid', value: 28, trump: longest, kind: 'suit', order: jacks[longest] >= 1 ? 'forward' : 'reverse' };
@@ -287,40 +381,91 @@ function botDecideBid(state, seat) {
     return { action: 'pass' };
   }
 
+  // The first speaker passed, so "28 No Trump" merely stands -- nobody has really called anything. Whoever holds the Jack plus length in a suit
+  // (a strong hand even though the trump isn't) opens it now, at 29 or more -- partner of the passer included.
+  if (cb.viaPass && cb.kind === 'nt') {
+    if (biddableSuits.length > 0) {
+      const { suit, value } = bestOf(biddableSuits);
+      const v = Math.max(minAllowed, value);
+      if (v <= 56) return { action: 'bid', value: v, trump: suit, kind: 'suit', order: 'forward' };
+    }
+    return { action: 'pass' };
+  }
   const isPartnerBid = TEAM_OF(cb.seat) === TEAM_OF(seat);
+  // Partner has already shown "nothing in the suit" (NOS). If I have nothing in it either, I answer with a PLUS call: "+1 NOS".
+  if (isPartnerBid && cb.kind === 'ns' && state.nsBySeat && typeof state.nsBySeat[cb.seat] === 'string' && !(state.nsDone && state.nsDone[seat + '-' + state.nsBySeat[cb.seat]])) {
+    const s = state.nsBySeat[cb.seat];
+    const nothing = count[s] === 0 || (count[s] === 1 && jacks[s] + nines[s] === 0 && !hand.some(c => c.s === s && c.r === 'A'));
+    if (nothing && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'ns', order: null, plus: true };
+  }
+  // Partner called a number + No Trump: nothing to add, the bot passes (it never answers it with a suit of its own).
+  if (isPartnerBid && cb.kind === 'nt') return { action: 'pass' };
+  // Partner called a suit "suit-first" (reverse) = NO Jack of it but 4+ cards. The Jack is what he lacks, so I only back it with a Jack of my own:
+  // "+N" (honors only) when I am short in it, a plain number when I also have length.
+  if (isPartnerBid && cb.trump && cb.order === 'reverse') {
+    const s = cb.trump;
+    if (jacks[s] >= 1 && !(state.suitBidBySeat && state.suitBidBySeat[seat + '-' + s])) {
+      const value = Math.min(56, cb.value + jacks[s] + nines[s]);
+      if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward', plus: count[s] < SUPPORT_LEN };
+    }
+  }
   if (isPartnerBid && cb.trump) {
     const s = cb.trump;
-    const alreadySaidVoid = state.nsBySeat && state.nsBySeat[seat];
+    const alreadySaidVoid = (state.nsDone && state.nsDone[seat + '-' + s]) || (state.nsBySeat && state.nsBySeat[seat] === true);
     const alreadyBidThisSuit = state.suitBidBySeat && state.suitBidBySeat[seat + '-' + s];
-    if (count[s] === 0 && !alreadySaidVoid) {
+    // NOS also when his only card of that suit is a low one with no value (no J, 9 or A) --
+    // the opener reads it as "nothing here", exactly like a void.
+    const hasNoValueInSuit = count[s] === 0 || (count[s] === 1 && jacks[s] + nines[s] === 0 && !hand.some(c => c.s === s && c.r === 'A'));
+    if (hasNoValueInSuit && !alreadySaidVoid) {
       if (minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'ns', order: null };
       return { action: 'pass' };
     }
-    if (count[s] > 0 && jacks[s] >= 1 && !alreadyBidThisSuit) {
+    // Ladder J, J, 9, 9, ...: a 28 opener shows one jack, so partner's +1 is the other jack; a 29+ opener
+    // already shows both jacks, so partner's +1 can only be a 9 (jacks[s] is necessarily 0 then).
+    const teamOpenVal = state.teamSuitOpen ? state.teamSuitOpen[TEAM_OF(seat) + '-' + s] : null;
+    const openerShowsBothJacks = teamOpenVal >= 29;
+    if (count[s] > 0 && (jacks[s] >= 1 || (openerShowsBothJacks && nines[s] >= 1)) && !alreadyBidThisSuit) {
       const supportBump = jacks[s] + nines[s];
       const value = Math.min(56, cb.value + supportBump);
-      if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward' };
+      // Same number either way; the FORM carries the message. A "+N" call (Increase by) = these honors only, no length.
+      // A plain number (Set to) = the same honors AND support (SUPPORT_LEN+ cards in the suit).
+      const hasSupport = count[s] >= SUPPORT_LEN;
+      if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward', plus: !hasSupport };
     }
     const isProbeSuit = state.openerProbeSuit && s === state.openerProbeSuit;
     if (!isProbeSuit) {
       const others = biddableSuits.filter(x => x !== s);
       if (others.length > 0) {
         const { suit, value } = bestOf(others);
-        if (value >= minAllowed && value <= 56) return { action: 'bid', value, trump: suit, kind: 'suit', order: 'forward' };
+        // can't back partner's suit -> open my own strong suit (at least the minimum), instead of letting it die
+        const v2 = Math.max(minAllowed, value);
+        if (v2 <= 56) return { action: 'bid', value: v2, trump: suit, kind: 'suit', order: 'forward' };
       }
     }
     return { action: 'pass' };
   }
 
+  // Defending his own team's suit: the other team has bid a suit MY team already opened. Holding a Jack of it, I may fight for it.
+  // With BOTH Jacks the caller cannot really hold the suit (it's a bluff) -> sometimes double, otherwise outbid him.
+  if (cb.trump && state.teamSuitOpen && state.teamSuitOpen[TEAM_OF(seat) + '-' + cb.trump] !== undefined && jacks[cb.trump] >= 1) {
+    const t = cb.trump;
+    if (jacks[t] >= 2 && state.doubled === 0 && cb.value >= 29 && Math.random() < 0.5) return { action: 'double' };
+    const value = Math.min(56, cb.value + jacks[t] + nines[t]);
+    if (value >= minAllowed) return { action: 'bid', value, trump: t, kind: 'suit', order: 'forward' };
+  }
+
   if (biddableSuits.length > 0) {
     const contested = cb.trump;
-    let candidates = biddableSuits.filter(s => s !== contested);
-    if (candidates.length === 0) candidates = biddableSuits;
+    // An opponent never raises the other team's suit (that only helps them): he opens/bids a DIFFERENT strong suit of his own, or passes.
+    // (His partners will then support that suit, exactly like the other team's partners support theirs.)
+    const candidates = biddableSuits.filter(s => s !== contested);
+    if (candidates.length === 0) return { action: 'pass' };
     const { suit, value } = bestOf(candidates);
     if (value >= minAllowed && value <= 56) {
       return { action: 'bid', value, trump: suit, kind: 'suit', order: jacks[suit] >= 1 ? 'forward' : 'reverse' };
     }
   }
+  if (!isPartnerBid && spreadJacks && cb.value <= 30 && minAllowed <= 56) return { action: 'bid', value: minAllowed, trump: null, kind: 'nt', order: null };
   return { action: 'pass' };
 }
 
@@ -354,20 +499,74 @@ function suitLeadSafety(state, seat) {
   });
   return safe;
 }
-function chooseDiscard(state, seat, legalCards) {
+// What a bot has learned from EVERYONE's calls this hand (partners' and opponents'): who showed a Jack in which suit (a "forward" call),
+// who showed length with it, and who said "nothing in it" (NOS). Used to choose what to lead and what to throw away.
+function callKnowledge(state, seat) {
+  const myTeam = TEAM_OF(seat), K = {};
+  SUITS.forEach(s => {
+    const k = { partnerJack: 0, partnerLong: 0, oppJack: 0, partnerNone: 0, oppNone: 0 };
+    for (let x = 0; x < 6; x++) {
+      if (x === seat) continue;
+      const mate = TEAM_OF(x) === myTeam;
+      const claim = state.suitBidBySeat ? state.suitBidBySeat[x + '-' + s] : null;
+      if (claim === 'forward') {
+        if (mate) { k.partnerJack++; if (state.suitLongBySeat && state.suitLongBySeat[x + '-' + s]) k.partnerLong++; } else k.oppJack++;
+      }
+      if (state.nsDone && state.nsDone[x + '-' + s]) { if (mate) k.partnerNone++; else k.oppNone++; }
+      if (state.revealedVoidBySeat && state.revealedVoidBySeat[x] && state.revealedVoidBySeat[x].includes(s)) { if (mate) k.partnerNone++; else k.oppNone++; }
+    }
+    K[s] = k;
+  });
+  return K;
+}
+function chooseDiscard(state, seat, legalCards, partnerWinningCard) {
   const safeSuits = suitLeadSafety(state, seat);
-  const unsafeCards = legalCards.filter(c => !safeSuits.has(c.s));
-  const pool = unsafeCards.length > 0 ? unsafeCards : legalCards;
-  const sorted = pool.slice().sort((a, b) => RANK_PTS[a.r] - RANK_PTS[b.r]);
-  return sorted[0];
+  const K = callKnowledge(state, seat);
+  // Partner is winning the trick: give him the points (J, 9, A, 10) -- but only when it can't be taken back:
+  // I am the last to play, or his card is the Jack of the lead suit in a No Trump hand (a Jack played first beats everything).
+  if (partnerWinningCard) {
+    const cb = state.currentBid, noTrump = !cb || !cb.trump;
+    const last = state.table.length >= 5;
+    const unbeatable = noTrump && partnerWinningCard.r === 'J' && partnerWinningCard.s === state.leadSuit;
+    if (last || unbeatable) {
+      const feed = legalCards.slice().sort((a, b) => RANK_PTS[b.r] - RANK_PTS[a.r]);
+      if (RANK_PTS[feed[0].r] > 0) return feed[0];
+    }
+  }
+  // Otherwise throw the cheapest card: never a J or 9 if anything else is legal; keep suits my partners showed a Jack in
+  let pool = legalCards.slice();
+  const cheap = pool.filter(c => RANK_PTS[c.r] < 2);
+  if (cheap.length > 0) pool = cheap;
+  const unsafeCards = pool.filter(c => !safeSuits.has(c.s));
+  if (unsafeCards.length > 0) pool = unsafeCards;
+  const notPartnerSuit = pool.filter(c => !(K[c.s] && K[c.s].partnerJack > 0));
+  if (notPartnerSuit.length > 0) pool = notPartnerSuit;
+  return pool.slice().sort((a, b) => RANK_PTS[a.r] - RANK_PTS[b.r])[0];
 }
 function botChooseCard(state, seat, legalCards) {
   if (state.table.length === 0) {
     const safeSuits = suitLeadSafety(state, seat);
+    const K = callKnowledge(state, seat);
     const bySuit = {};
     legalCards.forEach(c => { (bySuit[c.s] = bySuit[c.s] || []).push(c); });
     const candidateSuits = Object.keys(bySuit).filter(s => safeSuits.has(s));
     const pool = candidateSuits.length > 0 ? candidateSuits.flatMap(s => bySuit[s]) : legalCards;
+    // score each suit I could lead from, using what the calls told me
+    let bestSuit = null, bestScore = 0;
+    Object.keys(bySuit).forEach(s => {
+      const k = K[s], hasJ = bySuit[s].some(c => c.r === 'J');
+      let sc = safeSuits.has(s) ? 100 : 0;
+      sc += 40 * k.partnerJack + 15 * k.partnerLong;      // partner showed the Jack (and length): lead into it
+      if (k.oppJack > 0 && !hasJ) sc -= 60;               // an opponent showed the Jack: a lead there just loses
+      sc -= 30 * k.partnerNone;                           // partner said nothing in it: no help there
+      sc += 8 * k.oppNone;                                // an opponent has nothing in it
+      if (sc > bestScore) { bestScore = sc; bestSuit = s; }
+    });
+    if (bestSuit && !candidateSuits.includes(bestSuit)) {
+      // not a "safe" suit, but the calls say it is the best one to lead: strong card if I hold the Jack, else a small one feeding partner
+      const cs = bySuit[bestSuit].slice().sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
+      return cs.some(c => c.r === 'J') ? cs[0] : cs[cs.length - 1];
+    }
     const sorted = pool.slice().sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
     return sorted[0];
   }
@@ -388,7 +587,7 @@ function botChooseCard(state, seat, legalCards) {
   }
 
   const partnerWinning = TEAM_OF(winner.seat) === TEAM_OF(seat);
-  if (partnerWinning) return chooseDiscard(state, seat, legalCards);
+  if (partnerWinning) return chooseDiscard(state, seat, legalCards, winner.card);
 
   const winners = legalCards.filter(c => {
     const pow = cardPower(c, state);
@@ -427,10 +626,11 @@ function newRoomState(roomCode) {
     openerSuit: null,
     openerReassertCount: 0,
     openerProbeSuit: null,
-    nsBySeat: {},
+    nsBySeat: {}, nsDone: {},
     lastActionBySeat: {},
     revealedVoidBySeat: {},
-    suitBidBySeat: {},
+    suitBidBySeat: {}, suitLongBySeat: {},
+    teamSuitOpen: {},
     table: [],
     leadSuit: null,
     pendingTrick: null,
@@ -463,16 +663,19 @@ function dealFreshHand(state) {
   state.doubled = 0;
   state.doubledBySeat = null;
   state.passedSeats = [];
-  state.forcedSeat = null;
+  state.forcedSeat = null; state.finalChance = false;
   state.openerSeat = null;
   state.openerSuit = null;
   state.openerReassertCount = 0;
   state.openerProbeSuit = null;
-  state.nsBySeat = {};
+  state.nsBySeat = {}; state.nsDone = {};
   state.lastActionBySeat = {};
   state.revealedVoidBySeat = {};
   state.reviewHold = false;
-  state.suitBidBySeat = {};
+  state.pendingEarlyWinChoice = null;
+  state.earlyWinDeclined = false;
+  state.suitBidBySeat = {}; state.suitLongBySeat = {};
+  state.teamSuitOpen = {};
   state.bidHistory = [];
   state.table = [];
   state.leadSuit = null;
@@ -514,9 +717,9 @@ module.exports = {
   SUITS, SUIT_SYM, RANKS, RANK_PTS, TEAM_OF, THEME_COUNT,
   bandFor, freshDeck, shuffle, dealHands, addLog,
   formatBidLabel, formatBidLogLabel, legalCardsForSeat, cardPower,
-  resolveTrick, settlePendingTrick, finishHand,
-  advanceBiddingTurn, closeBidding,
-  suitStats, suitOpenValue, botDecideBid,
+  resolveTrick, settlePendingTrick, finishHand, checkEarlyWin, respondEarlyWin,
+  advanceBiddingTurn, closeBidding, passesDone, autoNoTrump, firstBidderPass,
+  suitStats, suitOpenValue, botDecideBid, callKnowledge,
   getPlayedCardsThisHand, suitLeadSafety, chooseDiscard, botChooseCard,
   newRoomState, dealFreshHand, startGame, nextHand, startNewMatch, restartRound,
 };
