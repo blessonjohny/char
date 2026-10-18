@@ -4684,7 +4684,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     var vis=true, done=false; v.addEventListener('ended',function(){done=true; reveal();});
     /* the fiery blade cuts the "Live now" pill on its slash ("/" from top-right to bottom-left): the two halves fall away, then the pill drops back into place */
     var cutDone=false;
-    v.addEventListener('timeupdate',function(){ if(cutDone||v.currentTime<5.38) return; cutDone=true; cutLivePill(); });
+    v.addEventListener('timeupdate',function(){ if(cutDone||v.currentTime<4.9) return; cutDone=true; cutLivePill(); });
     function cutLivePill(){
       var live=document.getElementById('gsLive'); if(!live||!live.parentNode||!live.offsetWidth) return;
       var par=live.parentNode, x=live.offsetLeft-3, y=live.offsetTop-3, w=live.offsetWidth+6, h=(live.offsetHeight||28)+8;
