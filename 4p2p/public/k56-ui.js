@@ -928,7 +928,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       /* the farthest (top) player gets the box above the head with the cards under it; everyone else: cards above the box, box on the chest */
       var top = ys[i] != null && ys[i] - minY < 8;
       bw.classList.toggle('bw-top', top);
-      var sw = $('seatWrap' + i); if (sw) sw.classList.toggle('rv-up', !!(top && rv && rv.firstChild));   /* revealed cards of the top player sit above the "won the bid" popup */
+      var sw = $('seatWrap' + i); if (sw) sw.classList.toggle('rv-up', !!(rv && rv.firstChild));   /* revealed cards of the top player sit above the "won the bid" popup */
       var rh = (!top && rv && rv.firstChild) ? rv.offsetHeight + 3 : 0;
       bw.style.top = top ? '-26px' : Math.round(h * 0.6 - rh) + 'px';
       bw.style.marginLeft = '0px';
@@ -991,7 +991,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var S = window.K28Stage, x, y, w;
     if (window.innerWidth < 521 && S && S.centre) {
       var c = S.centre(gs); if (!c) return;
-      x = c[0]; y = c[1] + Math.max(28, Math.min(c[2] * 0.1, 42)); w = Math.max(190, Math.min(c[2] * 0.5, 214));
+      x = c[0]; y = c[1]; w = Math.max(190, Math.min(c[2] * 0.5, 214));
     } else {
       var g0 = gs.getBoundingClientRect(), op = (fbEl.offsetParent || gs).getBoundingClientRect();
       x = g0.left - op.left + g0.width / 2; y = g0.top - op.top + g0.height * 0.505; w = Math.max(220, Math.min(g0.width * 0.26, 270));
