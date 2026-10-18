@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=66">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=67">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -1011,7 +1011,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   /* "Pick one of the top 3": pill + straight arrow whose tip rests on the top of the Plus button; only before the first pick */
   function fbHintHtml() {
     /* one arrow that hops Plus -> Number -> Suit once a second; its tip rests on each button's top edge */
-    return '<div class="fb-pill">Pick one of the top 3</div><div class="fb-arw" style="left:calc((100% - 10px) / 6)">'+'<svg viewBox="0 0 40 78" width="40" height="78"><rect x="16" y="0" width="8" height="52" rx="3" fill="#f6d77a"/><path d="M4 50 L20 74 L36 50 Z" fill="#f6d77a" stroke="#6a4a10" stroke-width="1.2"/></svg>'+'</div>';
+    return '<div class="fb-pill">Pick one of the top 3</div><div class="fb-arw" style="left:calc((100% - 10px) / 6)">'+'<svg viewBox="0 0 40 78" width="40" height="78"><rect x="16" y="0" width="8" height="52" rx="3" fill="rgba(246,215,122,.5)" stroke="#fff1c2" stroke-width="1"/><path d="M4 50 L20 74 L36 50 Z" fill="rgba(246,215,122,.5)" stroke="#fff1c2" stroke-width="1.4" stroke-linejoin="round"/></svg>'+'</div>';
   }
   /* the single hint arrow hops Plus -> Number -> Suit once a second (driven by the clock, not CSS keyframes) */
   function sweepHint() {
@@ -1045,7 +1045,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var d = fbDesc(st);
     var key = JSON.stringify([fb, minVal, canDbl, canRe, hi, st.finalChance, d && d.ok]);
     if (!force && el.dataset.k === key) { placeFeltSoon(); return; }
-    el.dataset.k = key; el.className = 'felt-bid on';
+    el.dataset.k = key; el.className = 'felt-bid on' + (!fb.picks.length && !fb.dbl && !fb.pass ? ' hint-top' : '');
     var base = fbBase(st), opts = '<option value="">Number</option>', popts = '<option value="">Plus</option>';
     var plusOpts = '';
     for (var n = 1; n <= 7 && base + n <= 56; n++) { if (base + n < minVal) continue; plusOpts += '<option value="p' + n + '"' + (fb.num === 'p' + n && !(n === 1 && fb.rep) ? ' selected' : '') + '>' + (n === 1 ? '+' : '+' + n) + '</option>'; if (n === 1) plusOpts += '<option value="p1r"' + (fb.num === 'p1' && fb.rep ? ' selected' : '') + '>+1</option>'; }
