@@ -2200,3 +2200,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .felt-bid .fb-f.nb2 select{color:#0b4f8a!important}
 .felt-bid .fb-f.nb3 select{color:#a4520b!important}
 .felt-bid .fb-f.nb4 select{color:#b3111a!important}
+
+/* custom bid picker panel: dark, gold-edged, number colours follow the level band */
+.felt-bid .fb-pop{position:absolute;left:8px;right:8px;max-height:200px;overflow-y:auto;z-index:60;box-sizing:border-box;padding:6px;border-radius:10px;border:1.5px solid #d4a54a;background:linear-gradient(#2b1712,#1a0c09);box-shadow:0 8px 20px rgba(0,0,0,.8);display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.felt-bid .fb-pop-suit{grid-template-columns:repeat(4,1fr)}
+.felt-bid .fb-pop-plus{grid-template-columns:repeat(4,1fr)}
+.felt-bid .fb-po{height:36px;border-radius:8px;border:1px solid #6b4a1e;background:#2e1812;color:#f3e6c4;font:800 .95rem Georgia,serif;padding:0;cursor:pointer;box-shadow:0 2px 0 #000}
+.felt-bid .fb-po.nb1{color:#f3e6c4}
+.felt-bid .fb-po.nb2{color:#7fc8ff}
+.felt-bid .fb-po.nb3{color:#ffb347}
+.felt-bid .fb-po.nb4{color:#ff6b6b}
+.felt-bid .fb-po.r{color:#ff6b6b}
+.felt-bid .fb-po.on{background:linear-gradient(#ffe9a8,#e0b45a);border-color:#ffd54a;box-shadow:0 0 0 2px #ffd54a,0 2px 0 #000}
+.felt-bid .fb-po.on.nb1,.felt-bid .fb-po.on.nb2,.felt-bid .fb-po.on.nb3,.felt-bid .fb-po.on.nb4,.felt-bid .fb-po.on.r{color:#2a1810}

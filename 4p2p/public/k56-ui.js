@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=71">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=72">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -933,7 +933,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       bw.style.top = top ? '-26px' : Math.round(h * 0.6 - rh) + 'px';
       bw.style.marginLeft = '0px';
       /* only the red bid box lifts clear of the seconds counter; the avatar does not move */
-      var bcL = $('bc' + i), tmL = (i === 0 ? $('tmMe') : $('tm' + i)), lift = (!top && bcL && tmL && tmL.style.display !== 'none' && tmL.offsetHeight) ? tmL.offsetHeight + 6 : 0;
+      var bcL = $('bc' + i), tmL = (i === 0 ? $('tmMe') : $('tm' + i)), lift = (i === 0 && !top && bcL && tmL && tmL.style.display !== 'none' && tmL.offsetHeight) ? tmL.offsetHeight + 6 : 0;   /* only MY bottom seat: other players' popups stay where they were */
       if (bcL) { bcL.style.position = lift ? 'relative' : ''; bcL.style.top = lift ? (-lift) + 'px' : ''; }
     }
     /* keep everything out from under the middle panel, and on screen */
@@ -1027,6 +1027,53 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   /* a dropdown with a small label sitting on its top border once a value is picked (no extra height) */
   /* "Pick one of the top 3": pill + straight arrow whose tip rests on the top of the Plus button; only before the first pick */
   function numBand(v) { return v < 40 ? 1 : v < 48 ? 2 : v < 56 ? 3 : 4; }
+  /* the three pickers open as our own styled panel (the phone's built-in list ignores styling); the real <select> still gets the value */
+  function closeFbPick() { var p = $('fbPop'); if (p) p.parentNode.removeChild(p); }
+  function openFbPick(sel) {
+    var fbEl = $('feltBid'); if (!fbEl || !sel) return;
+    closeFbPick();
+    var kind = sel.id === 'fbNum' ? 'num' : sel.id === 'fbSuit' ? 'suit' : 'plus';
+    var row = sel.closest('.fb-row'), fr = fbEl.getBoundingClientRect(), rr = (row || sel).getBoundingClientRect();
+    var h = '';
+    for (var i = 0; i < sel.options.length; i++) {
+      var o = sel.options[i]; if (o.value === '') continue;
+      var cls = 'fb-po' + (o.value === sel.value ? ' on' : '');
+      var label = o.textContent;
+      if (kind === 'num') cls += ' nb' + numBand(+o.value);
+      if (kind === 'suit') { label = SYM[o.value]; if (RED[o.value]) cls += ' r'; }
+      h += '<button type="button" class="' + cls + '" data-v="' + esc(o.value) + '">' + esc(label) + '</button>';
+    }
+    var pop = document.createElement('div');
+    pop.className = 'fb-pop fb-pop-' + kind; pop.id = 'fbPop'; pop.dataset.sel = sel.id;
+    pop.style.top = (rr.bottom - fr.top + 4) + 'px';
+    pop.innerHTML = h;
+    fbEl.appendChild(pop);
+  }
+  function bindFbPick(fbEl) {
+    if (!fbEl || fbEl._pickBound) return; fbEl._pickBound = true;
+    fbEl.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.fb-f select')) e.preventDefault();
+    }, true);
+    fbEl.addEventListener('pointerdown', function (e) {
+      var t = e.target; if (!t || !t.closest) return;
+      var b = t.closest('.fb-po');
+      if (b) {
+        e.preventDefault();
+        var pop = $('fbPop'), sel = pop ? $(pop.dataset.sel) : null;
+        closeFbPick();
+        if (sel) { sel.value = b.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+        return;
+      }
+      var s = t.closest('.fb-f select');
+      if (s) {
+        e.preventDefault();
+        var open = $('fbPop');
+        if (open && open.dataset.sel === s.id) closeFbPick(); else openFbPick(s);
+        return;
+      }
+      if (!t.closest('#fbPop')) closeFbPick();
+    });
+  }
   function fbHintHtml() {
     /* one arrow that hops Plus -> Number -> Suit once a second; its tip rests on each button's top edge */
     return '<div class="fb-pill">Pick one of the top 3</div><div class="fb-arw" style="left:calc((100% - 10px) / 6)">'+'<svg viewBox="0 0 30 40" width="30" height="40"><path d="M15 0 L15 21" stroke="#ffd54a" stroke-width="1.6" stroke-opacity=".7" stroke-linecap="round"/><path d="M5 13 L15 25 L25 13" fill="none" stroke="#ffd54a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".45"/><path d="M5 25 L15 37 L25 25" fill="none" stroke="#fff1c2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'+'</div>';
@@ -1044,6 +1091,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   setInterval(sweepHint, 200);
   function fld(name, id, o, has, ord, glow) { return '<label class="fb-f' + (has ? ' has' : '') + (glow ? ' glow' : '') + '"><span class="fb-lg">' + name.toUpperCase() + '</span>' + (has && ord > 0 ? '<span class="fb-st">' + ord + '</span>' : '') + '<select id="' + id + '" aria-label="' + name + '">' + o + '</select>' + (id === 'fbSuit' ? '<span class="fb-sym"><i class="r">♥</i><i class="r">♦</i><i>♠</i><i>♣</i></span>' : '') + '</label>'; }
   function renderFeltBid(st, force) {
+    bindFbPick($('feltBid'));
     var el = $('feltBid'); if (!el) return;
     var ms = ctx.mySeat(), bidding = st.phase === 'bidding';
     if (!bidding) { if (el.dataset.k !== 'off') { el.dataset.k = 'off'; el.innerHTML = ''; el.classList.remove('on'); } return; }
