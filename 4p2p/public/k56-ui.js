@@ -1002,13 +1002,12 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var g0 = gs.getBoundingClientRect(), op = (fbEl.offsetParent || gs).getBoundingClientRect();
       x = g0.left - op.left + g0.width / 2; y = g0.top - op.top + g0.height * 0.505; w = Math.max(220, Math.min(g0.width * 0.26, 270));
     }
-    /* while it is someone else's turn ("X's call…"), the waiting box sits just ABOVE MY seconds timer, same spot as the bidding panel */
+    /* while it is someone else's turn ("X's call…"), the waiting box sits CENTRED on the table, level with the Last Trick panel */
     if (fbEl.classList.contains('wait')) {
-      var tmW = $('tmMe');
-      if (tmW && tmW.style.display !== 'none') {
-        var opW = (fbEl.offsetParent || gs).getBoundingClientRect(), trW = tmW.getBoundingClientRect();
-        if (trW.height) y = trW.top - opW.top - 4 - fbEl.offsetHeight / 2;
-      }
+      var opW = (fbEl.offsetParent || gs).getBoundingClientRect(), g1 = gs.getBoundingClientRect();
+      x = g1.left - opW.left + g1.width / 2;
+      var rootW = fbEl.getRootNode(), ltP = rootW && rootW.getElementById ? rootW.getElementById('lastTrickPanel') : null;
+      if (ltP) { var ltR = ltP.getBoundingClientRect(); if (ltR.height) y = ltR.top - opW.top + ltR.height / 2; }
     }
     fbEl.style.width = w + 'px'; fbEl.style.left = x + 'px'; fbEl.style.top = y + 'px';
     placeBc();
