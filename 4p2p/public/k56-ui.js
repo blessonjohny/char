@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=67">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=68">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -1011,7 +1011,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   /* "Pick one of the top 3": pill + straight arrow whose tip rests on the top of the Plus button; only before the first pick */
   function fbHintHtml() {
     /* one arrow that hops Plus -> Number -> Suit once a second; its tip rests on each button's top edge */
-    return '<div class="fb-pill">Pick one of the top 3</div><div class="fb-arw" style="left:calc((100% - 10px) / 6)">'+'<svg viewBox="0 0 40 78" width="40" height="78"><rect x="16" y="0" width="8" height="52" rx="3" fill="rgba(246,215,122,.5)" stroke="#fff1c2" stroke-width="1"/><path d="M4 50 L20 74 L36 50 Z" fill="rgba(246,215,122,.5)" stroke="#fff1c2" stroke-width="1.4" stroke-linejoin="round"/></svg>'+'</div>';
+    return '<div class="fb-pill">Pick one of the top 3</div><div class="fb-arw" style="left:calc((100% - 10px) / 6)">'+'<svg viewBox="0 0 30 40" width="30" height="40"><path d="M15 0 L15 21" stroke="#ffd54a" stroke-width="1.6" stroke-opacity=".7" stroke-linecap="round"/><path d="M5 13 L15 25 L25 13" fill="none" stroke="#ffd54a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".45"/><path d="M5 25 L15 37 L25 25" fill="none" stroke="#fff1c2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'+'</div>';
   }
   /* the single hint arrow hops Plus -> Number -> Suit once a second (driven by the clock, not CSS keyframes) */
   function sweepHint() {
