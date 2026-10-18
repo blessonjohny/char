@@ -2132,3 +2132,22 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .fb-f.has .fb-lg{display:block}
 .fb-f:not(.has) select{color:#8a7448;font-weight:400;font-size:.7rem!important;padding:0 1px 0 4px!important}
 .fb-f select option{color:#2a1810;font-weight:700}
+
+/* top-3 pickers as raised gold buttons with pick-order badges; the slot just filled blinks */
+.felt-bid .fb-f select{height:32px;border-radius:9px;background:linear-gradient(#fff3d2,#e9d19a);border:1.5px solid #b78a32;box-shadow:0 2px 0 #8a6420,0 3px 6px rgba(0,0,0,.5);text-align:center;text-align-last:center;font-weight:800}
+.fb-f.has select{background:linear-gradient(#ffe9a8,#e0b45a);color:#2a1810}
+.fb-f:not(.has) select{color:#7a6438!important;font-weight:700!important}
+.fb-f.glow select{border-color:#ffd54a;box-shadow:0 0 0 2px rgba(255,213,74,.6),0 2px 0 #8a6420}
+.fb-st{position:absolute;right:-5px;top:-8px;z-index:3;width:17px;height:17px;border-radius:50%;background:#ffd54a;color:#2a1810;font:800 .68rem/17px Georgia;text-align:center;box-shadow:0 1px 3px #000;pointer-events:none}
+.fb-cells i.blink{border:2px solid #ffd54a;box-shadow:0 0 9px #ffd54a;background:#2a2008;line-height:20px;animation:fbCell 1s step-start infinite}
+@keyframes fbCell{50%{border-color:#5a4a1a;box-shadow:none;background:rgba(0,0,0,.35)}}
+.fb-f:not(.has) select{font-size:.64rem!important;padding:0 0 0 2px!important}
+.felt-bid .fb-f select{padding-right:0}
+.felt-bid .fb-f select{-webkit-appearance:none;appearance:none}
+.fb-f::after{content:'▾';position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:.62rem;color:#8a6420;pointer-events:none}
+.fb-lg{letter-spacing:.3px!important;left:5px!important}
+.fb-f:not(.has) select{text-align:left!important;text-align-last:left!important;padding:0 0 0 8px!important;font-size:.62rem!important}
+.fb-lg{font-size:.46rem!important;left:4px!important}
+.fb-st{width:15px!important;height:15px!important;font-size:.62rem!important;line-height:15px!important;right:-5px!important}
+.fb-f:not(.has) select{font-size:.58rem!important;padding-left:6px!important}
+.fb-f:not(.has)::after{right:4px}

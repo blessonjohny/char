@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=53">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=58">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -1008,7 +1008,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   var fbTimer = null;
   function placeFeltSoon() { placeFeltBid(); requestAnimationFrame(placeFeltBid); clearTimeout(fbTimer); fbTimer = setTimeout(placeFeltBid, 350); }
   /* a dropdown with a small label sitting on its top border once a value is picked (no extra height) */
-  function fld(name, id, o, has) { return '<label class="fb-f' + (has ? ' has' : '') + '"><span class="fb-lg">' + name.toUpperCase() + '</span><select id="' + id + '" aria-label="' + name + '">' + o + '</select></label>'; }
+  function fld(name, id, o, has, ord, glow) { return '<label class="fb-f' + (has ? ' has' : '') + (glow ? ' glow' : '') + '"><span class="fb-lg">' + name.toUpperCase() + '</span>' + (has && ord > 0 ? '<span class="fb-st">' + ord + '</span>' : '') + '<select id="' + id + '" aria-label="' + name + '">' + o + '</select></label>'; }
   function renderFeltBid(st, force) {
     var el = $('feltBid'); if (!el) return;
     var ms = ctx.mySeat(), bidding = st.phase === 'bidding';
@@ -1045,7 +1045,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     else if (fb.pass) { texts.push(/^\d+$/.test(fb.num) ? fb.num : ''); texts.push('PASS'); }
     else fb.picks.forEach(function (k) { texts.push(k === 'num' ? (fb.num === '' ? '' : (/^p\d$/.test(fb.num) ? '+' + (fb.num === 'p1' ? (fb.rep ? '1' : '') : fb.num.slice(1)) : fb.num)) : k === 'suit' ? (fb.suit ? SYM[fb.suit] : '') : (fb.kind === 'nt' ? 'NT' : fb.kind === 'ns' ? 'NS' : '')); });
     texts = texts.filter(function (t) { return t !== ''; }).slice(0, 3);
-    for (var c = 0; c < 3; c++) cells += '<i class="' + (texts[c] ? 'on' : '') + (fb.dbl && texts[c] ? ' x' : '') + (texts[c] && /[♥♦]/.test(texts[c]) ? ' r' : '') + '">' + esc(texts[c] || '') + '</i>';
+    for (var c = 0; c < 3; c++) cells += '<i class="' + (texts[c] ? 'on' : '') + (!texts[c] && c === texts.length && !fb.dbl && !fb.pass ? ' blink' : '') + (fb.dbl && texts[c] ? ' x' : '') + (texts[c] && /[♥♦]/.test(texts[c]) ? ' r' : '') + '">' + esc(texts[c] || '') + '</i>';
     var hd = cb ? 'High <b>' + esc(hi) + '</b> · ' + esc(holder) + (st.doubled ? ' · ' + (st.doubled === 2 ? 'XX' : 'X') : '') : 'You open · min <b>28</b>';
     var firstSpeaker = !cb && st.turn === (st.dealer + 1) % 6 && !(st.passedSeats && st.passedSeats.length);
     callsBySeat(st);
@@ -1058,7 +1058,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (!fbOrder.length) hrows = '<div class="hr none">No calls yet</div>';
     var hist = '<button type="button" class="fb-hbtn' + (fb.histOpen ? ' open' : '') + '" data-k="hist">' + hsum + ' <em>' + (fb.histOpen ? '▲' : '▼') + '</em></button>' + (fb.histOpen ? '<div class="fb-hl" id="fbHl">' + hrows + '</div>' : '');
     el.innerHTML = '<div class="fb-hd"><span>Your call</span>' + hist + '</div>' +
-      '<div class="fb-row">' + fld('Plus', 'fbPlus', popts, fb.num !== '' && fb.num != null && (/^p\d$/.test(fb.num))) + fld('Number', 'fbNum', opts, /^\d+$/.test(fb.num || '')) + fld('Suit', 'fbSuit', sopts, !!fb.suit) + '</div>' +
+      '<div class="fb-row">' + fld('Plus', 'fbPlus', popts, /^p\d$/.test(fb.num || ''), fb.picks.indexOf('num') + 1, !fb.picks.length && !fb.dbl && !fb.pass) + fld('Number', 'fbNum', opts, /^\d+$/.test(fb.num || ''), fb.picks.indexOf('num') + 1) + fld('Suit', 'fbSuit', sopts, !!fb.suit, fb.picks.indexOf('suit') + 1) + '</div>' +
       '<div class="fb-row"><button type="button" class="fb-b' + (fb.kind === 'ns' && !fb.suit ? ' sel' : '') + '" data-k="ns">NS</button><button type="button" class="fb-b' + (fb.kind === 'nt' && !fb.suit ? ' sel' : '') + '" data-k="nt">NT</button><button type="button" class="fb-b fb-pass' + (fb.pass ? ' sel' : '') + '" data-k="pass">' + (st.finalChance ? 'FINALIZE' : 'PASS') + '</button></div>' +
       '<div class="fb-row"><button type="button" class="fb-b fb-x' + (fb.dbl === 'X' ? ' sel' : '') + '" data-k="X"' + (canDbl ? '' : ' disabled') + '>X DOUBLE</button><button type="button" class="fb-b fb-x' + (fb.dbl === 'XX' ? ' sel' : '') + '" data-k="XX"' + (canRe ? '' : ' disabled') + '>XX REDOUBLE</button></div>' +
       (firstSpeaker ? '<div class="fb-note">Pass = 28 NT stands · next must call 29+</div>' : '') +
