@@ -932,6 +932,9 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var rh = (!top && rv && rv.firstChild) ? rv.offsetHeight + 3 : 0;
       bw.style.top = top ? '-26px' : Math.round(h * 0.6 - rh) + 'px';
       bw.style.marginLeft = '0px';
+      /* only the red bid box lifts clear of the seconds counter; the avatar does not move */
+      var bcL = $('bc' + i), tmL = (i === 0 ? $('tmMe') : $('tm' + i)), lift = (!top && bcL && tmL && tmL.style.display !== 'none' && tmL.offsetHeight) ? tmL.offsetHeight + 6 : 0;
+      if (bcL) { bcL.style.position = lift ? 'relative' : ''; bcL.style.top = lift ? (-lift) + 'px' : ''; }
     }
     /* keep everything out from under the middle panel, and on screen */
     for (i = 0; i < 6; i++) {
@@ -969,6 +972,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
         el.classList.toggle('run', running); el.style.display = (txt && (k === 1 || seat !== ms)) ? 'block' : 'none';
       }
     }
+    placeBc();   /* my seconds counter can appear or go, so the red box re-lifts to clear it */
   }
   setInterval(function () { if (host && !host.hidden) paintTimers(); }, 500);
   /* admin "reveal all hands" (👁): every other player's 8 cards, face up and small, by their call box */
