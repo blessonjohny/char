@@ -4297,7 +4297,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
 .gs-feature{margin-top:-112px}
 .gs.rvd ~ .gs-feature .gs-ft{visibility:hidden}
 @media (prefers-reduced-motion:reduce){.gs-stars,.gs-stars i{animation:none!important}}
-.gs-live{position:relative;z-index:25;display:flex;flex-direction:column;gap:6px;width:100%;box-sizing:border-box;padding:2px 14px 8px;align-items:center;background:#04050b;pointer-events:none}.gs-live a{width:100%;max-width:420px;box-sizing:border-box}
+.gs-live{position:absolute;top:8px;left:10px;z-index:25;pointer-events:none}.gs-live .gl-n{margin-left:2px;font-family:'Cinzel',serif;font-size:.64rem;color:#241a12;background:linear-gradient(135deg,#f0cf94,#d4a54a);border-radius:10px;padding:1px 7px;min-width:16px;text-align:center}.gs-live a{width:100%;max-width:420px;box-sizing:border-box}
 .gs-live a{pointer-events:auto;display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(10,8,6,.62);border:1px solid rgba(233,185,73,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);text-decoration:none;color:#f0e4c8;font-size:.7rem;box-shadow:0 3px 12px rgba(0,0,0,.45)}
 .gs-live .wlt-dot{flex-shrink:0}
 .gs-live .gl-h{align-self:center;display:flex;align-items:center;gap:7px;padding:3px 12px;border-radius:20px;background:rgba(10,8,6,.62);border:1px solid rgba(233,185,73,.4);font:700 .62rem 'Cinzel',serif;letter-spacing:1.4px;text-transform:uppercase;color:#f0cf94;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
@@ -4495,8 +4495,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
        featured game (default: 28 6-Player). The original button grid below is kept in the page but hidden, so every
        existing click handler (btnPlayOnline, btnPlayLocal...) still works: the stage triggers them. -->
   <div class="gs-top"><button type="button" id="gdOpen" aria-label="Open games menu" aria-expanded="false"><i></i><i></i><i></i></button><span class="gs-brand">28GULAN.COM</span></div>
-  <div class="gs-live" id="gsLive"></div>
   <section class="gs" id="gStage" aria-label="Choose a game" style="--k:#e0b878">
+    <div class="gs-live" id="gsLive"></div>
     <div class="gs-bgblur"></div>
     <div class="gs-video"><video id="gsVideo" muted playsinline preload="metadata" poster="/images/gulan-can.webp" aria-hidden="true" tabindex="-1"><source src="/video/gulan-hero.mp4?v=4" type="video/mp4"><source src="/video/gulan-hero.webm?v=4" type="video/webm"></video></div>
     <div class="gs-track" id="gsTrack"></div>
@@ -4757,18 +4757,10 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     }
     function isFull(t) { return t.isPlaying || (t.humans + t.bots) >= t.maxSeats; }
     function renderTop(tables) {
-      var box = document.getElementById('gsLive'); if (!box) return;
-      var open = tables.filter(function (t) { return !isFull(t); });
-      open.sort(function (a, b) { return (b.humans - a.humans) || ((a.createdAt || 9e15) - (b.createdAt || 9e15)); });   // most people, then oldest
-      var top = open.slice(0, 2);
-      var head = '<div class="gl-h"><span class="wlt-dot"></span>Live now</div>';
-      if (!top.length) { box.innerHTML = head + '<div class="gl-e">' + (tables.length ? 'Tables are full — see list below' : 'No live tables yet — start one!') + '</div>'; document.documentElement.style.setProperty('--gl', box.offsetHeight + 'px'); return top; }
-      box.innerHTML = head + top.map(function (t) {
-        var meta = WLT_GAME_META[t.mode] || { label: t.game, page: '/index.html' };
-        return '<a href="' + meta.page + '?invite=' + encodeURIComponent(t.tableId) + '"><span class="wlt-dot"></span><b>' + meta.label + '</b><span class="m">' + t.humans + (t.humans === 1 ? ' player' : ' players') + ' · ' + (t.humans + t.bots) + '/' + t.maxSeats + ' seats</span><i>Join</i></a>';
-      }).join('');
-      document.documentElement.style.setProperty('--gl', box.offsetHeight + 'px');
-      return top;
+      var box = document.getElementById('gsLive'); if (!box) return [];
+      box.innerHTML = '<div class="gl-h"><span class="wlt-dot"></span>Live now<b class="gl-n">' + tables.length + '</b></div>';
+      document.documentElement.style.setProperty('--gl', '0px');
+      return [];
     }
     function render(tables) {
       if (!listEl) return;
@@ -4776,12 +4768,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       tables = tables.filter(function (t) { return shown.indexOf(t) < 0; });   // full / extra tables go to the list below
       tables.sort(function (a, b) { return (isFull(a) - isFull(b)) || (b.humans - a.humans) || ((a.createdAt || 9e15) - (b.createdAt || 9e15)); });
       var panel = document.getElementById('welcomeLiveTables');
-      if (panel) panel.style.display = (!tables.length && shown.length) ? 'none' : '';
-      if (!tables.length && shown.length) return;
-      if (!tables.length) {
-        listEl.innerHTML = '<div class="wlt-empty">No live tables right now — start one below and be the first! 👇</div>';
-        return;
-      }
+      if (panel) panel.style.display = '';
+      if (!tables.length) { if (panel) panel.style.display = 'none'; return; }
       var html = tables.map(function (t) {
         var meta = WLT_GAME_META[t.mode] || { label: t.game, page: '/index.html' };
         var href = meta.page + '?invite=' + encodeURIComponent(t.tableId);
