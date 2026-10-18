@@ -2182,3 +2182,10 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .felt-bid .fb-f.has .fb-sym{display:none}
 .felt-bid .fb-f:not(.has) select[id="fbSuit"]{color:transparent!important}
 .felt-bid .fb-f.glow select{border-width:3px!important;border-color:#ffd54a!important;box-shadow:0 0 0 1px #5a3a00,0 2px 0 #5a3a00}
+
+/* bolder, bigger lettering in the bidding boxes and labels; box sizes unchanged */
+.felt-bid .fb-f:not(.has) select{font-size:.8rem!important;font-weight:900!important;padding-left:6px!important}
+.felt-bid .fb-f.has select{font-weight:900!important;font-size:.8rem!important}
+.felt-bid .fb-lg{font-size:.6rem!important;font-weight:900!important;line-height:11px!important;letter-spacing:.4px!important}
+.felt-bid .fb-pill{font-weight:900!important;font-size:.72rem!important}
+.felt-bid .fb-hbtn{font-weight:900!important}
