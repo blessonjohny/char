@@ -2214,3 +2214,4 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .felt-bid .fb-po.on{background:linear-gradient(#ffe9a8,#e0b45a);border-color:#ffd54a;box-shadow:0 0 0 2px #ffd54a,0 2px 0 #000}
 .felt-bid .fb-po.on.nb1,.felt-bid .fb-po.on.nb2,.felt-bid .fb-po.on.nb3,.felt-bid .fb-po.on.nb4,.felt-bid .fb-po.on.r{color:#2a1810}
 .felt-bid .fb-pop{touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.felt-bid .fb-pill.picked{border-style:solid;animation:none;opacity:1;color:#ffd54a}
