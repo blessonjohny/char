@@ -2174,3 +2174,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .fb-arw{position:absolute;top:-37px;width:30px;height:40px;transform:translateX(-50%);z-index:12;pointer-events:none;filter:drop-shadow(0 0 3px rgba(255,213,74,.7)) drop-shadow(0 1px 1px rgba(0,0,0,.8))}
 .fb-arw svg{display:block;width:100%;height:100%;animation:fbBob 1.2s ease-in-out infinite}
 @keyframes fbBob{0%,100%{transform:none}50%{transform:translateY(-6px)}}
+
+/* suit picker: red / black suit symbols over the empty box; bold border on the first (Plus) pick */
+.felt-bid .fb-f .fb-sym{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:3px;pointer-events:none;font-size:.62rem;font-weight:800;line-height:1;z-index:1}
+.felt-bid .fb-f .fb-sym i{font-style:normal;color:#1a1a1a}
+.felt-bid .fb-f .fb-sym i.r{color:#c0141c}
+.felt-bid .fb-f.has .fb-sym{display:none}
+.felt-bid .fb-f:not(.has) select[id="fbSuit"]{color:transparent!important}
+.felt-bid .fb-f.glow select{border-width:3px!important;border-color:#ffd54a!important;box-shadow:0 0 0 1px #5a3a00,0 2px 0 #5a3a00}
