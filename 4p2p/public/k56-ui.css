@@ -2189,3 +2189,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .felt-bid .fb-lg{font-size:.6rem!important;font-weight:900!important;line-height:11px!important;letter-spacing:.4px!important}
 .felt-bid .fb-pill{font-weight:900!important;font-size:.72rem!important}
 .felt-bid .fb-hbtn{font-weight:900!important}
+
+/* bid pickers: numbers coloured by level (28-39, 40-47, 48-55, 56) and a cleaner option list */
+.felt-bid .fb-f select option{background:#fff3d2;font-weight:800}
+.felt-bid .fb-f select option.nb1{color:#2a1810}
+.felt-bid .fb-f select option.nb2{color:#0b4f8a}
+.felt-bid .fb-f select option.nb3{color:#a4520b}
+.felt-bid .fb-f select option.nb4{color:#b3111a}
+.felt-bid .fb-f.nb1 select{color:#2a1810!important}
+.felt-bid .fb-f.nb2 select{color:#0b4f8a!important}
+.felt-bid .fb-f.nb3 select{color:#a4520b!important}
+.felt-bid .fb-f.nb4 select{color:#b3111a!important}
