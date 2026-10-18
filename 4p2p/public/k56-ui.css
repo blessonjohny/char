@@ -2167,9 +2167,8 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 
 /* "Pick one of the top 3": pill + straight gold arrow above the Plus button; the tip touches the button's top edge. Only shown before the first pick. Absolutely placed, so the panel never changes size. */
 .fb-row.fb-first{position:relative}
-.fb-pill{position:absolute;left:50%;top:-100px;transform:translateX(-50%);z-index:12;pointer-events:none;white-space:nowrap;background:linear-gradient(#1a0f0a,#0a0605);border:1.5px solid #ffd54a;color:#ffd54a;font:800 .66rem/1 Georgia;letter-spacing:.3px;padding:5px 10px;border-radius:14px;box-shadow:0 3px 9px rgba(0,0,0,.7),0 0 10px rgba(255,213,74,.35)}
+.fb-pill{position:absolute;left:50%;top:-76px;transform:translateX(-50%);z-index:12;pointer-events:none;white-space:nowrap;background:linear-gradient(#1a0f0a,#0a0605);border:1.5px solid #ffd54a;color:#ffd54a;font:800 .66rem/1 Georgia;letter-spacing:.3px;padding:5px 10px;border-radius:14px;box-shadow:0 3px 9px rgba(0,0,0,.7),0 0 10px rgba(255,213,74,.35)}
 /* one arrow that hops between the three top buttons, once a second; the drawing itself bobs */
-.fb-arw{position:absolute;top:-74px;width:40px;height:78px;transform:translateX(-50%);z-index:12;pointer-events:none;filter:drop-shadow(0 3px 3px rgba(0,0,0,.8)) drop-shadow(0 0 6px rgba(255,213,74,.6));animation:fbSweep 3s infinite}
-.fb-arw svg{display:block;animation:fbBob 1.2s ease-in-out infinite}
-@keyframes fbSweep{0%{left:calc((100% - 10px) / 6);animation-timing-function:step-end}33.33%{left:50%;animation-timing-function:step-end}66.66%{left:calc(100% - (100% - 10px) / 6);animation-timing-function:step-end}100%{left:calc((100% - 10px) / 6)}}
+.fb-arw{position:absolute;top:-49px;width:26px;height:52px;transform:translateX(-50%);z-index:12;pointer-events:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.8)) drop-shadow(0 0 4px rgba(255,213,74,.6))}
+.fb-arw svg{display:block;width:100%;height:100%;animation:fbBob 1.2s ease-in-out infinite}
 @keyframes fbBob{0%,100%{transform:none}50%{transform:translateY(-6px)}}

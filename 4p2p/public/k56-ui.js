@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=65">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=66">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -985,27 +985,6 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     }
     placeFeltSoon();
   }
-  /* pill sits over the top player's avatar; the arrow runs from under the pill down to the top of the buttons */
-  function placeHint(fbEl) {
-    var row = fbEl.querySelector('.fb-row.fb-first'); if (!row) return;
-    var pill = row.querySelector('.fb-pill'), arw = row.querySelector('.fb-arw'); if (!pill || !arw) return;
-    var root = fbEl.getRootNode(), bw = root && root.querySelector ? root.querySelector('.bw.bw-top') : null;
-    var seat = bw ? bw.closest('.seat') : null, av = seat ? seat.querySelector('.av') : null;
-    var rowTop = row.getBoundingClientRect().top, ph = pill.offsetHeight || 22;
-    /* the pill goes up under the Dealer / Points / Bid line (there is room there); the arrow runs down past the top avatar */
-    var dw = root && root.getElementById ? root.getElementById('sixInfoDealerWrap') : null;
-    if (!dw) dw = document.getElementById('sixInfoDealerWrap');
-    var target = dw ? dw.getBoundingClientRect().bottom + 6 : (av ? av.getBoundingClientRect().top - 26 : rowTop - 96);
-    var pillTop = target - rowTop;
-    pill.style.top = pillTop + 'px';
-    var aTop = pillTop + ph + 3, aH = Math.max(36, 4 - aTop);
-    arw.style.top = aTop + 'px'; arw.style.height = aH + 'px';
-    var svg = arw.querySelector('svg');
-    if (svg) {
-      svg.setAttribute('height', aH); svg.setAttribute('viewBox', '0 0 40 ' + aH);
-      svg.innerHTML = '<rect x="16" y="0" width="8" height="' + (aH - 26) + '" rx="3" fill="#f6d77a"/><path d="M4 ' + (aH - 28) + ' L20 ' + (aH - 4) + ' L36 ' + (aH - 28) + ' Z" fill="#f6d77a" stroke="#6a4a10" stroke-width="1.2"/>';
-    }
-  }
   function placeFeltBid() {
     placeBc();
     var fbEl = $('feltBid'), gs = $('gameScreen'); if (!fbEl || !gs) return;
@@ -1025,7 +1004,6 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     }
     fbEl.style.width = w + 'px'; fbEl.style.left = x + 'px'; fbEl.style.top = y + 'px';
     placeBc();
-    placeHint(fbEl);
   }
   var fbTimer = null;
   function placeFeltSoon() { placeFeltBid(); requestAnimationFrame(placeFeltBid); clearTimeout(fbTimer); fbTimer = setTimeout(placeFeltBid, 350); }
@@ -1033,8 +1011,19 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   /* "Pick one of the top 3": pill + straight arrow whose tip rests on the top of the Plus button; only before the first pick */
   function fbHintHtml() {
     /* one arrow that hops Plus -> Number -> Suit once a second; its tip rests on each button's top edge */
-    return '<div class="fb-pill">Pick one of the top 3</div><div class="fb-arw">'+'<svg viewBox="0 0 40 78" width="40" height="78"><rect x="16" y="0" width="8" height="52" rx="3" fill="#f6d77a"/><path d="M4 50 L20 74 L36 50 Z" fill="#f6d77a" stroke="#6a4a10" stroke-width="1.2"/></svg>'+'</div>';
+    return '<div class="fb-pill">Pick one of the top 3</div><div class="fb-arw" style="left:calc((100% - 10px) / 6)">'+'<svg viewBox="0 0 40 78" width="40" height="78"><rect x="16" y="0" width="8" height="52" rx="3" fill="#f6d77a"/><path d="M4 50 L20 74 L36 50 Z" fill="#f6d77a" stroke="#6a4a10" stroke-width="1.2"/></svg>'+'</div>';
   }
+  /* the single hint arrow hops Plus -> Number -> Suit once a second (driven by the clock, not CSS keyframes) */
+  function sweepHint() {
+    try {
+      var el = $('feltBid'); if (!el) return;
+      var row = el.querySelector('.fb-row.fb-first'), arw = row && row.querySelector('.fb-arw'); if (!arw) return;
+      var w = row.offsetWidth, cw = (w - 10) / 3;
+      var c = [cw / 2, w / 2, w - cw / 2][Math.floor(Date.now() / 1000) % 3];
+      arw.style.left = c + 'px';
+    } catch (e) { /* panel not mounted yet */ }
+  }
+  setInterval(sweepHint, 200);
   function fld(name, id, o, has, ord, glow) { return '<label class="fb-f' + (has ? ' has' : '') + (glow ? ' glow' : '') + '"><span class="fb-lg">' + name.toUpperCase() + '</span>' + (has && ord > 0 ? '<span class="fb-st">' + ord + '</span>' : '') + '<select id="' + id + '" aria-label="' + name + '">' + o + '</select></label>'; }
   function renderFeltBid(st, force) {
     var el = $('feltBid'); if (!el) return;
