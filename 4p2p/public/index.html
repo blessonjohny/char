@@ -4688,36 +4688,50 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     function cutLivePill(){
       var live=document.getElementById('gsLive'); if(!live||!live.parentNode||!live.offsetWidth) return;
       var par=live.parentNode, x=live.offsetLeft-3, y=live.offsetTop-3, w=live.offsetWidth+6, h=(live.offsetHeight||28)+8;
-      var html=live.innerHTML, sides=[
-        {clip:'polygon(0 0,40% 0,60% 100%,0 100%)', origin:'60% 100%', dx:-1},
-        {clip:'polygon(40% 0,100% 0,100% 100%,60% 100%)', origin:'60% 100%', dx:1}];
+      var html=live.innerHTML, ang=-Math.atan(0.2*w/h)*180/Math.PI;
+      /* 1) the blade's first cut runs "\" from top-left to bottom-right, splitting the pill in two
+         2) both halves drop; the blade comes back down and cuts them horizontally, so there are four pieces
+         3) all four pieces fall away, then the pill drops back into its place */
+      var P=[
+        {clip:'polygon(0 0,40% 0,50% 50%,0 50%)', origin:'50% 50%', dx:-1, dy:0},
+        {clip:'polygon(0 50%,50% 50%,60% 100%,0 100%)', origin:'60% 100%', dx:-1, dy:1},
+        {clip:'polygon(40% 0,100% 0,100% 50%,50% 50%)', origin:'50% 50%', dx:1, dy:0},
+        {clip:'polygon(50% 50%,100% 50%,100% 100%,60% 100%)', origin:'60% 100%', dx:1, dy:1}
+      ];
       var pieces=[];
-      sides.forEach(function(sd){
+      P.forEach(function(sd){
         var pc=document.createElement('div');
         pc.className='gs-live gl-cutpc'; pc.innerHTML=html;
         pc.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h+'px;clip-path:'+sd.clip+';-webkit-clip-path:'+sd.clip+';transform-origin:'+sd.origin+';pointer-events:none;z-index:26';
         par.appendChild(pc); pieces.push([pc,sd]);
       });
       live.style.visibility='hidden';
-      /* a quick bright cut line along the slash */
-      var edge=document.createElement('div');
-      var ang=-Math.atan(0.2*w/h)*180/Math.PI;
-      edge.style.cssText='position:absolute;left:'+(x+w*0.5-1)+'px;top:'+(y+h*0.5-h*0.8)+'px;width:2px;height:'+(h*1.6)+'px;pointer-events:none;z-index:27;transform-origin:50% 50%;transform:rotate('+ang+'deg);background:linear-gradient(#fff,#ffe7a0);box-shadow:0 0 6px #ffd54a;opacity:0';
-      par.appendChild(edge);
-      edge.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'});
+      function flash(horiz, delay){
+        var e=document.createElement('div');
+        e.style.cssText='position:absolute;pointer-events:none;z-index:27;box-shadow:0 0 6px #ffd54a;opacity:0;'+
+          (horiz ? 'left:'+x+'px;top:'+(y+h*0.5-1)+'px;width:'+w+'px;height:2px;background:linear-gradient(90deg,transparent,#fff 20%,#ffe7a0 80%,transparent);'
+                 : 'left:'+(x+w*0.5-1)+'px;top:'+(y+h*0.5-h*0.8)+'px;width:2px;height:'+(h*1.6)+'px;transform-origin:50% 50%;transform:rotate('+ang+'deg);background:linear-gradient(#fff,#ffe7a0);');
+        par.appendChild(e);
+        e.animate([{opacity:0},{opacity:1,offset:0.25},{opacity:0}],{duration:300,delay:delay});
+        setTimeout(function(){ if(e.parentNode) e.parentNode.removeChild(e); }, delay+340);
+      }
+      flash(false, 0);      /* first cut */
+      flash(true, 700);     /* blade's horizontal cut */
+      function kf(s, bot){
+        return [
+          {transform:'translate(0,0) rotate(0deg)', opacity:1, offset:0},
+          {transform:'translate('+(s*4)+'px,-2px) rotate('+(s*-2)+'deg)', opacity:1, offset:0.2},
+          {transform:'translate('+(s*10)+'px,36px) rotate('+(s*12)+'deg)', opacity:1, offset:0.47},
+          {transform:'translate('+(s*(14+bot*4))+'px,'+(30+bot*22)+'px) rotate('+(s*(14+bot*8))+'deg)', opacity:1, offset:0.52},
+          {transform:'translate('+(s*22)+'px,110px) rotate('+(s*30)+'deg)', opacity:0, offset:0.8},
+          {transform:'translate('+(s*26)+'px,130px) rotate('+(s*34)+'deg)', opacity:0, offset:1}
+        ];
+      }
       pieces.forEach(function(pr){
-        var pc=pr[0], sd=pr[1], f=sd.dx;
-        pc.animate([
-          {transform:'translate(0,0) rotate(0deg)',opacity:1,offset:0},
-          {transform:'translate('+(f*5)+'px,-3px) rotate('+(f*-3)+'deg)',opacity:1,offset:0.2},
-          {transform:'translate('+(f*12)+'px,46px) rotate('+(f*18)+'deg)',opacity:1,offset:0.5},
-          {transform:'translate('+(f*16)+'px,104px) rotate('+(f*26)+'deg)',opacity:0,offset:0.8},
-          {transform:'translate('+(f*16)+'px,120px) rotate('+(f*28)+'deg)',opacity:0,offset:1}
-        ],{duration:1100,easing:'cubic-bezier(.45,0,.9,.6)',fill:'forwards'});
+        pr[0].animate(kf(pr[1].dx, pr[1].dy), {duration:1500, easing:'ease-in', fill:'forwards'});
       });
       setTimeout(function(){
         pieces.forEach(function(pr){ if(pr[0].parentNode) pr[0].parentNode.removeChild(pr[0]); });
-        if(edge.parentNode) edge.parentNode.removeChild(edge);
         live.style.visibility='';
         live.animate([
           {transform:'translateY(-22px)',opacity:0,offset:0},
@@ -4725,7 +4739,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
           {transform:'translateY(-2px)',opacity:1,offset:0.82},
           {transform:'translateY(0)',opacity:1,offset:1}
         ],{duration:640,easing:'ease-out'});
-      },1150);
+      },1600);
     } v.addEventListener('error',reveal); var guard=null;   // safety net: if the video is on screen but never starts (autoplay blocked / failed), show the buttons anyway
     function sync(){ if(done) return; if(vis&&!document.hidden){var p=v.play(); if(p&&p.catch)p.catch(function(err){ if(err&&err.name==='NotAllowedError') reveal(); }); if(!guard) guard=setTimeout(function(){ if(!revealed&&v.currentTime<0.2) reveal(); },5000); } else v.pause(); }
     if('IntersectionObserver' in window) new IntersectionObserver(function(en){vis=en[0].isIntersecting;sync();},{threshold:.15}).observe(st);
