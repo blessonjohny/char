@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=58">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=60">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -1050,13 +1050,14 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var firstSpeaker = !cb && st.turn === (st.dealer + 1) % 6 && !(st.passedSeats && st.passedSeats.length);
     callsBySeat(st);
     var hsum = (cb ? 'High ' + esc(hi) + ' · ' + esc(holder) : 'Calls so far') + (st.doubled ? (st.doubled === 2 ? ' · XX' : ' · X') : '');
-    var hrows = '';
-    fbOrder.forEach(function (o) {
+    var hrows = '', hiIdx = -1;
+    if (cb) fbOrder.forEach(function (o, ix) { if (o.seat === cb.seat && !/^(Pass|X|XX|\d+P|P·)/.test(o.c)) hiIdx = ix; });   /* the current high bid = whoever it's on */
+    fbOrder.forEach(function (o, ix) {
       var mate = o.seat === ms ? 'You' : (team(o.seat) === team(ms) ? 'Partner' : 'Opp'), good = mate !== 'Opp';
-      hrows += '<div class="hr ' + (good ? 'g' : 'r') + '"><i>' + mate + '</i><span>' + esc((st.seats[o.seat] || {}).name || '?') + '</span><b>' + esc(o.c) + '</b></div>';
+      hrows += '<div class="hr ' + (good ? 'g' : 'r') + (ix === hiIdx ? ' hi' : '') + '"><i>' + mate + '</i><span>' + esc((st.seats[o.seat] || {}).name || '?') + '</span><b>' + esc(o.c) + '</b></div>';
     });
     if (!fbOrder.length) hrows = '<div class="hr none">No calls yet</div>';
-    var hist = '<button type="button" class="fb-hbtn' + (fb.histOpen ? ' open' : '') + '" data-k="hist">' + hsum + ' <em>' + (fb.histOpen ? '▲' : '▼') + '</em></button>' + (fb.histOpen ? '<div class="fb-hl" id="fbHl">' + hrows + '</div>' : '');
+    var hist = '<button type="button" class="fb-hbtn' + (cb ? ' hv' : '') + (fb.histOpen ? ' open' : '') + '" data-k="hist">' + hsum + ' <em>' + (fb.histOpen ? '▲' : '▼') + '</em></button>' + (fb.histOpen ? '<div class="fb-hl" id="fbHl">' + hrows + '</div>' : '');
     el.innerHTML = '<div class="fb-hd"><span>Your call</span>' + hist + '</div>' +
       '<div class="fb-row">' + fld('Plus', 'fbPlus', popts, /^p\d$/.test(fb.num || ''), fb.picks.indexOf('num') + 1, !fb.picks.length && !fb.dbl && !fb.pass) + fld('Number', 'fbNum', opts, /^\d+$/.test(fb.num || ''), fb.picks.indexOf('num') + 1) + fld('Suit', 'fbSuit', sopts, !!fb.suit, fb.picks.indexOf('suit') + 1) + '</div>' +
       '<div class="fb-row"><button type="button" class="fb-b' + (fb.kind === 'ns' && !fb.suit ? ' sel' : '') + '" data-k="ns">NS</button><button type="button" class="fb-b' + (fb.kind === 'nt' && !fb.suit ? ' sel' : '') + '" data-k="nt">NT</button><button type="button" class="fb-b fb-pass' + (fb.pass ? ' sel' : '') + '" data-k="pass">' + (st.finalChance ? 'FINALIZE' : 'PASS') + '</button></div>' +

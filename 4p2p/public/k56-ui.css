@@ -2151,3 +2151,16 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .fb-st{width:15px!important;height:15px!important;font-size:.62rem!important;line-height:15px!important;right:-5px!important}
 .fb-f:not(.has) select{font-size:.58rem!important;padding-left:6px!important}
 .fb-f:not(.has)::after{right:4px}
+
+/* the row holding the current high bid stands out (same row height, so the list/panel never grows) */
+.fb-hl .hr.hi{background:linear-gradient(90deg,rgba(255,213,74,.28),rgba(255,213,74,.12));border:1px solid #ffd54a;border-radius:6px;box-shadow:0 0 8px rgba(255,213,74,.45);margin:0 -1px}
+.fb-hl .hr.hi b{color:#fff;font-size:.78rem;text-shadow:0 0 6px rgba(255,213,74,.9)}
+.fb-hl .hr.hi span::after{content:' ★';color:#ffd54a}
+
+/* the current high bid in the header is the most important thing: solid gold, soft pulse, same size */
+.fb-hbtn.hv{background:linear-gradient(#ffe9a8,#e0b45a);color:#2a1810;border-color:#fff1c2;box-shadow:0 0 0 1px rgba(255,213,74,.5),0 0 10px rgba(255,213,74,.55);animation:fbHv 1.8s ease-in-out infinite}
+.fb-hbtn.hv b{color:#2a1810}
+.fb-hbtn.hv em{color:#6a4a10}
+@keyframes fbHv{50%{box-shadow:0 0 0 1px rgba(255,213,74,.2),0 0 3px rgba(255,213,74,.2)}}
+.fb-hd>span{white-space:nowrap}
+.fb-hbtn{max-width:78%}
