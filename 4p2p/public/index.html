@@ -4532,11 +4532,13 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     chips.forEach(function(c){c.classList.toggle('on',+c.dataset.i===sel);});
     [].forEach.call(dots.children,function(d,i){d.classList.toggle('on',i===sel);});
     st.style.setProperty('--k',g.k); st.parentNode.style.setProperty('--k',g.k);
-    T.textContent=g.t; S.textContent=g.s; P.href=g.h;
+    var tEl=document.getElementById('gsT'); if(tEl) tEl.textContent=g.t; S.textContent=g.s; P.href=g.h;   /* T is reused as a timer below, so the title is addressed by id */
     ftxt.classList.remove('go-l','go-r'); void ftxt.offsetWidth; if(dir) ftxt.classList.add(dir>0?'go-l':'go-r');
   }
   function nearest(x){ return ((Math.round(x)%N)+N)%N; }
-  function settle(){ var n=nearest(cur); if(n!==sel){ var d=n>sel?1:-1; if(Math.abs(n-sel)>N/2) d=-d; sel=n; paint(d); } }
+  /* show the game a position belongs to right away (title, subtitle, Play link), not only once the spin has finished */
+  function preview(pos){ var n=nearest(pos); if(n!==sel){ var d=n>sel?1:-1; if(Math.abs(n-sel)>N/2) d=-d; sel=n; paint(d); } }
+  function settle(){ if(mode!=='spring') preview(cur); }   /* while the spring is heading to a chosen game, that choice stays put */
 
   /* ---------- physics: flick = fast spin that eases off, can be caught or reversed, then settles on a button ---------- */
   var mode='idle', vel=0, tgt=0, last=0, caught=false;
@@ -4550,7 +4552,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   function springTo(t){ if(calm){ cur=t; mode='idle'; vel=0; settle(); layout(); return; } tgt=t; mode='spring'; }
   function go(n,dir,auto){
     var nn=((n%N)+N)%N, d=nn-nearest(cur); if(d>N/2) d-=N; if(d<-N/2) d+=N;
-    vel=0; springTo(Math.round(cur)+d); if(hint) hint.style.opacity='0';
+    vel=0; springTo(Math.round(cur)+d); preview(Math.round(cur)+d); if(hint) hint.style.opacity='0';
     if(!auto) hold=Date.now()+5000;
   }
   var DRIFT=0.2;                                   // items per second of steady rotation (one lap ~40 s)
@@ -4558,7 +4560,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
     if(mode==='idle'){ if(revealed&&!calm&&!drag&&Date.now()>hold) cur+=DRIFT*dt; return; }
     if(mode==='fling'){
       cur+=vel*dt; vel*=Math.exp(-FRICTION*dt);
-      if(Math.abs(vel)<1.25){ tgt=Math.round(cur+Math.sign(vel)*0.0); mode='spring'; }   // slow enough: hand over to the settle spring (velocity carries over, so no jolt)
+      if(Math.abs(vel)<1.25){ tgt=Math.round(cur+Math.sign(vel)*0.0); mode='spring'; preview(tgt); }   // slow enough: hand over to the settle spring (velocity carries over, so no jolt)
     } else if(mode==='spring'){
       var x=cur-tgt, acc=-OMEGA*OMEGA*x-2*OMEGA*vel;   // critically damped spring
       vel+=acc*dt; cur+=vel*dt;
