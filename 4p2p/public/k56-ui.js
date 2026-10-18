@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=72">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=73">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -1054,16 +1054,15 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     fbEl.addEventListener('click', function (e) {
       if (e.target.closest && e.target.closest('.fb-f select')) e.preventDefault();
     }, true);
+    fbEl.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.fb-po'); if (!b) return;
+      var pop = $('fbPop'), sel = pop ? $(pop.dataset.sel) : null;
+      closeFbPick();
+      if (sel) { sel.value = b.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+    });
     fbEl.addEventListener('pointerdown', function (e) {
       var t = e.target; if (!t || !t.closest) return;
-      var b = t.closest('.fb-po');
-      if (b) {
-        e.preventDefault();
-        var pop = $('fbPop'), sel = pop ? $(pop.dataset.sel) : null;
-        closeFbPick();
-        if (sel) { sel.value = b.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-        return;
-      }
+      if (t.closest('.fb-po')) return;   /* a swipe must scroll the list, so picking happens on click (below) */
       var s = t.closest('.fb-f select');
       if (s) {
         e.preventDefault();
@@ -1165,6 +1164,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     });
     el.addEventListener('click', function (ev) {
       var b = ev.target.closest ? ev.target.closest('button') : null, st = lastState; if (!b || !st) return;
+      if (b.classList.contains('fb-po')) return;   /* picker list items are handled by the picker itself */
       var k = b.dataset.k; fb.msg = '';
       if (k === 'hist') { fb.histOpen = !fb.histOpen; renderFeltBid(st, true); var hl = $('feltBid').querySelector('#fbHl'); if (hl) hl.scrollTop = hl.scrollHeight; return; }
       fb.histOpen = false;
