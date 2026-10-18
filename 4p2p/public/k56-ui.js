@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=63">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=64">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -1010,8 +1010,9 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   /* a dropdown with a small label sitting on its top border once a value is picked (no extra height) */
   /* "Pick one of the top 3": pill + straight arrow whose tip rests on the top of the Plus button; only before the first pick */
   function fbHintHtml() {
+    /* one arrow per top box (Plus / Number / Suit), tips resting on each button's top edge */
     return '<div class="fb-pill">Pick one of the top 3</div>' +
-      '<div class="fb-arw"><svg viewBox="0 0 40 78" width="40" height="78"><defs><linearGradient id="fbArG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset="1" stop-color="#e0a92e"/></linearGradient></defs><rect x="16" y="0" width="8" height="52" rx="3" fill="url(#fbArG)"/><path d="M4 50 L20 74 L36 50 Z" fill="url(#fbArG)" stroke="#6a4a10" stroke-width="1.2"/></svg><i class="fb-dot"></i></div>';
+      '<div class="fb-arw" style="left:calc((100% - 10px) / 6)"><svg viewBox="0 0 40 78" width="40" height="78"><rect x="16" y="0" width="8" height="52" rx="3" fill="#f6d77a"/><path d="M4 50 L20 74 L36 50 Z" fill="#f6d77a" stroke="#6a4a10" stroke-width="1.2"/></svg></div>' + '<div class="fb-arw" style="left:50%"><svg viewBox="0 0 40 78" width="40" height="78"><rect x="16" y="0" width="8" height="52" rx="3" fill="#f6d77a"/><path d="M4 50 L20 74 L36 50 Z" fill="#f6d77a" stroke="#6a4a10" stroke-width="1.2"/></svg></div>' + '<div class="fb-arw" style="left:calc(100% - (100% - 10px) / 6)"><svg viewBox="0 0 40 78" width="40" height="78"><rect x="16" y="0" width="8" height="52" rx="3" fill="#f6d77a"/><path d="M4 50 L20 74 L36 50 Z" fill="#f6d77a" stroke="#6a4a10" stroke-width="1.2"/></svg></div>';
   }
   function fld(name, id, o, has, ord, glow) { return '<label class="fb-f' + (has ? ' has' : '') + (glow ? ' glow' : '') + '"><span class="fb-lg">' + name.toUpperCase() + '</span>' + (has && ord > 0 ? '<span class="fb-st">' + ord + '</span>' : '') + '<select id="' + id + '" aria-label="' + name + '">' + o + '</select></label>'; }
   function renderFeltBid(st, force) {
