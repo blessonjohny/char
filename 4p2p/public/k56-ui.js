@@ -1002,6 +1002,13 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var g0 = gs.getBoundingClientRect(), op = (fbEl.offsetParent || gs).getBoundingClientRect();
       x = g0.left - op.left + g0.width / 2; y = g0.top - op.top + g0.height * 0.505; w = Math.max(220, Math.min(g0.width * 0.26, 270));
     }
+    /* while it is someone else's turn ("X's call…"), the waiting box sits over the TOP player's avatar, so my own avatar and seconds stay visible */
+    if (fbEl.classList.contains('wait')) {
+      var root = fbEl.getRootNode(), bwT = root && root.querySelector ? root.querySelector('.bw.bw-top') : null;
+      var seatT = bwT ? bwT.closest('.seat') : null, avT = seatT ? seatT.querySelector('.av') : null;
+      /* sits in the open space to the RIGHT of the top avatar, level with it, so it covers no seat */
+      if (avT) { var aR = avT.getBoundingClientRect(), oR = (fbEl.offsetParent || gs).getBoundingClientRect(); y = aR.top - oR.top + aR.height / 2; x = aR.right - oR.left + 12 + w / 2; }
+    }
     fbEl.style.width = w + 'px'; fbEl.style.left = x + 'px'; fbEl.style.top = y + 'px';
     placeBc();
   }
