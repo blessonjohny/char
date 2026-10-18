@@ -1053,13 +1053,13 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     var key = JSON.stringify([fb, minVal, canDbl, canRe, hi, st.finalChance, d && d.ok]);
     if (!force && el.dataset.k === key) { placeFeltSoon(); return; }
     el.dataset.k = key; el.className = 'felt-bid on' + (!fb.picks.length && !fb.dbl && !fb.pass ? ' hint-top' : '');
-    var base = fbBase(st), opts = '<option value="">Number</option>', popts = '<option value="">Plus</option>';
+    var base = fbBase(st), opts = '<option value="">' + minVal + '</option>', popts = '<option value="">Plus</option>';
     var plusOpts = '';
     for (var n = 1; n <= 7 && base + n <= 56; n++) { if (base + n < minVal) continue; plusOpts += '<option value="p' + n + '"' + (fb.num === 'p' + n && !(n === 1 && fb.rep) ? ' selected' : '') + '>' + (n === 1 ? '+' : '+' + n) + '</option>'; if (n === 1) plusOpts += '<option value="p1r"' + (fb.num === 'p1' && fb.rep ? ' selected' : '') + '>+1</option>'; }
     popts += plusOpts;
     var numOpts = ''; for (var v = minVal; v <= 56; v++) numOpts += '<option value="' + v + '"' + (fb.num === String(v) ? ' selected' : '') + '>' + v + '</option>';
     opts += numOpts;
-    var sopts = '<option value="">Suit</option>' + ['S', 'H', 'D', 'C'].map(function (x) { return '<option value="' + x + '"' + (fb.suit === x ? ' selected' : '') + '>' + SYM[x] + '</option>'; }).join('');
+    var sopts = '<option value="">♠♥♦♣</option>' + ['S', 'H', 'D', 'C'].map(function (x) { return '<option value="' + x + '"' + (fb.suit === x ? ' selected' : '') + '>' + SYM[x] + '</option>'; }).join('');
     var cells = '', pk = fb.dbl ? ['dbl'] : fb.pass ? ['pass'] : fb.picks.slice(0, 3);
     var dd = d || { text: '' };
     // the 3 readout cells fill in the order things were picked
