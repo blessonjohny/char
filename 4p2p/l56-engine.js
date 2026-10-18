@@ -431,13 +431,12 @@ function botDecideBid(state, seat) {
     // already shows both jacks, so partner's +1 can only be a 9 (jacks[s] is necessarily 0 then).
     const teamOpenVal = state.teamSuitOpen ? state.teamSuitOpen[TEAM_OF(seat) + '-' + s] : null;
     const openerShowsBothJacks = teamOpenVal >= 29;
-    if (count[s] > 0 && (jacks[s] >= 1 || (openerShowsBothJacks && nines[s] >= 1)) && !alreadyBidThisSuit) {
-      const supportBump = jacks[s] + nines[s];
-      const value = Math.min(56, cb.value + supportBump);
-      // Same number either way; the FORM carries the message. A "+N" call (Increase by) = these honors only, no length.
-      // A plain number (Set to) = the same honors AND support (SUPPORT_LEN+ cards in the suit).
-      const hasSupport = count[s] >= SUPPORT_LEN;
-      if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward', plus: !hasSupport };
+    // Support rule: a lone Jack with no real length is NOT support -- the bot does not call "+N" on it (it passes or looks at its other suits).
+    // With SUPPORT_LEN+ cards in partner's suit (plus its Jack / 9), the call is the plain minimum raise: cb.value + 1.
+    const hasSupport = count[s] >= SUPPORT_LEN;
+    if (hasSupport && (jacks[s] >= 1 || (openerShowsBothJacks && nines[s] >= 1)) && !alreadyBidThisSuit) {
+      const value = Math.min(56, cb.value + 1);
+      if (value >= minAllowed) return { action: 'bid', value, trump: s, kind: 'suit', order: 'forward', plus: false };
     }
     const isProbeSuit = state.openerProbeSuit && s === state.openerProbeSuit;
     if (!isProbeSuit) {
