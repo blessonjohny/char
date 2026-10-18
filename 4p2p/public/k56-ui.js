@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=60">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=63">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -1008,6 +1008,11 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   var fbTimer = null;
   function placeFeltSoon() { placeFeltBid(); requestAnimationFrame(placeFeltBid); clearTimeout(fbTimer); fbTimer = setTimeout(placeFeltBid, 350); }
   /* a dropdown with a small label sitting on its top border once a value is picked (no extra height) */
+  /* "Pick one of the top 3": pill + straight arrow whose tip rests on the top of the Plus button; only before the first pick */
+  function fbHintHtml() {
+    return '<div class="fb-pill">Pick one of the top 3</div>' +
+      '<div class="fb-arw"><svg viewBox="0 0 40 78" width="40" height="78"><defs><linearGradient id="fbArG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset="1" stop-color="#e0a92e"/></linearGradient></defs><rect x="16" y="0" width="8" height="52" rx="3" fill="url(#fbArG)"/><path d="M4 50 L20 74 L36 50 Z" fill="url(#fbArG)" stroke="#6a4a10" stroke-width="1.2"/></svg><i class="fb-dot"></i></div>';
+  }
   function fld(name, id, o, has, ord, glow) { return '<label class="fb-f' + (has ? ' has' : '') + (glow ? ' glow' : '') + '"><span class="fb-lg">' + name.toUpperCase() + '</span>' + (has && ord > 0 ? '<span class="fb-st">' + ord + '</span>' : '') + '<select id="' + id + '" aria-label="' + name + '">' + o + '</select></label>'; }
   function renderFeltBid(st, force) {
     var el = $('feltBid'); if (!el) return;
@@ -1059,7 +1064,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     if (!fbOrder.length) hrows = '<div class="hr none">No calls yet</div>';
     var hist = '<button type="button" class="fb-hbtn' + (cb ? ' hv' : '') + (fb.histOpen ? ' open' : '') + '" data-k="hist">' + hsum + ' <em>' + (fb.histOpen ? '▲' : '▼') + '</em></button>' + (fb.histOpen ? '<div class="fb-hl" id="fbHl">' + hrows + '</div>' : '');
     el.innerHTML = '<div class="fb-hd"><span>Your call</span>' + hist + '</div>' +
-      '<div class="fb-row">' + fld('Plus', 'fbPlus', popts, /^p\d$/.test(fb.num || ''), fb.picks.indexOf('num') + 1, !fb.picks.length && !fb.dbl && !fb.pass) + fld('Number', 'fbNum', opts, /^\d+$/.test(fb.num || ''), fb.picks.indexOf('num') + 1) + fld('Suit', 'fbSuit', sopts, !!fb.suit, fb.picks.indexOf('suit') + 1) + '</div>' +
+      '<div class="fb-row' + (!fb.picks.length && !fb.dbl && !fb.pass ? ' fb-first">' + fbHintHtml() : '">') + fld('Plus', 'fbPlus', popts, /^p\d$/.test(fb.num || ''), fb.picks.indexOf('num') + 1, !fb.picks.length && !fb.dbl && !fb.pass) + fld('Number', 'fbNum', opts, /^\d+$/.test(fb.num || ''), fb.picks.indexOf('num') + 1) + fld('Suit', 'fbSuit', sopts, !!fb.suit, fb.picks.indexOf('suit') + 1) + '</div>' +
       '<div class="fb-row"><button type="button" class="fb-b' + (fb.kind === 'ns' && !fb.suit ? ' sel' : '') + '" data-k="ns">NS</button><button type="button" class="fb-b' + (fb.kind === 'nt' && !fb.suit ? ' sel' : '') + '" data-k="nt">NT</button><button type="button" class="fb-b fb-pass' + (fb.pass ? ' sel' : '') + '" data-k="pass">' + (st.finalChance ? 'FINALIZE' : 'PASS') + '</button></div>' +
       '<div class="fb-row"><button type="button" class="fb-b fb-x' + (fb.dbl === 'X' ? ' sel' : '') + '" data-k="X"' + (canDbl ? '' : ' disabled') + '>X DOUBLE</button><button type="button" class="fb-b fb-x' + (fb.dbl === 'XX' ? ' sel' : '') + '" data-k="XX"' + (canRe ? '' : ' disabled') + '>XX REDOUBLE</button></div>' +
       (firstSpeaker ? '<div class="fb-note">Pass = 28 NT stands · next must call 29+</div>' : '') +
