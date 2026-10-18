@@ -4682,15 +4682,15 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
   var saveData=(navigator.connection&&navigator.connection.saveData);
   if(v&&!calm&&!saveData){
     var vis=true, done=false; v.addEventListener('ended',function(){done=true; reveal();});
-    /* the fiery blade cuts the "Live now" pill on its slash ("/" from top-right to bottom-left): the two halves fall away, then the pill drops back into place */
+    /* the fiery blade cuts the "Live now" pill on its slash ("\\" from top-left to bottom-right): the two halves fall away, then the pill drops back into place */
     var cutDone=false;
-    v.addEventListener('timeupdate',function(){ if(cutDone||v.currentTime<4.9) return; cutDone=true; cutLivePill(); });
+    v.addEventListener('timeupdate',function(){ if(cutDone||v.currentTime<4.55) return; cutDone=true; cutLivePill(); });
     function cutLivePill(){
       var live=document.getElementById('gsLive'); if(!live||!live.parentNode||!live.offsetWidth) return;
       var par=live.parentNode, x=live.offsetLeft-3, y=live.offsetTop-3, w=live.offsetWidth+6, h=(live.offsetHeight||28)+8;
       var html=live.innerHTML, sides=[
-        {clip:'polygon(0 0,60% 0,40% 100%,0 100%)', origin:'40% 100%', dx:-1},
-        {clip:'polygon(60% 0,100% 0,100% 100%,40% 100%)', origin:'40% 100%', dx:1}];
+        {clip:'polygon(0 0,40% 0,60% 100%,0 100%)', origin:'60% 100%', dx:-1},
+        {clip:'polygon(40% 0,100% 0,100% 100%,60% 100%)', origin:'60% 100%', dx:1}];
       var pieces=[];
       sides.forEach(function(sd){
         var pc=document.createElement('div');
@@ -4701,7 +4701,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       live.style.visibility='hidden';
       /* a quick bright cut line along the slash */
       var edge=document.createElement('div');
-      var ang=Math.atan(0.2*w/h)*180/Math.PI;
+      var ang=-Math.atan(0.2*w/h)*180/Math.PI;
       edge.style.cssText='position:absolute;left:'+(x+w*0.5-1)+'px;top:'+(y+h*0.5-h*0.8)+'px;width:2px;height:'+(h*1.6)+'px;pointer-events:none;z-index:27;transform-origin:50% 50%;transform:rotate('+ang+'deg);background:linear-gradient(#fff,#ffe7a0);box-shadow:0 0 6px #ffd54a;opacity:0';
       par.appendChild(edge);
       edge.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'});
