@@ -1002,12 +1002,18 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var g0 = gs.getBoundingClientRect(), op = (fbEl.offsetParent || gs).getBoundingClientRect();
       x = g0.left - op.left + g0.width / 2; y = g0.top - op.top + g0.height * 0.505; w = Math.max(220, Math.min(g0.width * 0.26, 270));
     }
-    /* while it is someone else's turn ("X's call…"), the waiting box sits CENTRED on the table, level with the Last Trick panel */
+    /* while it is someone else's turn ("X's call…"), the waiting box sits CENTRED on the table, level with the Last Trick panel.
+       Measured as a shift from where the box currently is on screen, so the parent element's position doesn't matter */
     if (fbEl.classList.contains('wait')) {
-      var opW = (fbEl.offsetParent || gs).getBoundingClientRect(), g1 = gs.getBoundingClientRect();
-      x = g1.left - opW.left + g1.width / 2;
       var rootW = fbEl.getRootNode(), ltP = rootW && rootW.getElementById ? rootW.getElementById('lastTrickPanel') : null;
-      if (ltP) { var ltR = ltP.getBoundingClientRect(); if (ltR.height) y = ltR.top - opW.top + ltR.height / 2; }
+      var cr = fbEl.getBoundingClientRect(), gR = gs.getBoundingClientRect();
+      if (cr.width && gR.width) {
+        var baseX = parseFloat(fbEl.style.left), baseY = parseFloat(fbEl.style.top);
+        if (!isNaN(baseX) && !isNaN(baseY)) {
+          x = baseX + (gR.left + gR.width / 2 - (cr.left + cr.width / 2));
+          if (ltP) { var ltR = ltP.getBoundingClientRect(); if (ltR.height) y = baseY + (ltR.top + ltR.height / 2 - (cr.top + cr.height / 2)); }
+        }
+      }
     }
     fbEl.style.width = w + 'px'; fbEl.style.left = x + 'px'; fbEl.style.top = y + 'px';
     placeBc();
