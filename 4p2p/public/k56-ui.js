@@ -1028,7 +1028,13 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
   /* "Pick one of the top 3": pill + straight arrow whose tip rests on the top of the Plus button; only before the first pick */
   function numBand(v) { return v < 40 ? 1 : v < 48 ? 2 : v < 56 ? 3 : 4; }
   /* the three pickers open as our own styled panel (the phone's built-in list ignores styling); the real <select> still gets the value */
-  function closeFbPick() { var p = $('fbPop'); if (p) p.parentNode.removeChild(p); }
+  function closeFbPick() {
+    var p = $('fbPop'); if (!p) return;
+    /* put the hint arrow back the way it was: hopping, or stopped on the last pick */
+    var a = $('feltBid') && $('feltBid').querySelector('.fb-arw');
+    if (a) { if (p.dataset.prev === '-') a.removeAttribute('data-stop'); else a.setAttribute('data-stop', p.dataset.prev); }
+    p.parentNode.removeChild(p);
+  }
   function openFbPick(sel) {
     var fbEl = $('feltBid'); if (!fbEl || !sel) return;
     closeFbPick();
@@ -1047,6 +1053,12 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     pop.className = 'fb-pop fb-pop-' + kind; pop.id = 'fbPop'; pop.dataset.sel = sel.id;
     pop.style.top = (rr.bottom - fr.top + 4) + 'px';
     pop.innerHTML = h;
+    /* the hint arrow stops on the field being picked while its list is open */
+    var arwO = fbEl.querySelector('.fb-arw'), stopIdx = kind === 'suit' ? 2 : kind === 'num' ? 1 : 0;
+    if (arwO) {
+      pop.dataset.prev = arwO.hasAttribute('data-stop') ? arwO.getAttribute('data-stop') : '-';
+      arwO.setAttribute('data-stop', stopIdx);
+    }
     fbEl.appendChild(pop);
   }
   function bindFbPick(fbEl) {
