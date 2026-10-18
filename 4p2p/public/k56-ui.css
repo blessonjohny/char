@@ -2124,3 +2124,11 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .fb-hl .hr span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fb-hl .hr b{flex:none;color:#ffe8a8}
 .fb-hl .hr.none{justify-content:center;color:#cdbf94}
+
+/* labelled top-3 dropdowns: label rides the top border once a value is picked */
+.fb-f{flex:1;min-width:0;position:relative;display:flex}
+.fb-f select{width:100%}
+.fb-lg{position:absolute;top:-6px;left:7px;z-index:2;padding:0 3px;border-radius:3px;background:#2a1410;color:#ffd54a;font:700 .5rem/10px Georgia;letter-spacing:.7px;pointer-events:none;display:none}
+.fb-f.has .fb-lg{display:block}
+.fb-f:not(.has) select{color:#8a7448;font-weight:400;font-size:.7rem!important;padding:0 1px 0 4px!important}
+.fb-f select option{color:#2a1810;font-weight:700}
