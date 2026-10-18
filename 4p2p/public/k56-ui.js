@@ -589,7 +589,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var q = (st.qMarks && st.qMarks[occ.name]) || 0;
       var face = ctx.face(occ, seat, st);
       var isBidder = cb && cb.seat === seat && st.phase !== 'lobby';
-      var badge = isBidder ? 'B' + cb.value : '';
+      var badge = ''; /* the yellow B-bid tag is off: the red bid popup already shows the bid */
       var isDealer = st.dealer === seat && st.phase !== 'lobby';
       var key = [face.html, face.bg, q, !!occ.bot, badge, isDealer].join('|');
       once('seat' + slot, key, function () {
@@ -932,6 +932,9 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
       var rh = (!top && rv && rv.firstChild) ? rv.offsetHeight + 3 : 0;
       bw.style.top = top ? '-26px' : Math.round(h * 0.6 - rh) + 'px';
       bw.style.marginLeft = '0px';
+      /* the red bid popup lifts clear of this player's seconds counter, which stays where it is */
+      var bcL = $('bc' + i), tmL = $('tm' + i), lift = (!top && bcL && tmL && tmL.style.display !== 'none' && tmL.offsetHeight) ? tmL.offsetHeight + 6 : 0;
+      if (bcL) { bcL.style.position = lift ? 'relative' : ''; bcL.style.top = lift ? (-lift) + 'px' : ''; }
     }
     /* keep everything out from under the middle panel, and on screen */
     for (i = 0; i < 6; i++) {
