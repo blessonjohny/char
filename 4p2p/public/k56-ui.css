@@ -2215,3 +2215,20 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .felt-bid .fb-po.on.nb1,.felt-bid .fb-po.on.nb2,.felt-bid .fb-po.on.nb3,.felt-bid .fb-po.on.nb4,.felt-bid .fb-po.on.r{color:#2a1810}
 .felt-bid .fb-pop{touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .felt-bid .fb-pill.picked{border-style:solid;animation:none;opacity:1;color:#ffd54a}
+
+/* ---- readability pass: the bid picker reads top to bottom, one big item per line ---- */
+.felt-bid .fb-pop{grid-template-columns:1fr!important;gap:6px;max-height:min(300px,46vh);padding:8px;left:6px;right:6px}
+.felt-bid .fb-po{height:46px;font:900 1.3rem Georgia,serif;border-radius:10px;letter-spacing:.5px}
+.felt-bid .fb-pop-suit .fb-po{font-size:1.6rem}
+/* the call that a player just made: much bigger so it can be read at a glance on every screen */
+.seat .bc i,:host(.k28-in-game) .seat .bc i{min-width:64px;height:38px;font:900 1.25rem/36px Georgia,serif;padding:0 9px;border-width:2.5px;border-radius:9px;letter-spacing:.3px}
+.seat .bc i.live{box-shadow:0 0 10px #ffd54a,0 2px 8px #000}
+@media (max-width:420px){
+  .seat .bc i,:host(.k28-in-game) .seat .bc i{min-width:56px;height:34px;font-size:1.1rem;line-height:32px}
+}
+
+/* a PASS call always sits on top of the bidding window and anything else around it */
+.seat .bw:has(.bc i.p){z-index:1000!important}
+.seat .bc i.p{position:relative;z-index:1001;box-shadow:0 0 0 2px rgba(255,59,48,.35),0 3px 10px #000,0 0 10px rgba(255,59,48,.8)}
+/* lift the whole seat that is passing so its Pass box beats the bidding window's stacking */
+.seat:has(.bc i.p){z-index:1000!important}
