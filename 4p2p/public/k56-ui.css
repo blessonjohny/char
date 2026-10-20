@@ -2239,3 +2239,14 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
   .felt-bid .fb-po{height:52px;font:900 1.35rem Georgia,serif}
   .felt-bid .fb-pop-suit .fb-po{font-size:1.7rem}
 }
+
+/* phone: the open number list stays short so it does not cover the player's own cards at the bottom */
+@media (max-width:520px){
+  .felt-bid .fb-pop{grid-template-columns:repeat(3,1fr)!important;max-height:min(230px,30vh);gap:5px;padding:6px}
+  .felt-bid .fb-po{height:40px;font:900 1.1rem Georgia,serif}
+}
+
+/* phone: the bidding panel sits a little higher so the player's own cards show under it */
+@media (max-width:520px){
+  .felt-bid:not(.wait){margin-top:-44px}
+}
