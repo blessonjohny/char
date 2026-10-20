@@ -2232,3 +2232,10 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 .seat .bc i.p{position:relative;z-index:1001;box-shadow:0 0 0 2px rgba(255,59,48,.35),0 3px 10px #000,0 0 10px rgba(255,59,48,.8)}
 /* lift the whole seat that is passing so its Pass box beats the bidding window's stacking */
 .seat:has(.bc i.p){z-index:1000!important}
+
+/* computer / wide screens: the picker goes back to a compact grid so the whole list shows without cutting off */
+@media (min-width:700px){
+  .felt-bid .fb-pop{grid-template-columns:repeat(4,1fr)!important;max-height:none;overflow:visible;gap:8px;padding:10px}
+  .felt-bid .fb-po{height:52px;font:900 1.35rem Georgia,serif}
+  .felt-bid .fb-pop-suit .fb-po{font-size:1.7rem}
+}
