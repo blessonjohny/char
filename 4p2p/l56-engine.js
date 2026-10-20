@@ -303,8 +303,8 @@ function suitStats(hand) {
   });
   return { jacks, nines, count };
 }
-function suitOpenValue(jacksN, ninesN) {
-  if (jacksN >= 2) return 28 + 1 + ninesN;
+function suitOpenValue(jacksN, ninesN, lenN) {
+  if (jacksN >= 2) return (lenN >= 5 ? 30 : 28 + 1 + ninesN);   /* two jacks in a long suit open at 30; short suit stays at 29 */
   return 28;
 }
 // How high a bot is willing to go in a suit it holds: its Jacks, 9s and Aces/10s there, plus extra length. A lone Jack with 4 cards can
@@ -339,7 +339,7 @@ function botDecideBid(state, seat) {
   const bestOf = (suits) => {
     let best = null, bestVal = -1;
     suits.forEach(s => {
-      const v = suitOpenValue(jacks[s], nines[s]);
+      const v = suitOpenValue(jacks[s], nines[s], count[s]);
       if (v > bestVal) { bestVal = v; best = s; }
     });
     return { suit: best, value: bestVal };
@@ -469,8 +469,8 @@ function botDecideBid(state, seat) {
     const { suit, value } = bestOf(candidates);
     // strongest candidate first; a strong suit the opponents have NOT opened is bid at the minimum, up to what the hand can back
     const best = candidates.slice().sort((a, b) => suitCeiling(hand, b) - suitCeiling(hand, a))[0];
-    const bv = Math.max(minAllowed, suitOpenValue(jacks[best], nines[best]));
-    if (bv <= 56 && bv <= Math.max(suitCeiling(hand, best), suitOpenValue(jacks[best], nines[best]))) {
+    const bv = Math.max(minAllowed, suitOpenValue(jacks[best], nines[best], count[best]));
+    if (bv <= 56 && bv <= Math.max(suitCeiling(hand, best), suitOpenValue(jacks[best], nines[best], count[best]))) {
       return { action: 'bid', value: bv, trump: best, kind: 'suit', order: jacks[best] >= 1 ? 'forward' : 'reverse' };
     }
   }
