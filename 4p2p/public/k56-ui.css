@@ -2250,3 +2250,6 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 @media (max-width:520px){
   .felt-bid:not(.wait){margin-top:-44px}
 }
+
+/* a passing seat is lifted for looks only: its avatar and cards must never catch taps meant for the bidding buttons */
+.seat:has(.bc i.p),.seat:has(.bc i.p) *{pointer-events:none!important}
