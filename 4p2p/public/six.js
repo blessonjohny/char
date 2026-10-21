@@ -2389,10 +2389,11 @@ function applyState(state) {
     if (tp.dataset.rawVal !== rawVal) {
       tp.dataset.rawVal = rawVal;
       tp.innerHTML = `<span style="color:var(--success)">${myPts}</span> - <span style="color:var(--danger)">${oppPts}</span>`;
-      tp.classList.remove('pop-anim');
+      /* blink the points board for a few seconds whenever a team's points change (display only, no rule change) */
+      tp.classList.remove('pts-blink');
       void tp.offsetWidth;
-      tp.classList.add('pop-anim');
-      setTimeout(() => tp.classList.remove('pop-anim'), 500);
+      tp.classList.add('pts-blink');
+      clearTimeout(tp._blinkT); tp._blinkT = setTimeout(() => tp.classList.remove('pts-blink'), 3000);
     }
   } catch (e) { console.error('[dealer/bidder/points display] threw:', e); }
   try { renderLastTrick(state); } catch (e) { console.error('[renderLastTrick] threw:', e); }

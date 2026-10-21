@@ -2253,3 +2253,7 @@ input.text-input:focus{outline:none;background:rgba(255,255,255,0.2);box-shadow:
 
 /* a passing seat is lifted for looks only: its avatar and cards must never catch taps meant for the bidding buttons */
 .seat:has(.bc i.p),.seat:has(.bc i.p) *{pointer-events:none!important}
+
+/* points board blink when a team scores */
+.pts-blink{display:inline-block;border-radius:6px;animation:ptsBlink .42s ease-in-out 7}
+@keyframes ptsBlink{0%,100%{background:transparent;color:var(--accent);box-shadow:none}50%{background:#ffd54a;color:#2a1810;box-shadow:0 0 10px #ffd54a}}

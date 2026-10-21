@@ -4689,9 +4689,8 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       var live=document.getElementById('gsLive'); if(!live||!live.parentNode||!live.offsetWidth) return;
       var par=live.parentNode, x=live.offsetLeft-3, y=live.offsetTop-3, w=live.offsetWidth+6, h=(live.offsetHeight||28)+8;
       var html=live.innerHTML, ang=-Math.atan(0.2*w/h)*180/Math.PI;
-      /* 1) the blade's first cut runs "\" from top-left to bottom-right, splitting the pill in two
-         2) both halves drop; the blade comes back down and cuts them horizontally, so there are four pieces
-         3) all four pieces fall away, then the pill drops back into its place */
+      /* 1) blade's first cut, "\" from top-left to bottom-right  2) halves drop, blade cuts again horizontally: four pieces
+         3) the finishing swing EXPLODES them outward with a gold flash and sparks  4) the pill re-forms with a shimmer and settles */
       var P=[
         {clip:'polygon(0 0,40% 0,50% 50%,0 50%)', origin:'50% 50%', dx:-1, dy:0},
         {clip:'polygon(0 50%,50% 50%,60% 100%,0 100%)', origin:'60% 100%', dx:-1, dy:1},
@@ -4702,7 +4701,7 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
       P.forEach(function(sd){
         var pc=document.createElement('div');
         pc.className='gs-live gl-cutpc'; pc.innerHTML=html;
-        pc.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h+'px;clip-path:'+sd.clip+';-webkit-clip-path:'+sd.clip+';transform-origin:'+sd.origin+';pointer-events:none;z-index:26';
+        pc.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h+'px;clip-path:'+sd.clip+';-webkit-clip-path:'+sd.clip+';transform-origin:'+sd.origin+';pointer-events:none;z-index:26;will-change:transform,opacity';
         par.appendChild(pc); pieces.push([pc,sd]);
       });
       live.style.visibility='hidden';
@@ -4715,30 +4714,53 @@ body{background:linear-gradient(160deg,#0B1512 0%,#0E1D17 45%,#0B1512 100%)}
         e.animate([{opacity:0},{opacity:1,offset:0.25},{opacity:0}],{duration:300,delay:delay});
         setTimeout(function(){ if(e.parentNode) e.parentNode.removeChild(e); }, delay+340);
       }
-      flash(false, 0);      /* first cut */
-      flash(true, 700);     /* blade's horizontal cut */
+      flash(false, 0);
+      flash(true, 700);
+      /* the explosion: a gold burst and sparks flung out from the middle */
+      var cx=x+w*0.5, cy=y+h*0.5, burst=document.createElement('div');
+      burst.style.cssText='position:absolute;left:'+(cx-w*0.45)+'px;top:'+(cy-h*1.6)+'px;width:'+(w*0.9)+'px;height:'+(h*3.2)+'px;pointer-events:none;z-index:28;border-radius:50%;background:radial-gradient(circle,rgba(255,250,220,.95) 0%,rgba(255,213,74,.75) 22%,rgba(255,140,40,.25) 48%,transparent 70%);opacity:0;transform:scale(.2)';
+      par.appendChild(burst);
+      burst.animate([{opacity:0,transform:'scale(.2)'},{opacity:1,transform:'scale(1)',offset:0.35},{opacity:0,transform:'scale(1.35)'}],{duration:520,delay:720,easing:'ease-out',fill:'backwards'});
+      setTimeout(function(){ if(burst.parentNode) burst.parentNode.removeChild(burst); },1300);
+      for (var k=0;k<16;k++){
+        (function(k){
+          var a=(k/16)*Math.PI*2+ (Math.random()-0.5)*0.4, r=w*(0.28+Math.random()*0.32), sz=2+Math.random()*3.5;
+          var sp=document.createElement('div');
+          sp.style.cssText='position:absolute;left:'+(cx-sz/2)+'px;top:'+(cy-sz/2)+'px;width:'+sz+'px;height:'+sz+'px;border-radius:50%;pointer-events:none;z-index:29;background:'+(k%3?'#ffe7a0':'#fff')+';box-shadow:0 0 6px #ffd54a,0 0 12px rgba(255,200,80,.8);opacity:0';
+          par.appendChild(sp);
+          sp.animate([
+            {transform:'translate(0,0) scale(.4)',opacity:0},
+            {transform:'translate('+(Math.cos(a)*r*0.55)+'px,'+(Math.sin(a)*r*0.55)+'px) scale(1.3)',opacity:1,offset:0.35},
+            {transform:'translate('+(Math.cos(a)*r)+'px,'+(Math.sin(a)*r+18)+'px) scale(.3)',opacity:0}
+          ],{duration:760,delay:730+Math.random()*60,easing:'cubic-bezier(.2,.7,.3,1)',fill:'backwards'});
+          setTimeout(function(){ if(sp.parentNode) sp.parentNode.removeChild(sp); },1600);
+        })(k);
+      }
       function kf(s, bot){
         return [
-          {transform:'translate(0,0) rotate(0deg)', opacity:1, offset:0},
+          {transform:'translate(0,0) rotate(0deg) scale(1)', opacity:1, offset:0},
           {transform:'translate('+(s*4)+'px,-2px) rotate('+(s*-2)+'deg)', opacity:1, offset:0.2},
           {transform:'translate('+(s*10)+'px,36px) rotate('+(s*12)+'deg)', opacity:1, offset:0.47},
           {transform:'translate('+(s*(14+bot*4))+'px,'+(30+bot*22)+'px) rotate('+(s*(14+bot*8))+'deg)', opacity:1, offset:0.52},
-          {transform:'translate('+(s*22)+'px,110px) rotate('+(s*30)+'deg)', opacity:0, offset:0.8},
-          {transform:'translate('+(s*26)+'px,130px) rotate('+(s*34)+'deg)', opacity:0, offset:1}
+          /* the explosion flings each piece out, spinning and growing, then it breaks apart */
+          {transform:'translate('+(s*(62+bot*10))+'px,'+(-40+bot*60)+'px) rotate('+(s*-70)+'deg) scale(1.12)', opacity:1, offset:0.66},
+          {transform:'translate('+(s*(110))+'px,'+(-10+bot*100)+'px) rotate('+(s*-150)+'deg) scale(.55)', opacity:0.0, offset:0.9},
+          {transform:'translate('+(s*120)+'px,'+(bot*120)+'px) rotate('+(s*-170)+'deg) scale(.4)', opacity:0, offset:1}
         ];
       }
       pieces.forEach(function(pr){
-        pr[0].animate(kf(pr[1].dx, pr[1].dy), {duration:1500, easing:'ease-in', fill:'forwards'});
+        pr[0].animate(kf(pr[1].dx, pr[1].dy), {duration:1500, easing:'ease-out', fill:'forwards'});
       });
+      /* magic return: the pill re-forms out of light, overshoots slightly, then settles */
       setTimeout(function(){
         pieces.forEach(function(pr){ if(pr[0].parentNode) pr[0].parentNode.removeChild(pr[0]); });
         live.style.visibility='';
         live.animate([
-          {transform:'translateY(-22px)',opacity:0,offset:0},
-          {transform:'translateY(4px)',opacity:1,offset:0.62},
-          {transform:'translateY(-2px)',opacity:1,offset:0.82},
-          {transform:'translateY(0)',opacity:1,offset:1}
-        ],{duration:640,easing:'ease-out'});
+          {transform:'translateY(-26px) scale(.55)',opacity:0,filter:'blur(7px) brightness(2.4)',boxShadow:'0 0 0 rgba(255,213,74,0)',offset:0},
+          {transform:'translateY(4px) scale(1.12)',opacity:1,filter:'blur(0) brightness(1.5)',boxShadow:'0 0 26px rgba(255,213,74,.95)',offset:0.6},
+          {transform:'translateY(-2px) scale(.98)',opacity:1,filter:'brightness(1.1)',boxShadow:'0 0 14px rgba(255,213,74,.5)',offset:0.82},
+          {transform:'translateY(0) scale(1)',opacity:1,filter:'none',boxShadow:'0 0 0 rgba(255,213,74,0)',offset:1}
+        ],{duration:900,easing:'ease-out'});
       },1600);
     } v.addEventListener('error',reveal); var guard=null;   // safety net: if the video is on screen but never starts (autoplay blocked / failed), show the buttons anyway
     function sync(){ if(done) return; if(vis&&!document.hidden){var p=v.play(); if(p&&p.catch)p.catch(function(err){ if(err&&err.name==='NotAllowedError') reveal(); }); if(!guard) guard=setTimeout(function(){ if(!revealed&&v.currentTime<0.2) reveal(); },5000); } else v.pause(); }

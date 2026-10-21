@@ -217,7 +217,7 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     host.id = 'k56-host';
     host.hidden = true;
     root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=82">' + TPL;
+    root.innerHTML = '<link rel="stylesheet" href="/k56-ui.css?v=83">' + TPL;
     document.body.appendChild(host);
     for (var i = 0; i < 6; i++) {
       var sw = $('seatWrap' + i);
@@ -686,7 +686,13 @@ function crumpleFlyPopup(el, dx, dy, tint, done, fire) {
     setText($('roundNum'), String(st.handNumber));
     setText($('scoreA'), String(st.matchScore[mt])); setText($('scoreB'), String(st.matchScore[ot]));
     var dn = st.seats[st.dealer]; setText($('dealerDisplay'), dn ? dn.name : '—');
-    setText($('teamPointsDisplay'), (st.teamPoints ? st.teamPoints[mt] : 0) + ' - ' + (st.teamPoints ? st.teamPoints[ot] : 0));
+    /* the points board blinks whenever a team's points change, so the scoring moment is obvious */
+    var pv = (st.teamPoints ? st.teamPoints[mt] : 0) + ' - ' + (st.teamPoints ? st.teamPoints[ot] : 0), pEl = $('teamPointsDisplay');
+    if (pEl && pEl.textContent !== pv && pEl.textContent !== '') {
+      pEl.classList.remove('pts-blink'); void pEl.offsetWidth; pEl.classList.add('pts-blink');
+      clearTimeout(pEl._blinkT); pEl._blinkT = setTimeout(function () { pEl.classList.remove('pts-blink'); }, 3000);
+    }
+    setText(pEl, pv);
     var bd = '—';
     if (cb) { var bn = st.seats[cb.seat]; bd = (bn ? bn.name + ' ' : '') + ctx.formatBid(cb); }
     setText($('bidderDisplay'), bd);
