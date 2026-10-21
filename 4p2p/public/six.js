@@ -1132,6 +1132,12 @@ function updateTableClock() {
 // intensity scaling with how big the lead is. "Your Team" / "Opp Team"
 // always means relative to MY_POS, not a fixed team index, since which
 // raw team (0 or 1) is "mine" depends on which seat I'm sitting in.
+/* blink a score box for a few seconds whenever its number changes (display only) */
+function blinkBox(el) {
+  if (!el) return;
+  el.classList.remove('box-blink'); void el.offsetWidth; el.classList.add('box-blink');
+  clearTimeout(el._blinkT); el._blinkT = setTimeout(() => el.classList.remove('box-blink'), 3000);
+}
 function updateSixpScoreDisplay(state) {
   const myTeam = sixpGetTeam(MY_POS);
   const yScore = state.gameScore[myTeam];
@@ -1140,6 +1146,7 @@ function updateSixpScoreDisplay(state) {
   const yBox = $('scoreBoxYours'), oBox = $('scoreBoxOpp');
 
   if (ys.textContent !== String(yScore)) {
+    blinkBox($('scoreBoxYours'));
     ys.textContent = yScore;
     ys.classList.remove('pop-anim');
     void ys.offsetWidth;
@@ -1147,6 +1154,7 @@ function updateSixpScoreDisplay(state) {
     setTimeout(() => ys.classList.remove('pop-anim'), 500);
   }
   if (os.textContent !== String(oScore)) {
+    blinkBox($('scoreBoxOpp'));
     os.textContent = oScore;
     os.classList.remove('pop-anim');
     void os.offsetWidth;
@@ -2364,6 +2372,7 @@ function applyState(state) {
   if (window.K28Voice) K28Voice.showButton();
   document.querySelector('.link-back').style.display = 'none'; // was overlapping the info bar during play
 
+  if ($('roundNum').textContent !== String(state.round)) blinkBox($('roundNumBox'));
   $('roundNum').textContent = state.round;
   try { updateSixpScoreDisplay(state); } catch (e) { console.error('[updateSixpScoreDisplay] threw:', e); }
   $('btnHostMenu').style.display = IS_HOST ? 'inline-flex' : 'none';
