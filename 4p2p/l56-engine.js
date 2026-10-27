@@ -552,6 +552,26 @@ function chooseDiscard(state, seat, legalCards, partnerWinningCard) {
   if (notPartnerSuit.length > 0) pool = notPartnerSuit;
   return pool.slice().sort((a, b) => RANK_PTS[a.r] - RANK_PTS[b.r])[0];
 }
+// How many cards that OUTRANK this card in its suit are still unaccounted for. There are 2 of every card, so a card is only
+// truly "top" when all its higher copies are already played (on the table, in past tricks) or in the bot's own hand.
+function outstandingHigher(state, seat, card) {
+  const seen = getPlayedCardsThisHand(state).concat((state.hands && state.hands[seat]) || []);
+  const ri = RANKS.indexOf(card.r);
+  let n = 0;
+  for (let i = 0; i < ri; i++) {
+    const h = RANKS[i];
+    let have = 0;
+    seen.forEach(c => { if (c.s === card.s && c.r === h) have++; });
+    n += Math.max(0, 2 - have);
+  }
+  return n;
+}
+// of these candidate cards, keep the ones with the fewest higher cards still out (so a lead is not beaten by a card we could count)
+function safestOf(state, seat, cands) {
+  if (cands.length === 0) return cands;
+  const best = Math.min(...cands.map(c => outstandingHigher(state, seat, c)));
+  return cands.filter(c => outstandingHigher(state, seat, c) === best);
+}
 function botChooseCard(state, seat, legalCards) {
   if (state.table.length === 0) {
     const safeSuits = suitLeadSafety(state, seat);
@@ -573,10 +593,10 @@ function botChooseCard(state, seat, legalCards) {
     });
     if (bestSuit && !candidateSuits.includes(bestSuit)) {
       // not a "safe" suit, but the calls say it is the best one to lead: strong card if I hold the Jack, else a small one feeding partner
-      const cs = bySuit[bestSuit].slice().sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
+      const cs = safestOf(state, seat, bySuit[bestSuit]).slice().sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
       return cs.some(c => c.r === 'J') ? cs[0] : cs[cs.length - 1];
     }
-    const sorted = pool.slice().sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
+    const sorted = safestOf(state, seat, pool).slice().sort((a, b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
     return sorted[0];
   }
 
