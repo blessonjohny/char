@@ -2210,6 +2210,7 @@ app.get('/api/admin/auto-bots', (req, res) => {
 app.post('/api/admin/auto-bots', express.json({ limit: '1kb' }), (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   sixpAutoBots.enabled = !!(req.body && req.body.enabled);
+  sixpAutoBotsSave();
   if (!sixpAutoBots.enabled) Object.keys(sixpTables).forEach(id => sixpAutoBotsClearTimer(sixpTables[id]));
   else Object.keys(sixpTables).forEach(id => sixpAutoBotsSync(sixpTables[id], id));
   console.log('[admin] 6-player auto-bots ' + (sixpAutoBots.enabled ? 'ON' : 'OFF'));
@@ -4518,7 +4519,11 @@ const sixpTables = {};
 // 20-60s pause, so the table looks like it is filling naturally. When the last real player leaves the lobby, the auto-bots leave too.
 // Games already in progress are NOT touched; the switch only acts in the lobby.
 const SIXP_AUTOBOT_NAMES = ['Ravi', 'Anu', 'Meera', 'Suresh', 'Latha', 'Gopan', 'Sreeja', 'Hari', 'Lekha', 'Vinod'];
+const SIXP_AUTOBOT_FILE = path.join(DATA_DIR, 'sixp-auto-bots.json');
 let sixpAutoBots = { enabled: false, minMs: 20000, maxMs: 60000 };
+// Remember the on/off switch across server restarts (a restart used to put it back to Off).
+try { const saved = JSON.parse(fs.readFileSync(SIXP_AUTOBOT_FILE, 'utf8')); sixpAutoBots.enabled = !!saved.enabled; } catch (e) {}
+function sixpAutoBotsSave() { try { fs.writeFileSync(SIXP_AUTOBOT_FILE, JSON.stringify({ enabled: !!sixpAutoBots.enabled })); } catch (e) {} }
 function sixpAutoBotsClearTimer(t) { if (t && t._autoBotTimer) { clearTimeout(t._autoBotTimer); t._autoBotTimer = null; } }
 function sixpAutoBotsSync(t, id) {
   if (!t || !t.engine) return;
