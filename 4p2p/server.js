@@ -2204,7 +2204,8 @@ app.post('/api/admin/poker-deny-join', (req, res) => {
 // Admin-only switch for the 6-player auto-bots (see sixpAutoBotsSync above)
 app.get('/api/admin/auto-bots', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
-  res.json({ ok: true, enabled: !!sixpAutoBots.enabled, minMs: sixpAutoBots.minMs, maxMs: sixpAutoBots.maxMs });
+  const seatedAuto = Object.keys(sixpTables).reduce((n, id) => n + sixpTables[id].engine.seats.filter(x => x && x.autoBot).length, 0);
+  res.json({ ok: true, enabled: !!sixpAutoBots.enabled, minMs: sixpAutoBots.minMs, maxMs: sixpAutoBots.maxMs, seatedAuto, tables: Object.keys(sixpTables).length });
 });
 app.post('/api/admin/auto-bots', express.json({ limit: '1kb' }), (req, res) => {
   if (!checkAdminAuth(req, res)) return;
@@ -2212,7 +2213,7 @@ app.post('/api/admin/auto-bots', express.json({ limit: '1kb' }), (req, res) => {
   if (!sixpAutoBots.enabled) Object.keys(sixpTables).forEach(id => sixpAutoBotsClearTimer(sixpTables[id]));
   else Object.keys(sixpTables).forEach(id => sixpAutoBotsSync(sixpTables[id], id));
   console.log('[admin] 6-player auto-bots ' + (sixpAutoBots.enabled ? 'ON' : 'OFF'));
-  res.json({ ok: true, enabled: sixpAutoBots.enabled });
+  res.json({ ok: true, enabled: sixpAutoBots.enabled, seatedAuto: 0 });
 });
 app.post('/api/admin/spawn-bot-table', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
@@ -4728,6 +4729,7 @@ io.on('connection', (socket) => {
     socket.emit('sixp_joined', { tableId: id, playerId: sixpPlayerId, pos: 0, isHost: true });
     sixpBroadcastTable(t);
     sixpScheduleNoHumanShutdown(t, id);
+    sixpAutoBotsSync(t, id);
     io.emit('sixp_roomList', sixpPublicTableList());
     console.log(`[6p table ${id}] created by ${name}`);
   });
