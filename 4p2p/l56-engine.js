@@ -324,7 +324,8 @@ function botDecideBid(state, seat) {
   // 3+ jacks spread over 3+ different suits: the "No Trump" hand.
   const spreadJacks = SUITS.reduce((a, x) => a + (jacks[x] >= 1 ? 1 : 0), 0) >= 3 && SUITS.reduce((a, x) => a + jacks[x], 0) >= 3;
 
-  const biddableSuits = SUITS.filter(s => jacks[s] >= 1 && count[s] >= 4);
+  /* a bit more aggressive than before, not reckless: a Jack with 4+ cards opens, and so does a Jack + 9 with 3 cards */
+  const biddableSuits = SUITS.filter(s => jacks[s] >= 1 && (count[s] >= 4 || (count[s] >= 3 && nines[s] >= 1)));
   // "N Pass" from a partner = a pass with a number (no trump). The LAST partner on the team to speak must then open his strongest suit.
   if (!cb && state.numPassBySeat) {
     const hn = state.handNumber || 1;
