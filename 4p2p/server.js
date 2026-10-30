@@ -2201,6 +2201,19 @@ app.post('/api/admin/poker-deny-join', (req, res) => {
 // bot-seat like any player reclaiming a seat would. Clicking "Leave
 // Table" afterward hands it right back to bot control, again via the
 // same convertToBot() call that already runs for any mid-game departure.
+// Admin-only switch for the 6-player auto-bots (see sixpAutoBotsSync above)
+app.get('/api/admin/auto-bots', (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  res.json({ ok: true, enabled: !!sixpAutoBots.enabled, minMs: sixpAutoBots.minMs, maxMs: sixpAutoBots.maxMs });
+});
+app.post('/api/admin/auto-bots', express.json({ limit: '1kb' }), (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  sixpAutoBots.enabled = !!(req.body && req.body.enabled);
+  if (!sixpAutoBots.enabled) Object.keys(sixpTables).forEach(id => sixpAutoBotsClearTimer(sixpTables[id]));
+  else Object.keys(sixpTables).forEach(id => sixpAutoBotsSync(sixpTables[id], id));
+  console.log('[admin] 6-player auto-bots ' + (sixpAutoBots.enabled ? 'ON' : 'OFF'));
+  res.json({ ok: true, enabled: sixpAutoBots.enabled });
+});
 app.post('/api/admin/spawn-bot-table', (req, res) => {
   if (!checkAdminAuth(req, res)) return;
   const mode = req.body.mode === '6p' ? '6p' : '4p';
@@ -4498,6 +4511,46 @@ io.on('connection', (socket) => {
 const { GameEngine6P, getTeam: getTeam6p } = require('./game-engine-6p');
 
 const sixpTables = {};
+
+// ---- 6-player AUTO-BOTS (admin-only switch) ----
+// While the switch is ON: when a real player is sitting alone in a 6-player LOBBY, bots arrive one at a time after a random
+// 20-60s pause, so the table looks like it is filling naturally. When the last real player leaves the lobby, the auto-bots leave too.
+// Games already in progress are NOT touched; the switch only acts in the lobby.
+const SIXP_AUTOBOT_NAMES = ['Ravi', 'Anu', 'Meera', 'Suresh', 'Latha', 'Gopan', 'Sreeja', 'Hari', 'Lekha', 'Vinod'];
+let sixpAutoBots = { enabled: false, minMs: 20000, maxMs: 60000 };
+function sixpAutoBotsClearTimer(t) { if (t && t._autoBotTimer) { clearTimeout(t._autoBotTimer); t._autoBotTimer = null; } }
+function sixpAutoBotsSync(t, id) {
+  if (!t || !t.engine) return;
+  if (t.engine.phase !== 'lobby') { sixpAutoBotsClearTimer(t); return; }
+  const humans = t.engine.seats.filter(s => s && !s.isBot).length;
+  if (humans === 0) {
+    sixpAutoBotsClearTimer(t);
+    let removed = false;
+    t.engine.seats.forEach((s, i) => { if (s && s.isBot && s.autoBot) { t.engine.removeSeat(i); removed = true; } });
+    if (removed) sixpBroadcastTable(t);
+    return;
+  }
+  if (!sixpAutoBots.enabled || t._autoBotTimer) return;
+  if (!t.engine.seats.some(s => !s)) return;   // table already full
+  const delay = sixpAutoBots.minMs + Math.random() * (sixpAutoBots.maxMs - sixpAutoBots.minMs);
+  t._autoBotTimer = setTimeout(() => {
+    t._autoBotTimer = null;
+    const cur = sixpTables[id];
+    if (cur !== t || !sixpAutoBots.enabled || t.engine.phase !== 'lobby') return;
+    if (!t.engine.seats.filter(s => s && !s.isBot).length) return;
+    const open = t.engine.seats.map((s, i) => (s ? -1 : i)).filter(i => i >= 0);
+    if (open.length === 0) return;
+    const used = new Set(t.engine.seats.filter(Boolean).map(s => s.name));
+    const pool = SIXP_AUTOBOT_NAMES.filter(n => !used.has(n));
+    const name = pool.length ? pool[Math.floor(Math.random() * pool.length)] : ('Bot ' + (open[0] + 1));
+    const pos = open[Math.floor(Math.random() * open.length)];
+    t.engine.seatBot(pos, name);
+    t.engine.seats[pos].autoBot = true;
+    sixpBroadcastTable(t);
+    sixpAutoBotsSync(t, id);   // schedule the next one, if still room and still a real player waiting
+  }, delay);
+}
+
 const sixpPlayerIndex = {};
 const sixpPendingSeatChoice = {};
 
@@ -4703,6 +4756,7 @@ io.on('connection', (socket) => {
         sixpTouch(t);
         sixpBroadcastTable(t);
         sixpScheduleNoHumanShutdown(t, sixpTableId);
+        sixpAutoBotsSync(t, sixpTableId);
         return;
       }
     }
@@ -5511,6 +5565,7 @@ io.on('connection', (socket) => {
       if (leavingPlayerId) delete sixpPlayerIndex[leavingPlayerId];
       sixpTouch(t);
       sixpBroadcastTable(t);
+      sixpAutoBotsSync(t, sixpTableId);
       // Deliberate leave (this handler only fires for the actual
       // 'sixp_leaveTable' emit, sent by the red X / "Leave Table"
       // confirmation -- never by a silent disconnect, see the separate
