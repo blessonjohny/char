@@ -643,6 +643,12 @@
       <div id="leaderboardContent"></div>
     </div>
     <div id="pokerView" style="display:none">
+      <div class="card" style="margin:0 0 12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1 1 200px;min-width:0"><b style="color:#fff">🃏 Texas Hold'em on the site</b>
+          <div style="color:var(--text2);font-size:0.74rem;margin-top:3px;line-height:1.35">Off hides Hold'em from the home menu and its pages show a "paused" notice. The other games are not affected.</div></div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:800;color:#fff;cursor:pointer"><input type="checkbox" id="holdemFlagToggle" onchange="holdemFlagSet(this.checked)" style="width:22px;height:22px"> <span id="holdemFlagState">On</span></label>
+        <div id="holdemFlagInfo" style="flex:1 1 100%;color:#9fd6b8;font-size:0.76rem">Loading…</div>
+      </div>
       <div class="toolbar">
         <span class="sub" id="pokerCount" style="margin:0;align-self:center">—</span>
         <button class="btn ghost" id="btnRefreshPoker">🔄 Refresh</button>
@@ -3471,10 +3477,12 @@ document.getElementById('visitorFilters').addEventListener('click', (e) => {
 </script>
 <script>
 // 6-player auto-bots switch (admin only). Reads and sets the server's on/off state.
+// the password this tab is using: the one typed at login, or the one kept for this tab (survives a page refresh)
+function sixpAdminPw() { try { return PASSWORD || sessionStorage.getItem('admin_session_pw') || undefined; } catch (e) { return PASSWORD || undefined; } }
 async function sixpAutoBotsLoad() {
   const info = document.getElementById('sixpAutoBotsInfo');
   try {
-    const res = await adminFetch('/api/admin/auto-bots');
+    const res = await adminFetch('/api/admin/auto-bots', sixpAdminPw());
     if (!res.ok) { if (info) info.textContent = 'Switch not reachable: server answered HTTP ' + res.status + (res.status === 404 ? ' (the server is still running the OLD server.js. Copy the new one and restart.)' : res.status === 401 ? ' (wrong admin password).' : '.'); return; }
     const d = await res.json();
     const t = document.getElementById('sixpAutoBotsToggle'); if (t) t.checked = !!d.enabled;
@@ -3485,7 +3493,7 @@ async function sixpAutoBotsLoad() {
 async function sixpAutoBotsToggle(on) {
   const info = document.getElementById('sixpAutoBotsInfo'), t = document.getElementById('sixpAutoBotsToggle'), st = document.getElementById('sixpAutoBotsState');
   try {
-    const res = await adminFetch('/api/admin/auto-bots', undefined, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !!on }) });
+    const res = await adminFetch('/api/admin/auto-bots', sixpAdminPw(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !!on }) });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { if (t) t.checked = !on; if (info) info.textContent = 'Not saved: server answered HTTP ' + res.status + '.'; return; }
     if (st) st.textContent = d.enabled ? 'On' : 'Off';
@@ -3493,6 +3501,25 @@ async function sixpAutoBotsToggle(on) {
   } catch (e) { if (t) t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
 }
 sixpAutoBotsLoad();
+</script>
+<script>
+async function holdemFlagLoad() {
+  const info = document.getElementById('holdemFlagInfo');
+  try { const r = await adminFetch('/api/admin/holdem-flag', sixpAdminPw()); if (!r.ok) { if (info) info.textContent = 'Not reachable: HTTP ' + r.status; return; }
+    const d = await r.json(); document.getElementById('holdemFlagToggle').checked = !!d.enabled; document.getElementById('holdemFlagState').textContent = d.enabled ? 'On' : 'Off';
+    if (info) info.textContent = d.enabled ? "Hold'em is live on the site." : "Hold'em is paused on the site.";
+  } catch (e) { if (info) info.textContent = 'Not reachable: ' + (e && e.message ? e.message : 'network error'); }
+}
+async function holdemFlagSet(on) {
+  const info = document.getElementById('holdemFlagInfo'), t = document.getElementById('holdemFlagToggle');
+  try { const r = await adminFetch('/api/admin/holdem-flag', sixpAdminPw(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !!on }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { t.checked = !on; if (info) info.textContent = 'Not saved: HTTP ' + r.status; return; }
+    document.getElementById('holdemFlagState').textContent = d.enabled ? 'On' : 'Off';
+    if (info) info.textContent = d.enabled ? "Saved: Hold'em is ON." : "Saved: Hold'em is OFF (hidden from the site).";
+  } catch (e) { t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
+}
+holdemFlagLoad();
 </script>
 </body>
 </html>

@@ -1784,6 +1784,9 @@ function connectSocket() {
   // same moment the departing seat's avatar ring flips red (isBot
   // becomes true server-side), so the departure is just as visible as
   // an arrival rather than only a passive border color change.
+  socket.on('sixp_playerJoinedNotice', ({ name }) => {
+    showGameEvent('👋', 'Player Joined', (name || 'A player') + ' joined the table', '#2ecc71');
+  });
   socket.on('sixp_playerLeftNotice', ({ name }) => {
     showGameEvent('🔌', 'Player Left', (name || 'Someone') + ' left the table — a bot has taken over', '#e74c3c');
   });
