@@ -417,6 +417,24 @@ app.get(/^\/images\/kunukku\/[a-z0-9-]+\.png$/i, (req, res, next) => {
 const { createImageOptimizer } = require('./image-optimizer');
 const imageOpt = createImageOptimizer({ publicDir: path.join(__dirname, 'public'), file: path.join(DATA_DIR, 'image-optimization.json') });
 app.use(imageOpt.middleware);
+// ---- Hold'em ON/OFF (admin switch). When OFF, the Hold'em pages show a "not available" notice and the home menu hides it. Saved to disk.
+const HOLDEM_FLAG_FILE = path.join(DATA_DIR, 'holdem-flag.json');
+let holdemEnabled = true;
+try { const hf = JSON.parse(fs.readFileSync(HOLDEM_FLAG_FILE, 'utf8')); holdemEnabled = hf.enabled !== false; } catch (e) {}
+function holdemSave() { try { fs.writeFileSync(HOLDEM_FLAG_FILE, JSON.stringify({ enabled: !!holdemEnabled })); } catch (e) {} }
+app.get('/api/feature-flags', (req, res) => { res.json({ holdem: !!holdemEnabled }); });
+app.get('/api/admin/holdem-flag', (req, res) => { if (!checkAdminAuth(req, res)) return; res.json({ ok: true, enabled: !!holdemEnabled }); });
+app.post('/api/admin/holdem-flag', express.json({ limit: '1kb' }), (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  holdemEnabled = !!(req.body && req.body.enabled); holdemSave();
+  console.log('[admin] Hold\'em ' + (holdemEnabled ? 'ON' : 'OFF'));
+  res.json({ ok: true, enabled: holdemEnabled });
+});
+function holdemOffPage(req, res, next) {
+  if (holdemEnabled) return next();
+  res.status(503).type('html').send('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not available</title><body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#120a06;color:#f3e6c4;font-family:Georgia,serif;text-align:center;padding:24px"><div><h1 style="color:#e9b949;font-weight:700">Texas Hold\'em is paused</h1><p>Please play our other free games: <a href="/" style="color:#e9b949">back to the games menu</a>.</p></div></body>');
+}
+app.use(['/holdem.html', '/holdem3d.html', '/holdem'], holdemOffPage);
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     // Pictures and sounds rarely change: let the browser keep them but CHECK each time (the file's ETag), so an unchanged
@@ -4552,6 +4570,8 @@ function sixpAutoBotsSync(t, id) {
     const pos = open[Math.floor(Math.random() * open.length)];
     t.engine.seatBot(pos, name);
     t.engine.seats[pos].autoBot = true;
+    console.log(`[6p table ${id}] auto-bot ${name} joined seat ${pos}`);
+    io.to('sixp_' + id).emit('sixp_playerJoinedNotice', { name });
     sixpBroadcastTable(t);
     sixpAutoBotsSync(t, id);   // schedule the next one, if still room and still a real player waiting
   }, delay);
