@@ -629,6 +629,7 @@ class GameEngine6P {
     this.dealCards(3);
     this.reshuffleReason = this._dealSameHandUntilValid();
     this._dealtThisRound = _snapshotDeal(this.seats);
+    this._trickReview = [];
     this._validateCardIntegrity('startRound, right after dealing');
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} started. Dealer seat ${this.dealer}.`);
@@ -1402,6 +1403,11 @@ class GameEngine6P {
       this.suitsCutThisRound.add(this.trickSuit);
     }
     this.lastTrick = { cards: this.trickCards.slice(), winner: winner.pos, points, team };
+    if (NEW_BOT_RULES) {
+      (this._trickReview = this._trickReview || []).push({
+        lead: this.trickSuit, trump: this.trumpSuit, winner: winner.pos, winnerTeam: team, points,
+        cards: this.trickCards.map(tc => ({ pos: tc.pos, c: tc.card.rank + tc.card.suit })) });
+    }
     this.addLog(`Seat ${winner.pos} won the trick (+${points}pts).`);
 
     // Per-team clean tracking for Quote eligibility -- see
@@ -1644,10 +1650,13 @@ class GameEngine6P {
       try {
         NEW_BOT_LOGGER({ at: Date.now(), table: this.tableId || null, round: this.round, dealer: this.dealer,
           dealt: this._dealtThisRound || null, bidder: this.bidder, bidTeam: bT, bid: this.highestBid,
-          trump: this.trumpSuit, made: !!made, teamPoints: this.teamPoints.slice() });
+          trump: this.trumpSuit, made: !!made, teamPoints: this.teamPoints.slice(),
+          bidTeamPoints: this.teamPoints[bT], bidGap: this.teamPoints[bT] - this.highestBid,
+          tricks: this._trickReview || [] });
       } catch (e) {}
     }
     this._dealtThisRound = null;
+    this._trickReview = [];
     // Per explicit request: leaderboard tracking -- see game-engine.js's
     // identical addition for the fuller reasoning. The team that
     // DIDN'T win this specific round just took a round-loss toward
