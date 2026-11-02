@@ -25,6 +25,14 @@ const POINTS = { J: 3, '9': 2, A: 1, '10': 1, K: 0, Q: 0, '8': 0, '7': 0, '6': 0
 const RANK_ORDER = { J: 8, '9': 7, A: 6, '10': 5, K: 4, Q: 3, '8': 2, '7': 1, '6': 0 };
 const SEATS = 6;
 const brain = require('./bot-brain');
+// Admin switch for the Kunukku / championship opening rule for bots. OFF by default; the server sets it from the admin page.
+let KUNUKKU_OPEN_RULE = false;
+function setKunukkuOpenRule(v) { KUNUKKU_OPEN_RULE = !!v; }
+// Admin switch for the new bot bidding / hand-counting rules (auto-deployed bots only). OFF by default. Saved by the server.
+// Only the switch exists for now; the rules themselves are not wired yet.
+let NEW_BOT_RULES = false;
+function setNewBotRules(v) { NEW_BOT_RULES = !!v; }
+function isNewBotRulesOn() { return NEW_BOT_RULES; }
 const partnerBot = require('./partner-bot');
 const leaderboard = require('./leaderboard');
 const playerStats = require('./player-stats');
@@ -2016,7 +2024,10 @@ class GameEngine6P {
         this.callThani(pos);
         return;
       }
-      let target = tableBid.bidValue;
+      // Bots bid a little more aggressively: one point higher whenever they hold a qualifying Jack suit (not a plain bid of 16).
+      // Only the bot's own bid changes; the explicit table above and the player's own bidding are untouched.
+      // Auto-deployed bots (seat.autoBot) bid one point more aggressively than the regular bots. Regular bots are unchanged.
+      let target = (this.seats[pos].autoBot === true && tableBid.bidValue > 16) ? tableBid.bidValue + 1 : tableBid.bidValue;
 
       // Partner bidding signal from last round -- same rule as the
       // 4-player game, just sent to ALL teammates at once here since
@@ -2087,6 +2098,20 @@ class GameEngine6P {
         bid = target >= 24 ? 28 : 0;
       }
 
+      // Kunukku / new championship opening rule, BOTS ONLY (both teams): the opening number is 20.
+      //   - a bot with a decent hand (qualifying Jack suit) jumps straight to 20 instead of waiting for its last teammate;
+      //   - the LAST bot on its team to act, with nobody having called yet, cannot pass: it calls 20.
+      // Only the auto-deployed bots follow this. Regular bots and human players are not changed.
+      if (KUNUKKU_OPEN_RULE && !ghostSeat && this.seats[pos].isBot && this.seats[pos].autoBot === true && !wantsLower) {
+        const kk = this._kunukkuSides(pos);
+        const kunukkuRound = this.isFirstHandOfChampionship || kk.own || kk.opp;
+        if (kunukkuRound && this.highestBid === 0) {
+          const myTeamOthers = [0, 1, 2, 3, 4, 5].filter(x => x !== pos && getTeam(x) === getTeam(pos));
+          const teammatesStillToAct = myTeamOthers.some(x => !(this.bidActed && this.bidActed[x]));
+          if (first && tableBid.bidValue >= 18) bid = Math.max(bid, 20);
+          else if (!first && !teammatesStillToAct) bid = 20;
+        }
+      }
       const result = this.placeBid(pos, bid);
       if (!result.ok) this.placeBid(pos, 0);
       delete this.partnerSignals[pos]; // one-shot: consumed the moment this seat actually bids
@@ -3407,4 +3432,4 @@ class GameEngine6P {
   }
 }
 
-module.exports = { GameEngine6P, SUITS, RANKS, POINTS, RANK_ORDER, getTeam, freshDeck, evaluateHand, SEATS };
+module.exports = { setKunukkuOpenRule, setNewBotRules, isNewBotRulesOn, GameEngine6P, SUITS, RANKS, POINTS, RANK_ORDER, getTeam, freshDeck, evaluateHand, SEATS };

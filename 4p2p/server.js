@@ -4529,6 +4529,35 @@ io.on('connection', (socket) => {
 // 4-player handlers above can affect these.
 // ============================================================
 const { GameEngine6P, getTeam: getTeam6p } = require('./game-engine-6p');
+// Kunukku / championship bidding rule (bots only) -- admin switch, OFF by default, saved to disk so restarts keep it.
+const KUNUKKU_RULE_FILE = path.join(DATA_DIR, 'kunukku-rule.json');
+let kunukkuRuleOn = false;
+try { kunukkuRuleOn = JSON.parse(fs.readFileSync(KUNUKKU_RULE_FILE, 'utf8')).enabled === true; } catch (e) {}
+require('./game-engine-6p').setKunukkuOpenRule(kunukkuRuleOn);
+function kunukkuRuleSave() { try { fs.writeFileSync(KUNUKKU_RULE_FILE, JSON.stringify({ enabled: !!kunukkuRuleOn })); } catch (e) {} }
+app.get('/api/admin/kunukku-rule', (req, res) => { if (!checkAdminAuth(req, res)) return; res.json({ ok: true, enabled: !!kunukkuRuleOn }); });
+app.post('/api/admin/kunukku-rule', express.json({ limit: '1kb' }), (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  kunukkuRuleOn = !!(req.body && req.body.enabled);
+  require('./game-engine-6p').setKunukkuOpenRule(kunukkuRuleOn); kunukkuRuleSave();
+  console.log('[admin] Kunukku bidding rule (bots) ' + (kunukkuRuleOn ? 'ON' : 'OFF'));
+  res.json({ ok: true, enabled: kunukkuRuleOn });
+});
+
+// New bot bidding / hand-counting rules (auto-deployed bots only) -- admin switch, OFF by default, saved to disk.
+const NEW_BOT_RULES_FILE = path.join(DATA_DIR, 'new-bot-rules.json');
+let newBotRulesOn = false;
+try { newBotRulesOn = JSON.parse(fs.readFileSync(NEW_BOT_RULES_FILE, 'utf8')).enabled === true; } catch (e) {}
+require('./game-engine-6p').setNewBotRules(newBotRulesOn);
+function newBotRulesSave() { try { fs.writeFileSync(NEW_BOT_RULES_FILE, JSON.stringify({ enabled: !!newBotRulesOn })); } catch (e) {} }
+app.get('/api/admin/new-bot-rules', (req, res) => { if (!checkAdminAuth(req, res)) return; res.json({ ok: true, enabled: !!newBotRulesOn }); });
+app.post('/api/admin/new-bot-rules', express.json({ limit: '1kb' }), (req, res) => {
+  if (!checkAdminAuth(req, res)) return;
+  newBotRulesOn = !!(req.body && req.body.enabled);
+  require('./game-engine-6p').setNewBotRules(newBotRulesOn); newBotRulesSave();
+  console.log('[admin] New bot bidding rules (auto-bots) ' + (newBotRulesOn ? 'ON' : 'OFF'));
+  res.json({ ok: true, enabled: newBotRulesOn });
+});
 
 const sixpTables = {};
 
