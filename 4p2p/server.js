@@ -4550,6 +4550,23 @@ let newBotRulesOn = false;
 try { newBotRulesOn = JSON.parse(fs.readFileSync(NEW_BOT_RULES_FILE, 'utf8')).enabled === true; } catch (e) {}
 require('./game-engine-6p').setNewBotRules(newBotRulesOn);
 function newBotRulesSave() { try { fs.writeFileSync(NEW_BOT_RULES_FILE, JSON.stringify({ enabled: !!newBotRulesOn })); } catch (e) {} }
+// Round log for the new bot rules: one JSON line per finished round, kept to the last 100,000 rounds. Written only while the switch is On.
+const NEW_BOT_LOG_FILE = path.join(DATA_DIR, 'hand-log.jsonl');
+const NEW_BOT_LOG_MAX = 100000;
+let newBotLogWrites = 0;
+function newBotLogTrim() {
+  try {
+    const lines = fs.readFileSync(NEW_BOT_LOG_FILE, 'utf8').split('\n').filter(Boolean);
+    if (lines.length > NEW_BOT_LOG_MAX) fs.writeFileSync(NEW_BOT_LOG_FILE, lines.slice(-NEW_BOT_LOG_MAX).join('\n') + '\n');
+  } catch (e) {}
+}
+function newBotLogRound(rec) {
+  try {
+    fs.appendFileSync(NEW_BOT_LOG_FILE, JSON.stringify(rec) + '\n');
+    if (++newBotLogWrites % 500 === 0) newBotLogTrim();
+  } catch (e) {}
+}
+require('./game-engine-6p').setNewBotRulesLogger(newBotLogRound);
 app.get('/api/admin/new-bot-rules', (req, res) => { if (!checkAdminAuth(req, res)) return; res.json({ ok: true, enabled: !!newBotRulesOn }); });
 app.post('/api/admin/new-bot-rules', express.json({ limit: '1kb' }), (req, res) => {
   if (!checkAdminAuth(req, res)) return;

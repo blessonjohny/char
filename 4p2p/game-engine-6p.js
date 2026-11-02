@@ -33,6 +33,12 @@ function setKunukkuOpenRule(v) { KUNUKKU_OPEN_RULE = !!v; }
 let NEW_BOT_RULES = false;
 function setNewBotRules(v) { NEW_BOT_RULES = !!v; }
 function isNewBotRulesOn() { return NEW_BOT_RULES; }
+// Round logger: the server sets this. Only called while the switch is On. One record per finished round.
+let NEW_BOT_LOGGER = null;
+function setNewBotRulesLogger(fn) { NEW_BOT_LOGGER = typeof fn === 'function' ? fn : null; }
+function _snapshotDeal(seats) {
+  return seats.map(st => (st && Array.isArray(st.hand)) ? st.hand.map(c => c.rank + c.suit) : null);
+}
 const partnerBot = require('./partner-bot');
 const leaderboard = require('./leaderboard');
 const playerStats = require('./player-stats');
@@ -622,6 +628,7 @@ class GameEngine6P {
     this.dealCards(3);
     this.dealCards(3);
     this.reshuffleReason = this._dealSameHandUntilValid();
+    this._dealtThisRound = _snapshotDeal(this.seats);
     this._validateCardIntegrity('startRound, right after dealing');
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} started. Dealer seat ${this.dealer}.`);
@@ -646,6 +653,7 @@ class GameEngine6P {
     this.dealCards(3);
     this.dealCards(3);
     this.reshuffleReason = this._dealSameHandUntilValid();
+    this._dealtThisRound = _snapshotDeal(this.seats);
     this._validateCardIntegrity('restartRound, right after dealing');
     this.phase = 'bidding1';
     this.addLog(`Round ${this.round} restarted by the host — fresh shuffle.`);
@@ -1632,6 +1640,14 @@ class GameEngine6P {
   // Shared tail end of _endRound() -- see game-engine.js for the full
   // reasoning. bT/made here are always BIDDER-centric.
   _finishRoundBookkeeping(bT, made) {
+    if (NEW_BOT_RULES && NEW_BOT_LOGGER) {
+      try {
+        NEW_BOT_LOGGER({ at: Date.now(), table: this.tableId || null, round: this.round, dealer: this.dealer,
+          dealt: this._dealtThisRound || null, bidder: this.bidder, bidTeam: bT, bid: this.highestBid,
+          trump: this.trumpSuit, made: !!made, teamPoints: this.teamPoints.slice() });
+      } catch (e) {}
+    }
+    this._dealtThisRound = null;
     // Per explicit request: leaderboard tracking -- see game-engine.js's
     // identical addition for the fuller reasoning. The team that
     // DIDN'T win this specific round just took a round-loss toward
@@ -3432,4 +3448,4 @@ class GameEngine6P {
   }
 }
 
-module.exports = { setKunukkuOpenRule, setNewBotRules, isNewBotRulesOn, GameEngine6P, SUITS, RANKS, POINTS, RANK_ORDER, getTeam, freshDeck, evaluateHand, SEATS };
+module.exports = { setKunukkuOpenRule, setNewBotRules, isNewBotRulesOn, setNewBotRulesLogger, GameEngine6P, SUITS, RANKS, POINTS, RANK_ORDER, getTeam, freshDeck, evaluateHand, SEATS };
