@@ -2403,9 +2403,15 @@ function applyState(state) {
       tp.innerHTML = `<span style="color:var(--success)">${myPts}</span> - <span style="color:var(--danger)">${oppPts}</span>`;
       /* blink the points board for a few seconds whenever a team's points change (display only, no rule change) */
       tp.classList.remove('pts-blink');
+      /* POP: bigger, brighter flash. Green when our team's points go up, red when the opponents' go up. */
+      const prevMy = tp.dataset.prevMy !== undefined ? +tp.dataset.prevMy : myPts;
+      const prevOpp = tp.dataset.prevOpp !== undefined ? +tp.dataset.prevOpp : oppPts;
+      const weWon = myPts > prevMy, theyWon = oppPts > prevOpp;
+      tp.dataset.prevMy = myPts; tp.dataset.prevOpp = oppPts;
+      tp.classList.remove('pts-pop', 'pts-pop-win', 'pts-pop-lose');
       void tp.offsetWidth;
-      tp.classList.add('pts-blink');
-      clearTimeout(tp._blinkT); tp._blinkT = setTimeout(() => tp.classList.remove('pts-blink'), 3000);
+      if (weWon || theyWon) tp.classList.add('pts-pop', weWon && !theyWon ? 'pts-pop-win' : (theyWon && !weWon ? 'pts-pop-lose' : 'pts-pop-win'));
+      clearTimeout(tp._blinkT); tp._blinkT = setTimeout(() => tp.classList.remove('pts-pop', 'pts-pop-win', 'pts-pop-lose'), 2600);
     }
   } catch (e) { console.error('[dealer/bidder/points display] threw:', e); }
   try { renderLastTrick(state); } catch (e) { console.error('[renderLastTrick] threw:', e); }
