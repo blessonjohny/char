@@ -318,6 +318,18 @@
     </div>
     <div id="liveView" style="display:none">
       <div class="card" style="margin:0 0 12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1 1 200px;min-width:0"><b style="color:#fff">🎯 Kunukku bidding rule (bots)</b>
+          <div style="color:var(--text2);font-size:0.74rem;margin-top:3px;line-height:1.35">Off by default. When On, after a Kunukku or a new championship, bots with a decent hand open at 20, and the last bot on its team can't pass without calling 20. Human bidding is not changed.</div></div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:800;color:#fff;cursor:pointer"><input type="checkbox" id="kunukkuRuleToggle" onchange="kunukkuRuleSet(this.checked)" style="width:22px;height:22px"> <span id="kunukkuRuleState">Off</span></label>
+        <div id="kunukkuRuleInfo" style="flex:1 1 100%;color:#9fd6b8;font-size:0.76rem">Loading…</div>
+      <div class="card" style="margin:0 0 12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1 1 200px;min-width:0"><b style="color:#fff">🧠 New bot bidding rules (auto-bots)</b>
+          <div style="color:var(--text2);font-size:0.74rem;margin-top:3px;line-height:1.35">Off by default. A separate switch from the Kunukku rule. Applies only to auto-deployed bots. Human players are not changed. Switch only for now; the rules are added later.</div></div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:800;color:#fff;cursor:pointer"><input type="checkbox" id="newBotRulesToggle" onchange="newBotRulesSet(this.checked)" style="width:22px;height:22px"> <span id="newBotRulesState">Off</span></label>
+        <div id="newBotRulesInfo" style="flex:1 1 100%;color:#9fd6b8;font-size:0.76rem">Loading…</div>
+      </div>
+      </div>
+      <div class="card" style="margin:0 0 12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div style="flex:1 1 200px;min-width:0">
           <b style="color:#fff">🤖 6-player auto-bots</b>
           <div style="color:var(--text2);font-size:0.74rem;margin-top:3px;line-height:1.35">When one real player is alone in a 6-player lobby, bots arrive one at a time after 20–60 seconds. They leave when the last real player leaves. Games in progress are not touched.</div>
@@ -3520,6 +3532,42 @@ async function holdemFlagSet(on) {
   } catch (e) { t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
 }
 holdemFlagLoad();
+</script>
+<script>
+async function newBotRulesLoad() {
+  const info = document.getElementById('newBotRulesInfo');
+  try { const r = await adminFetch('/api/admin/new-bot-rules', sixpAdminPw()); if (!r.ok) { if (info) info.textContent = 'Switch not reachable: HTTP ' + r.status; return; }
+    const d = await r.json(); document.getElementById('newBotRulesToggle').checked = !!d.enabled; document.getElementById('newBotRulesState').textContent = d.enabled ? 'On' : 'Off';
+    if (info) info.textContent = d.enabled ? 'The new bot bidding rules are ON.' : 'The new bot bidding rules are OFF.';
+  } catch (e) { if (info) info.textContent = 'Switch not reachable: ' + (e && e.message ? e.message : 'network error'); }
+}
+async function newBotRulesSet(on) {
+  const info = document.getElementById('newBotRulesInfo'), t = document.getElementById('newBotRulesToggle');
+  try { const r = await adminFetch('/api/admin/new-bot-rules', sixpAdminPw(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !!on }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { t.checked = !on; if (info) info.textContent = 'Not saved: HTTP ' + r.status; return; }
+    document.getElementById('newBotRulesState').textContent = d.enabled ? 'On' : 'Off';
+    if (info) info.textContent = d.enabled ? 'Saved: new bot bidding rules ON.' : 'Saved: new bot bidding rules OFF.';
+  } catch (e) { t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
+}
+newBotRulesLoad();
+async function kunukkuRuleLoad() {
+  const info = document.getElementById('kunukkuRuleInfo');
+  try { const r = await adminFetch('/api/admin/kunukku-rule', sixpAdminPw()); if (!r.ok) { if (info) info.textContent = 'Switch not reachable: HTTP ' + r.status; return; }
+    const d = await r.json(); document.getElementById('kunukkuRuleToggle').checked = !!d.enabled; document.getElementById('kunukkuRuleState').textContent = d.enabled ? 'On' : 'Off';
+    if (info) info.textContent = d.enabled ? 'The Kunukku bidding rule is ON.' : 'The Kunukku bidding rule is OFF.';
+  } catch (e) { if (info) info.textContent = 'Switch not reachable: ' + (e && e.message ? e.message : 'network error'); }
+}
+async function kunukkuRuleSet(on) {
+  const info = document.getElementById('kunukkuRuleInfo'), t = document.getElementById('kunukkuRuleToggle');
+  try { const r = await adminFetch('/api/admin/kunukku-rule', sixpAdminPw(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !!on }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { t.checked = !on; if (info) info.textContent = 'Not saved: HTTP ' + r.status; return; }
+    document.getElementById('kunukkuRuleState').textContent = d.enabled ? 'On' : 'Off';
+    if (info) info.textContent = d.enabled ? 'Saved: the Kunukku bidding rule is ON.' : 'Saved: the Kunukku bidding rule is OFF.';
+  } catch (e) { t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
+}
+kunukkuRuleLoad();
 </script>
 </body>
 </html>
