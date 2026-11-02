@@ -2399,19 +2399,14 @@ function applyState(state) {
     const oppPts = state.teamPoints ? state.teamPoints[1 - myTeam] : 0;
     const rawVal = myPts + '-' + oppPts;
     if (tp.dataset.rawVal !== rawVal) {
-      tp.dataset.rawVal = rawVal;
-      tp.innerHTML = `<span style="color:var(--success)">${myPts}</span> - <span style="color:var(--danger)">${oppPts}</span>`;
-      /* blink the points board for a few seconds whenever a team's points change (display only, no rule change) */
-      tp.classList.remove('pts-blink');
-      /* POP: bigger, brighter flash. Green when our team's points go up, red when the opponents' go up. */
       const prevMy = tp.dataset.prevMy !== undefined ? +tp.dataset.prevMy : myPts;
       const prevOpp = tp.dataset.prevOpp !== undefined ? +tp.dataset.prevOpp : oppPts;
-      const weWon = myPts > prevMy, theyWon = oppPts > prevOpp;
+      tp.dataset.rawVal = rawVal;
       tp.dataset.prevMy = myPts; tp.dataset.prevOpp = oppPts;
-      tp.classList.remove('pts-pop', 'pts-pop-win', 'pts-pop-lose');
-      void tp.offsetWidth;
-      if (weWon || theyWon) tp.classList.add('pts-pop', weWon && !theyWon ? 'pts-pop-win' : (theyWon && !weWon ? 'pts-pop-lose' : 'pts-pop-win'));
-      clearTimeout(tp._blinkT); tp._blinkT = setTimeout(() => tp.classList.remove('pts-pop', 'pts-pop-win', 'pts-pop-lose'), 2600);
+      tp.innerHTML = `<span class="pts-mine" style="color:var(--success)">${myPts}</span> - <span class="pts-theirs" style="color:var(--danger)">${oppPts}</span>`;
+      /* POP only the number that just went up: ours pops green, theirs pops red (the colour is the span's own colour). */
+      if (myPts > prevMy) { const el = tp.querySelector('.pts-mine'); el.classList.remove('pts-num-pop'); void el.offsetWidth; el.classList.add('pts-num-pop'); setTimeout(() => el.classList.remove('pts-num-pop'), 2000); }
+      if (oppPts > prevOpp) { const el = tp.querySelector('.pts-theirs'); el.classList.remove('pts-num-pop'); void el.offsetWidth; el.classList.add('pts-num-pop'); setTimeout(() => el.classList.remove('pts-num-pop'), 2000); }
     }
   } catch (e) { console.error('[dealer/bidder/points display] threw:', e); }
   try { renderLastTrick(state); } catch (e) { console.error('[renderLastTrick] threw:', e); }
