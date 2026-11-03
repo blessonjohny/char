@@ -758,6 +758,7 @@ async function unlock() {
   document.getElementById('gate').style.display = 'none';
   document.getElementById('panel').style.display = 'block';
   refresh();
+  sixpAutoBotsLoad(); holdemFlagLoad(); newBotRulesLoad(); kunukkuRuleLoad();   // switches load only after the password is in place
   startNav();                                              // lands on the Visitor log, or on the page named in the address (an editor's Exit comes back to Edit › Tables)
 }
 
@@ -3492,6 +3493,7 @@ document.getElementById('visitorFilters').addEventListener('click', (e) => {
 // the password this tab is using: the one typed at login, or the one kept for this tab (survives a page refresh)
 function sixpAdminPw() { try { return PASSWORD || sessionStorage.getItem('admin_session_pw') || undefined; } catch (e) { return PASSWORD || undefined; } }
 async function sixpAutoBotsLoad() {
+  if (!sixpAdminPw()) { const el = document.getElementById('sixpAutoBotsInfo'); if (el) el.textContent = 'Log in to see this switch.'; return; }
   const info = document.getElementById('sixpAutoBotsInfo');
   try {
     const res = await adminFetch('/api/admin/auto-bots', sixpAdminPw());
@@ -3512,10 +3514,10 @@ async function sixpAutoBotsToggle(on) {
     if (info) info.textContent = 'Saved: auto-bots are ' + (d.enabled ? 'ON' : 'OFF') + '. Create a 6-player table alone and wait 20-60 seconds.';
   } catch (e) { if (t) t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
 }
-sixpAutoBotsLoad();
 </script>
 <script>
 async function holdemFlagLoad() {
+  if (!sixpAdminPw()) { const el = document.getElementById('holdemFlagInfo'); if (el) el.textContent = 'Log in to see this switch.'; return; }
   const info = document.getElementById('holdemFlagInfo');
   try { const r = await adminFetch('/api/admin/holdem-flag', sixpAdminPw()); if (!r.ok) { if (info) info.textContent = 'Not reachable: HTTP ' + r.status; return; }
     const d = await r.json(); document.getElementById('holdemFlagToggle').checked = !!d.enabled; document.getElementById('holdemFlagState').textContent = d.enabled ? 'On' : 'Off';
@@ -3531,10 +3533,10 @@ async function holdemFlagSet(on) {
     if (info) info.textContent = d.enabled ? "Saved: Hold'em is ON." : "Saved: Hold'em is OFF (hidden from the site).";
   } catch (e) { t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
 }
-holdemFlagLoad();
 </script>
 <script>
 async function newBotRulesLoad() {
+  if (!sixpAdminPw()) { const el = document.getElementById('newBotRulesInfo'); if (el) el.textContent = 'Log in to see this switch.'; return; }
   const info = document.getElementById('newBotRulesInfo');
   try { const r = await adminFetch('/api/admin/new-bot-rules', sixpAdminPw()); if (!r.ok) { if (info) info.textContent = 'Switch not reachable: HTTP ' + r.status; return; }
     const d = await r.json(); document.getElementById('newBotRulesToggle').checked = !!d.enabled; document.getElementById('newBotRulesState').textContent = d.enabled ? 'On' : 'Off';
@@ -3550,8 +3552,8 @@ async function newBotRulesSet(on) {
     if (info) info.textContent = d.enabled ? 'Saved: new bot bidding rules ON.' : 'Saved: new bot bidding rules OFF.';
   } catch (e) { t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
 }
-newBotRulesLoad();
 async function kunukkuRuleLoad() {
+  if (!sixpAdminPw()) { const el = document.getElementById('kunukkuRuleInfo'); if (el) el.textContent = 'Log in to see this switch.'; return; }
   const info = document.getElementById('kunukkuRuleInfo');
   try { const r = await adminFetch('/api/admin/kunukku-rule', sixpAdminPw()); if (!r.ok) { if (info) info.textContent = 'Switch not reachable: HTTP ' + r.status; return; }
     const d = await r.json(); document.getElementById('kunukkuRuleToggle').checked = !!d.enabled; document.getElementById('kunukkuRuleState').textContent = d.enabled ? 'On' : 'Off';
@@ -3567,7 +3569,6 @@ async function kunukkuRuleSet(on) {
     if (info) info.textContent = d.enabled ? 'Saved: the Kunukku bidding rule is ON.' : 'Saved: the Kunukku bidding rule is OFF.';
   } catch (e) { t.checked = !on; if (info) info.textContent = 'Not saved: ' + (e && e.message ? e.message : 'network error'); }
 }
-kunukkuRuleLoad();
 </script>
 </body>
 </html>
