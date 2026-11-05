@@ -2052,7 +2052,10 @@ class GameEngine6P {
       // Bots bid a little more aggressively: one point higher whenever they hold a qualifying Jack suit (not a plain bid of 16).
       // Only the bot's own bid changes; the explicit table above and the player's own bidding are untouched.
       // Auto-deployed bots (seat.autoBot) bid one point more aggressively than the regular bots. Regular bots are unchanged.
+      // New bot rules (admin switch, OFF by default, auto-deployed bots only): bid 2 more on any real hand (17 and up), so strong hands
+      // are not settled at 17 when they can make more. With the switch Off, the bidding is exactly as before.
       let target = (this.seats[pos].autoBot === true && tableBid.bidValue > 16) ? tableBid.bidValue + 1 : tableBid.bidValue;
+      if (NEW_BOT_RULES && this.seats[pos].autoBot === true && tableBid.bidValue >= 17) target = tableBid.bidValue + 2;
 
       // Partner bidding signal from last round -- same rule as the
       // 4-player game, just sent to ALL teammates at once here since
