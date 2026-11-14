@@ -2051,11 +2051,14 @@ class GameEngine6P {
       }
       // Bots bid a little more aggressively: one point higher whenever they hold a qualifying Jack suit (not a plain bid of 16).
       // Only the bot's own bid changes; the explicit table above and the player's own bidding are untouched.
-      // Auto-deployed bots (seat.autoBot) bid one point more aggressively than the regular bots. Regular bots are unchanged.
-      // New bot rules (admin switch, OFF by default, auto-deployed bots only): bid 2 more on any real hand (17 and up), so strong hands
-      // are not settled at 17 when they can make more. With the switch Off, the bidding is exactly as before.
-      let target = (this.seats[pos].autoBot === true && tableBid.bidValue > 16) ? tableBid.bidValue + 1 : tableBid.bidValue;
-      if (NEW_BOT_RULES && this.seats[pos].autoBot === true && tableBid.bidValue >= 17) target = tableBid.bidValue + 2;
+      // Real, explicit instruction (previously only applied to auto-deployed bots, seat.autoBot -- the user confirmed this was
+      // wrong and asked for it to cover every bot, auto-deployed or filled on Start, the same way): both this +1 bump and the
+      // New Bot Rules +2 bump below now apply to any bot seat, not just seat.autoBot. Only bots are affected either way --
+      // human players' own bidding is never touched by this block.
+      // New bot rules (admin switch, OFF by default): bid 2 more on any real hand (17 and up), so strong hands are not settled
+      // at 17 when they can make more. With the switch Off, the bidding is exactly as before.
+      let target = (tableBid.bidValue > 16) ? tableBid.bidValue + 1 : tableBid.bidValue;
+      if (NEW_BOT_RULES && tableBid.bidValue >= 17) target = tableBid.bidValue + 2;
 
       // Partner bidding signal from last round -- same rule as the
       // 4-player game, just sent to ALL teammates at once here since
@@ -2129,8 +2132,10 @@ class GameEngine6P {
       // Kunukku / new championship opening rule, BOTS ONLY (both teams): the opening number is 20.
       //   - a bot with a decent hand (qualifying Jack suit) jumps straight to 20 instead of waiting for its last teammate;
       //   - the LAST bot on its team to act, with nobody having called yet, cannot pass: it calls 20.
-      // Only the auto-deployed bots follow this. Regular bots and human players are not changed.
-      if (KUNUKKU_OPEN_RULE && !ghostSeat && this.seats[pos].isBot && this.seats[pos].autoBot === true && !wantsLower) {
+      // Real, explicit instruction: this used to only fire for seat.autoBot (auto-deployed bots). The user confirmed every
+      // bot should follow it once the switch is On -- auto-deployed or filled on Start, no distinction. Human players are
+      // still never changed by this block, Kunukku or not.
+      if (KUNUKKU_OPEN_RULE && !ghostSeat && this.seats[pos].isBot && !wantsLower) {
         const kk = this._kunukkuSides(pos);
         const kunukkuRound = this.isFirstHandOfChampionship || kk.own || kk.opp;
         if (kunukkuRound && this.highestBid === 0) {
