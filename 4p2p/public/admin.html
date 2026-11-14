@@ -324,9 +324,15 @@
         <div id="kunukkuRuleInfo" style="flex:1 1 100%;color:#9fd6b8;font-size:0.76rem">Loading…</div>
       <div class="card" style="margin:0 0 12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div style="flex:1 1 200px;min-width:0"><b style="color:#fff">🧠 New bot bidding rules (auto-bots)</b>
-          <div style="color:var(--text2);font-size:0.74rem;margin-top:3px;line-height:1.35">Off by default. A separate switch from the Kunukku rule. Applies only to auto-deployed bots. Human players are not changed. Switch only for now; the rules are added later.</div></div>
+          <div style="color:var(--text2);font-size:0.74rem;margin-top:3px;line-height:1.35">Off by default. A separate switch from the Kunukku rule. Applies to every bot, auto-deployed or filled on Start. Human players are not changed. Switch only for now; the rules are added later.</div></div>
         <label style="display:flex;align-items:center;gap:8px;font-weight:800;color:#fff;cursor:pointer"><input type="checkbox" id="newBotRulesToggle" onchange="newBotRulesSet(this.checked)" style="width:22px;height:22px"> <span id="newBotRulesState">Off</span></label>
         <div id="newBotRulesInfo" style="flex:1 1 100%;color:#9fd6b8;font-size:0.76rem">Loading…</div>
+      <div class="card" style="margin:0 0 12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1 1 200px;min-width:0"><b style="color:#fff">🂡 Spades table</b>
+          <div style="color:var(--text2);font-size:0.74rem;margin-top:3px;line-height:1.35">Off by default. Hidden from the public and from search. Turn on here only when you want to play it. Hold'em is also off by default, with its own switch in the Hold'em admin.</div></div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:800;color:#fff;cursor:pointer"><input type="checkbox" id="spadesFlagToggle" onchange="spadesFlagSet(this.checked)" style="width:22px;height:22px"> <span id="spadesFlagState">Off</span></label>
+        <div id="spadesFlagInfo" style="flex:1 1 100%;color:#9fd6b8;font-size:0.76rem">Log in to see this switch.</div>
+      </div>
       </div>
       </div>
       <div class="card" style="margin:0 0 12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -758,7 +764,7 @@ async function unlock() {
   document.getElementById('gate').style.display = 'none';
   document.getElementById('panel').style.display = 'block';
   refresh();
-  sixpAutoBotsLoad(); holdemFlagLoad(); newBotRulesLoad(); kunukkuRuleLoad();   // switches load only after the password is in place
+  sixpAutoBotsLoad(); holdemFlagLoad(); newBotRulesLoad(); kunukkuRuleLoad(); spadesFlagLoad();   // switches load only after the password is in place
   startNav();                                              // lands on the Visitor log, or on the page named in the address (an editor's Exit comes back to Edit › Tables)
 }
 
@@ -3535,6 +3541,23 @@ async function holdemFlagSet(on) {
 }
 </script>
 <script>
+async function spadesFlagLoad() {
+  const info = document.getElementById('spadesFlagInfo');
+  if (!sixpAdminPw()) { if (info) info.textContent = 'Log in to see this switch.'; return; }
+  try { const r = await adminFetch('/api/admin/spades-flag', sixpAdminPw()); if (!r.ok) { if (info) info.textContent = 'Switch not reachable: HTTP ' + r.status; return; }
+    const d = await r.json(); document.getElementById('spadesFlagToggle').checked = !!d.enabled; document.getElementById('spadesFlagState').textContent = d.enabled ? 'On' : 'Off';
+    if (info) info.textContent = d.enabled ? 'Spades is ON (visible to players).' : 'Spades is OFF (hidden).';
+  } catch (e) { if (info) info.textContent = 'Switch not reachable.'; }
+}
+async function spadesFlagSet(on) {
+  const info = document.getElementById('spadesFlagInfo'), t = document.getElementById('spadesFlagToggle');
+  try { const r = await adminFetch('/api/admin/spades-flag', sixpAdminPw(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: !!on }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { t.checked = !on; if (info) info.textContent = 'Not saved: HTTP ' + r.status; return; }
+    document.getElementById('spadesFlagState').textContent = d.enabled ? 'On' : 'Off';
+    if (info) info.textContent = d.enabled ? 'Saved: Spades ON.' : 'Saved: Spades OFF.';
+  } catch (e) { t.checked = !on; if (info) info.textContent = 'Not saved.'; }
+}
 async function newBotRulesLoad() {
   if (!sixpAdminPw()) { const el = document.getElementById('newBotRulesInfo'); if (el) el.textContent = 'Log in to see this switch.'; return; }
   const info = document.getElementById('newBotRulesInfo');
